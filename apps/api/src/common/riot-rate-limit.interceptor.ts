@@ -23,6 +23,7 @@ export class RiotRateLimitInterceptor implements NestInterceptor {
         return throwError(() => error);
       })
     );
-    return result as Observable<any>;
+    // Use unknown first to bypass duplicate RxJS type conflicts
+    return result as unknown as Observable<any>;
   }
 }
