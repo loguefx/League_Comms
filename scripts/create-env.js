@@ -76,9 +76,17 @@ ENCRYPTION_KEY=dev-key-change-in-production
 `;
 
 function createEnvFile() {
+  console.log('Creating .env file...');
+  console.log('Target path:', envPath);
+  console.log('Target directory:', envDir);
+  
   // Create directory if it doesn't exist
   if (!fs.existsSync(envDir)) {
+    console.log('Creating directory:', envDir);
     fs.mkdirSync(envDir, { recursive: true });
+    console.log('✓ Directory created');
+  } else {
+    console.log('✓ Directory exists');
   }
 
   // Check if .env already exists
@@ -90,15 +98,27 @@ function createEnvFile() {
 
   // Create .env file
   try {
+    console.log('Writing .env file...');
     fs.writeFileSync(envPath, defaultEnvContent, 'utf8');
     console.log('✓ Created .env file at:', envPath);
     console.log('');
     console.log('⚠️  IMPORTANT: Edit apps/api/.env and add your Riot API credentials!');
     console.log('   Get them from: https://developer.riotgames.com/');
     console.log('   See RIOT_API_SETUP.md for detailed instructions.');
+    
+    // Verify it was created
+    if (fs.existsSync(envPath)) {
+      const stats = fs.statSync(envPath);
+      console.log('✓ Verified: File exists, size:', stats.size, 'bytes');
+    } else {
+      console.error('✗ ERROR: File was not created!');
+      process.exit(1);
+    }
+    
     return true;
   } catch (error) {
     console.error('✗ Failed to create .env file:', error.message);
+    console.error('Error details:', error);
     process.exit(1);
   }
 }
