@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: league-voice-postgres
+    environment:
+      POSTGRES_USER: league_voice
+      POSTGRES_PASSWORD: league_voice_dev
+      POSTGRES_DB: league_voice
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U league_voice']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: league-voice-redis
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # LiveKit server (voice SFU)
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: league-voice-livekit
+    ports:
+      - '7880:7880'  # HTTP
+      - '7881:7881'  # HTTPS
+      - '7882:7882/udp'  # RTC
+      - '50000-50100:50000-50100/udp'  # RTC range
+    environment:
+      LIVEKIT_KEYS: ${LIVEKIT_KEYS:-devkey:devsecret}
+      LIVEKIT_PORT: 7880
+      LIVEKIT_KEYS_PORT: 7881
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml
+    command: --config /etc/livekit.yaml
+    healthcheck:
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:7880/']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:

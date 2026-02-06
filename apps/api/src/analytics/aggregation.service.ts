@@ -1,0 +1,141 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { PrismaService } from '../prisma/prisma.service';
+import { RANK_TIER_GROUPS } from '@league-voice/shared';
+
+@Injectable()
+export class AggregationService {
+  private readonly logger = new Logger(AggregationService.name);
+
+  constructor(private prisma: PrismaService) {}
+
+  @Cron(CronExpression.EVERY_DAY_AT_3AM)
+  async aggregateChampionStats() {
+    this.logger.log('Starting champion stats aggregation');
+
+    // Get all unique patches
+    const patches = await this.prisma.match.findMany({
+      select: { patch: true },
+      distinct: ['patch'],
+      orderBy: { patch: 'desc' },
+      take: 5, // Last 5 patches
+    });
+
+    for (const { patch } of patches) {
+      await this.aggregateForPatch(patch);
+    }
+
+    this.logger.log('Champion stats aggregation complete');
+  }
+
+  private async aggregateForPatch(patch: string) {
+    // Aggregate by individual rank tiers
+    const rankTiers = ['IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'EMERALD', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER'];
+
+    for (const rankTier of rankTiers) {
+      await this.aggregateForRankTier(patch, rankTier);
+    }
+
+    // Aggregate for grouped tiers (EMERALD_PLUS, etc.)
+    for (const [groupName, tiers] of Object.entries(RANK_TIER_GROUPS)) {
+      await this.aggregateForRankGroup(patch, groupName, [...tiers]);
+    }
+  }
+
+  private async aggregateForRankTier(patch: string, rankTier: string) {
+    const stats = await this.prisma.matchParticipant.groupBy({
+      by: ['championId', 'role'],
+      where: {
+        match: { patch },
+        rankTier,
+      },
+      _count: true,
+      _sum: {
+        // We need to count wins - this is a simplified version
+        // In production, you'd need a more complex query
+      },
+    });
+
+    // This is simplified - in production, you'd properly count wins
+    for (const stat of stats) {
+      const wins = await this.prisma.matchParticipant.count({
+        where: {
+          championId: stat.championId,
+          role: stat.role,
+          rankTier,
+          match: { patch },
+          won: true,
+        },
+      });
+
+      await this.prisma.championRankAgg.upsert({
+        where: {
+          rankTier_championId_role_patch: {
+            rankTier,
+            championId: stat.championId,
+            role: stat.role || null,
+            patch,
+          },
+        },
+        update: {
+          matches: stat._count,
+          wins,
+        },
+        create: {
+          rankTier,
+          championId: stat.championId,
+          role: stat.role || null,
+          patch,
+          matches: stat._count,
+          wins,
+        },
+      });
+    }
+  }
+
+  private async aggregateForRankGroup(patch: string, groupName: string, tiers: string[]) {
+    const stats = await this.prisma.matchParticipant.groupBy({
+      by: ['championId', 'role'],
+      where: {
+        match: { patch },
+        rankTier: { in: tiers },
+      },
+      _count: true,
+    });
+
+    for (const stat of stats) {
+      const wins = await this.prisma.matchParticipant.count({
+        where: {
+          championId: stat.championId,
+          role: stat.role,
+          rankTier: { in: tiers },
+          match: { patch },
+          won: true,
+        },
+      });
+
+      await this.prisma.championRankAgg.upsert({
+        where: {
+          rankTier_championId_role_patch: {
+            rankTier: groupName,
+            championId: stat.championId,
+            role: stat.role || null,
+            patch,
+          },
+        },
+        update: {
+          matches: stat._count,
+          wins,
+        },
+        create: {
+          rankTier: groupName,
+          championId: stat.championId,
+          role: stat.role || null,
+          patch,
+          matches: stat._count,
+          wins,
+        },
+      });
+    }
+  }
+}

@@ -1,0 +1,127 @@
+// SQLite-compatible Prisma schema (for no-Docker setup)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id            String        @id @default(cuid())
+  email         String?       @unique
+  createdAt     DateTime      @default(now())
+  riotAccount   RiotAccount?
+  sessions      Session[]
+  settings      UserSettings?
+  roomMembers   RoomMember[]
+}
+
+model RiotAccount {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  puuid           String   @unique
+  gameName        String
+  tagLine         String
+  region          String
+  encryptedTokens String   // SQLite doesn't support Json, store as string
+  tokenExpiresAt  DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([token])
+}
+
+model VoiceRoom {
+  id        String       @id @default(cuid())
+  roomKey   String       @unique
+  gameId    String
+  teamId    String
+  region    String
+  expiresAt DateTime
+  createdAt DateTime     @default(now())
+  members   RoomMember[]
+
+  @@index([roomKey])
+  @@index([expiresAt])
+}
+
+model RoomMember {
+  id        String    @id @default(cuid())
+  roomId    String
+  room      VoiceRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt  DateTime  @default(now())
+  leftAt    DateTime?
+
+  @@index([roomId])
+  @@index([userId])
+}
+
+model UserSettings {
+  id            String  @id @default(cuid())
+  userId        String  @unique
+  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  autoJoinVoice Boolean @default(true)
+  pttKey        String?
+  privacyFlags  String  // SQLite: store JSON as string
+  uiPrefs       String  // SQLite: store JSON as string
+}
+
+model Match {
+  id          String            @id @default(cuid())
+  matchId     String            @unique
+  region      String
+  patch       String
+  gameMode    String
+  createdAt   DateTime          @default(now())
+  participants MatchParticipant[]
+
+  @@index([matchId])
+  @@index([region, patch])
+}
+
+model MatchParticipant {
+  id            String  @id @default(cuid())
+  matchId       String
+  match         Match   @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  puuid         String
+  championId    Int
+  role          String?
+  rankTier      String?
+  rankDivision  String?
+  teamId        String
+  won           Boolean
+
+  @@index([matchId])
+  @@index([puuid])
+  @@index([championId, rankTier, role])
+}
+
+model ChampionRankAgg {
+  id          String   @id @default(cuid())
+  rankTier    String
+  championId  Int
+  role        String?
+  patch       String
+  matches     Int      @default(0)
+  wins        Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  @@unique([rankTier, championId, role, patch])
+  @@index([rankTier, role, patch])
+}

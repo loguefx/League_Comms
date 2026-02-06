@@ -1,0 +1,9 @@
+{
+  "name": "@league-voice/voice",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LiveKit voice server configuration",
+  "scripts": {
+    "start": "echo 'LiveKit server should be run via Docker or downloaded binary. See README.md'"
+  }
+}
