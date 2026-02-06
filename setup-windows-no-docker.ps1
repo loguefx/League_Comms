@@ -30,52 +30,8 @@ Write-Host "OK Dependencies installed" -ForegroundColor Green
 Write-Host ""
 Write-Host "Checking environment configuration..." -ForegroundColor Yellow
 if (-not (Test-Path "apps\api\.env")) {
-    Write-Host "Creating .env file..." -ForegroundColor Yellow
-    if (Test-Path "apps\api\.env.example") {
-        Copy-Item "apps\api\.env.example" "apps\api\.env"
-        Write-Host "OK Created apps\api\.env" -ForegroundColor Green
-    } else {
-        # Create basic .env file
-        $envContent = @"
-# Database - Using SQLite instead of PostgreSQL
-DATABASE_URL="file:./dev.db"
-
-# Redis - Using in-memory (no Redis needed)
-USE_REDIS=false
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=
-
-# JWT
-JWT_SECRET=dev-secret-change-in-production
-JWT_EXPIRES_IN=7d
-
-# Riot API - ADD YOUR CREDENTIALS
-RIOT_CLIENT_ID=your-riot-client-id-here
-RIOT_CLIENT_SECRET=your-riot-client-secret-here
-RIOT_API_KEY=your-riot-api-key-here
-RIOT_REDIRECT_URI=http://localhost:4000/auth/riot/callback
-
-# CORS
-ALLOWED_ORIGINS=http://localhost:3000,http://localhost:1420
-
-# LiveKit - Using cloud or skip for now
-LIVEKIT_API_KEY=devkey
-LIVEKIT_API_SECRET=devsecret
-LIVEKIT_URL=http://localhost:7880
-
-# Server
-PORT=4000
-
-# Encryption key
-ENCRYPTION_KEY=dev-key-change-in-production
-
-# Frontend URL
-FRONTEND_URL=http://localhost:3000
-"@
-        Set-Content -Path "apps\api\.env" -Value $envContent
-        Write-Host "OK Created apps\api\.env with SQLite configuration" -ForegroundColor Green
-    }
+    Write-Host "Creating .env file with default values..." -ForegroundColor Yellow
+    node scripts/create-env.js
 } else {
     Write-Host "OK .env file exists" -ForegroundColor Green
 }

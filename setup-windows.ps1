@@ -51,13 +51,8 @@ Write-Host "OK Dependencies installed" -ForegroundColor Green
 Write-Host ""
 Write-Host "Checking environment configuration..." -ForegroundColor Yellow
 if (-not (Test-Path "apps\api\.env")) {
-    Write-Host "Creating .env file from .env.example..." -ForegroundColor Yellow
-    if (Test-Path "apps\api\.env.example") {
-        Copy-Item "apps\api\.env.example" "apps\api\.env"
-        Write-Host "OK Created apps\api\.env - Please edit it with your Riot API credentials!" -ForegroundColor Green
-    } else {
-        Write-Host "WARNING: .env.example not found. Please create apps\api\.env manually." -ForegroundColor Yellow
-    }
+    Write-Host "Creating .env file with default values..." -ForegroundColor Yellow
+    node scripts/create-env.js
 } else {
     Write-Host "OK .env file exists" -ForegroundColor Green
 }

@@ -51,12 +51,8 @@ npm install
 echo ""
 echo "Checking environment configuration..."
 if [ ! -f "apps/api/.env" ]; then
-    if [ -f "apps/api/.env.example" ]; then
-        cp apps/api/.env.example apps/api/.env
-        echo "✓ Created apps/api/.env - Please edit it with your Riot API credentials!"
-    else
-        echo "⚠ .env.example not found. Please create apps/api/.env manually."
-    fi
+    echo "Creating .env file with default values..."
+    node scripts/create-env.js
 else
     echo "✓ .env file exists"
 fi
