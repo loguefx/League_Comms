@@ -6,7 +6,7 @@ import { catchError, retry, delay } from 'rxjs/operators';
 export class RiotRateLimitInterceptor implements NestInterceptor {
   private readonly logger = new Logger(RiotRateLimitInterceptor.name);
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> | Promise<Observable<any>> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     return next.handle().pipe(
       catchError((error) => {
         // Check if it's a Riot API rate limit error

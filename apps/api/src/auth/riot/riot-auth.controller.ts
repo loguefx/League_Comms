@@ -10,7 +10,7 @@ export class RiotAuthController {
   @Get('start')
   async start(@Res() res: FastifyReply, @Query('state') state?: string) {
     const url = await this.riotAuthService.getAuthorizationUrl(state);
-    return res.redirect(302, url);
+    return res.redirect(url, 302);
   }
 
   @Get('callback')
@@ -23,10 +23,10 @@ export class RiotAuthController {
       const result = await this.riotAuthService.handleCallback(code, state);
       // Redirect to frontend with token
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      return res.redirect(302, `${frontendUrl}/auth/callback?token=${result.token}`);
+      return res.redirect(`${frontendUrl}/auth/callback?token=${result.token}`, 302);
     } catch (error) {
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      return res.redirect(302, `${frontendUrl}/auth/error?message=${encodeURIComponent(error.message)}`);
+      return res.redirect(`${frontendUrl}/auth/error?message=${encodeURIComponent(error.message)}`, 302);
     }
   }
 
