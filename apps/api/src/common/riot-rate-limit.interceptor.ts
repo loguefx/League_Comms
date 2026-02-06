@@ -8,21 +8,21 @@ export class RiotRateLimitInterceptor implements NestInterceptor {
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> | Promise<Observable<any>> {
     const result = next.handle().pipe(
-      catchError((error) => {
+      catchError((error: any) => {
         // Check if it's a Riot API rate limit error
         if (error.response?.status === 429) {
           const retryAfter = error.response.headers['retry-after'] || 1;
           this.logger.warn(`Riot API rate limit hit, retrying after ${retryAfter}s`);
           
-          return next.handle().pipe(
-            delay(retryAfter * 1000),
-            retry(3)
-          );
+          return (next.handle().pipe(
+            delay(retryAfter * 1000) as any,
+            retry(3) as any
+          ) as any);
         }
 
         return throwError(() => error);
-      })
-    );
+      }) as any
+    ) as any;
     // Use unknown first to bypass duplicate RxJS type conflicts
     return result as unknown as Observable<any>;
   }
