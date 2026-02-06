@@ -9,12 +9,14 @@ import { RedisModule } from '../redis/redis.module';
 import { BullModule } from '@nestjs/bullmq';
 import { GameQueueProcessor } from './game-queue.processor';
 import { RiotAuthModule } from '../auth/riot/riot-auth.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
     ConfigModule,
     PrismaModule,
     RedisModule,
+    AuthModule,
     RiotAuthModule,
     BullModule.registerQueue({
       name: 'game-detection',
