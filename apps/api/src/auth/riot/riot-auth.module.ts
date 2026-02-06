@@ -6,9 +6,10 @@ import { RiotTokenRefreshService } from './riot-token-refresh.service';
 import { RSOClient } from '@league-voice/riot';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { RedisModule } from '../../redis/redis.module';
+import { AuthModule } from '../auth.module';
 
 @Module({
-  imports: [ConfigModule, PrismaModule, RedisModule],
+  imports: [ConfigModule, PrismaModule, RedisModule, AuthModule],
   controllers: [RiotAuthController],
   providers: [
     RiotAuthService,
