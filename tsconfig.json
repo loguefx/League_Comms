@@ -18,10 +18,12 @@
     "composite": true,
     "incremental": true,
     "paths": {
-      "@league-voice/shared": ["./packages/shared/src"],
+      "@league-voice/shared": ["./packages/shared/dist"],
+      "@league-voice/shared/*": ["./packages/shared/dist/*"],
       "@league-voice/ui": ["./packages/ui/src"],
       "@league-voice/riot": ["./packages/riot/src"]
-    }
+    },
+    "baseUrl": "."
   },
   "exclude": ["node_modules", "dist", "build", ".next"]
 }
