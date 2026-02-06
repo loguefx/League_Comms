@@ -1,6 +1,6 @@
 import { Injectable, NestInterceptor, ExecutionContext, CallHandler, Logger } from '@nestjs/common';
 import { Observable, throwError } from 'rxjs';
-import { catchError, retry, retryWhen, delay, take } from 'rxjs/operators';
+import { catchError, retry, delay } from 'rxjs/operators';
 
 @Injectable()
 export class RiotRateLimitInterceptor implements NestInterceptor {
@@ -22,6 +22,6 @@ export class RiotRateLimitInterceptor implements NestInterceptor {
 
         return throwError(() => error);
       })
-    );
+    ) as Observable<any>;
   }
 }
