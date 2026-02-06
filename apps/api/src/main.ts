@@ -6,10 +6,10 @@ import { AllExceptionsFilter } from './common/http-exception.filter';
 import { RiotRateLimitInterceptor } from './common/riot-rate-limit.interceptor';
 
 async function bootstrap() {
-  const app = await NestFactory.create(
+  const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter()
-  ) as NestFastifyApplication;
+    new FastifyAdapter() as any
+  );
 
   // Enable CORS for web and desktop clients
   app.enableCors({
