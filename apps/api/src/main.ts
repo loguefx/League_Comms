@@ -6,10 +6,11 @@ import { AllExceptionsFilter } from './common/http-exception.filter';
 import { RiotRateLimitInterceptor } from './common/riot-rate-limit.interceptor';
 
 async function bootstrap() {
+  // @ts-ignore - FastifyAdapter type conflicts with NestJS CORS types
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter() as any
-  );
+  ) as any;
 
   // Enable CORS for web and desktop clients
   app.enableCors({
