@@ -6,7 +6,7 @@ import { IngestionService } from './ingestion.service';
 import { AggregationService } from './aggregation.service';
 import type { Region } from '@league-voice/shared';
 
-interface SeedProgress {
+export interface SeedProgress {
   totalPlayers: number;
   processedPlayers: number;
   totalMatchesIngested: number;
