@@ -85,15 +85,19 @@ export default function MatchHistoryPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p>Loading match history...</p>
+      <div className="min-h-screen bg-[#0D121E] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-[#B4BEC8]">Loading match history...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-8">
-      <h1 className="text-3xl font-bold mb-6">Match History</h1>
+    <div className="min-h-screen bg-[#0D121E]">
+      <div className="container mx-auto px-6 py-8 max-w-7xl">
+        <h1 className="text-3xl font-bold mb-8 text-white">Match History</h1>
 
       {selectedMatch ? (
         <MatchDetailView match={selectedMatch} activeTab={activeTab} setActiveTab={setActiveTab} onBack={() => setSelectedMatch(null)} />
@@ -125,9 +129,10 @@ function MatchListView({ matches, onSelectMatch }: { matches: Match[]; onSelectM
 
   if (matches.length === 0) {
     return (
-      <div className="text-center py-12">
-        <p className="text-gray-500">No match history available</p>
-        <p className="text-sm text-gray-400 mt-2">Play some games to see your match history here</p>
+      <div className="text-center py-16">
+        <div className="text-6xl mb-4">📊</div>
+        <p className="text-[#B4BEC8] text-lg">No match history available</p>
+        <p className="text-sm text-[#78828C] mt-2">Play some games to see your match history here</p>
       </div>
     );
   }
@@ -145,20 +150,20 @@ function MatchListView({ matches, onSelectMatch }: { matches: Match[]; onSelectM
           <div
             key={match.matchId}
             onClick={() => onSelectMatch(match)}
-            className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 hover:shadow-lg cursor-pointer transition"
+            className="bg-[#161C2A] border border-[#283D4D] rounded-xl p-5 hover:border-blue-500/50 cursor-pointer transition-all group"
           >
             <div className="flex items-center justify-between">
               <div>
-                <div className="font-semibold">{match.gameMode}</div>
-                <div className="text-sm text-gray-500">
+                <div className="font-semibold text-white mb-1">{match.gameMode}</div>
+                <div className="text-sm text-[#78828C]">
                   {new Date(match.gameCreation).toLocaleDateString()} • {new Date(match.gameCreation).toLocaleTimeString()}
                 </div>
               </div>
               <div className="text-right">
-                <div className={`font-bold ${userWon ? 'text-blue-600' : 'text-red-600'}`}>
+                <div className={`font-bold text-lg ${userWon ? 'text-blue-400' : 'text-red-400'}`}>
                   {userWon ? 'Victory' : 'Defeat'}
                 </div>
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-[#78828C]">
                   {Math.floor(match.gameDuration / 60)}:{(match.gameDuration % 60).toString().padStart(2, '0')}
                 </div>
               </div>
@@ -199,30 +204,33 @@ function MatchDetailView({
     <div>
       <button
         onClick={onBack}
-        className="mb-4 text-blue-600 hover:text-blue-800 flex items-center gap-2"
+        className="mb-6 text-blue-400 hover:text-blue-300 flex items-center gap-2 transition"
       >
-        ← Back to Match History
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+        Back to Match History
       </button>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
-        <nav className="flex gap-4">
+      <div className="border-b border-[#283D4D] mb-6">
+        <nav className="flex gap-6">
           <button
             onClick={() => setActiveTab('overview')}
-            className={`pb-2 px-1 border-b-2 ${
+            className={`pb-3 px-1 border-b-2 transition ${
               activeTab === 'overview'
-                ? 'border-blue-600 text-blue-600 font-semibold'
-                : 'border-transparent text-gray-500'
+                ? 'border-blue-500 text-blue-400 font-semibold'
+                : 'border-transparent text-[#78828C] hover:text-[#B4BEC8]'
             }`}
           >
             Overview
           </button>
           <button
             onClick={() => setActiveTab('team-analysis')}
-            className={`pb-2 px-1 border-b-2 ${
+            className={`pb-3 px-1 border-b-2 transition ${
               activeTab === 'team-analysis'
-                ? 'border-blue-600 text-blue-600 font-semibold'
-                : 'border-transparent text-gray-500'
+                ? 'border-blue-500 text-blue-400 font-semibold'
+                : 'border-transparent text-[#78828C] hover:text-[#B4BEC8]'
             }`}
           >
             Team Analysis
