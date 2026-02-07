@@ -25,14 +25,16 @@ export class PublicChampionSeedService {
 
   /**
    * Seed champion stats by fetching matches from high-elo players
+   * @param region - Riot API region
+   * @param sourcePlayers - Number of high-elo players to fetch matches from (more = more data)
    */
-  async seedFromHighElo(region: Region = 'na1', maxPlayers: number = 20): Promise<void> {
+  async seedFromHighElo(region: Region = 'na1', sourcePlayers: number = 20): Promise<void> {
     this.logger.log(`Starting seed from high-elo players in ${region}`);
 
     try {
       // Get challenger league entries
       const challengerLeague = await this.summonerClient.getChallengerLeague(region, 'RANKED_SOLO_5x5');
-      const players = challengerLeague.entries.slice(0, maxPlayers);
+      const players = challengerLeague.entries.slice(0, sourcePlayers);
 
       this.logger.log(`Found ${players.length} challenger players`);
 

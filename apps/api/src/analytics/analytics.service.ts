@@ -33,11 +33,7 @@ export class AnalyticsService {
 
     const stats = await this.prisma.championRankAgg.findMany({
       where,
-      orderBy: [
-        { wins: 'desc' },
-        { matches: 'desc' },
-      ],
-      take: 100,
+      // No limit - get all champions
     });
 
     console.log(`[AnalyticsService] Found ${stats.length} records matching query`);
@@ -45,7 +41,7 @@ export class AnalyticsService {
     // Calculate win rates and pick rates
     const totalMatches = stats.reduce((sum, s) => sum + s.matches, 0);
 
-    return stats.map((stat) => ({
+    const championsWithStats = stats.map((stat) => ({
       championId: stat.championId,
       rankTier: stat.rankTier,
       role: stat.role,
@@ -55,6 +51,14 @@ export class AnalyticsService {
       winRate: stat.matches > 0 ? (stat.wins / stat.matches) * 100 : 0,
       pickRate: totalMatches > 0 ? (stat.matches / totalMatches) * 100 : 0,
     }));
+
+    // Sort by win rate (highest to lowest), then by matches for tie-breaking
+    return championsWithStats.sort((a, b) => {
+      if (b.winRate !== a.winRate) {
+        return b.winRate - a.winRate;
+      }
+      return b.matches - a.matches;
+    });
   }
 
   async getTotalMatchesPerRank(patch?: string) {

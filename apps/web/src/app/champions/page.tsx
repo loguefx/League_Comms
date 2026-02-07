@@ -106,52 +106,116 @@ export default function ChampionsPage() {
           </div>
         </div>
 
-        {/* Champion Table */}
-        <div className="bg-[#161C2A] border border-[#283D4D] rounded-xl shadow-lg overflow-hidden">
+        {/* Champion Tables by Role */}
+        <div className="space-y-6">
           {loading ? (
-            <div className="p-8 text-center text-[#B4BEC8]">Loading...</div>
+            <div className="bg-[#161C2A] border border-[#283D4D] rounded-xl shadow-lg p-8 text-center text-[#B4BEC8]">
+              Loading...
+            </div>
           ) : champions.length === 0 ? (
-            <div className="p-8 text-center text-[#B4BEC8]">No champion data available</div>
+            <div className="bg-[#161C2A] border border-[#283D4D] rounded-xl shadow-lg p-8 text-center text-[#B4BEC8]">
+              No champion data available. Seed the database to populate champion statistics.
+            </div>
           ) : (
-            <table className="w-full">
-              <thead className="bg-[#0D121E] border-b border-[#283D4D]">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-[#B4BEC8] uppercase tracking-wider">Champion</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-[#B4BEC8] uppercase tracking-wider">Role</th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold text-[#B4BEC8] uppercase tracking-wider">Win Rate</th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold text-[#B4BEC8] uppercase tracking-wider">Pick Rate</th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold text-[#B4BEC8] uppercase tracking-wider">Matches</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#283D4D]">
-                {champions.map((champ) => (
-                  <tr key={`${champ.championId}-${champ.role}`} className="hover:bg-[#0D121E] transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 bg-[#283D4D] rounded-lg mr-3 flex items-center justify-center">
-                          <span className="text-xs text-[#78828C]">{champ.championId}</span>
+            <>
+              {(() => {
+                // Group champions by role
+                const roleGroups: Record<string, ChampionStats[]> = {
+                  TOP: [],
+                  JUNGLE: [],
+                  MID: [],
+                  ADC: [],
+                  SUPPORT: [],
+                  '': [], // Any/Unknown role
+                };
+
+                champions.forEach((champ) => {
+                  const role = champ.role || '';
+                  if (!roleGroups[role]) {
+                    roleGroups[role] = [];
+                  }
+                  roleGroups[role].push(champ);
+                });
+
+                const roleOrder = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT', ''];
+                const roleLabels: Record<string, string> = {
+                  TOP: 'Top Lane',
+                  JUNGLE: 'Jungle',
+                  MID: 'Mid Lane',
+                  ADC: 'ADC / Bot Lane',
+                  SUPPORT: 'Support',
+                  '': 'Other / Any Role',
+                };
+
+                return roleOrder
+                  .filter((role) => (roleGroups[role] || []).length > 0)
+                  .map((role) => {
+                    const roleChampions = roleGroups[role] || [];
+
+                    return (
+                      <div key={role} className="bg-[#161C2A] border border-[#283D4D] rounded-xl shadow-lg overflow-hidden">
+                        <div className="bg-[#0D121E] border-b border-[#283D4D] px-6 py-4">
+                          <h2 className="text-xl font-bold text-white">
+                            {roleLabels[role]} ({roleChampions.length} champions)
+                          </h2>
+                          <p className="text-sm text-[#B4BEC8] mt-1">
+                            Sorted by win rate (highest to lowest)
+                          </p>
                         </div>
-                        <span className="font-medium text-white">Champion {champ.championId}</span>
+                        <table className="w-full">
+                          <thead className="bg-[#0D121E] border-b border-[#283D4D]">
+                            <tr>
+                              <th className="px-6 py-4 text-left text-xs font-semibold text-[#B4BEC8] uppercase tracking-wider">
+                                Rank
+                              </th>
+                              <th className="px-6 py-4 text-left text-xs font-semibold text-[#B4BEC8] uppercase tracking-wider">
+                                Champion
+                              </th>
+                              <th className="px-6 py-4 text-right text-xs font-semibold text-[#B4BEC8] uppercase tracking-wider">
+                                Win Rate
+                              </th>
+                              <th className="px-6 py-4 text-right text-xs font-semibold text-[#B4BEC8] uppercase tracking-wider">
+                                Pick Rate
+                              </th>
+                              <th className="px-6 py-4 text-right text-xs font-semibold text-[#B4BEC8] uppercase tracking-wider">
+                                Matches
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[#283D4D]">
+                            {roleChampions.map((champ, index) => (
+                              <tr key={`${champ.championId}-${champ.role}`} className="hover:bg-[#0D121E] transition-colors">
+                                <td className="px-6 py-4 whitespace-nowrap text-[#B4BEC8] font-medium">
+                                  #{index + 1}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="flex items-center">
+                                    <div className="w-10 h-10 bg-[#283D4D] rounded-lg mr-3 flex items-center justify-center">
+                                      <span className="text-xs text-[#78828C]">{champ.championId}</span>
+                                    </div>
+                                    <span className="font-medium text-white">Champion {champ.championId}</span>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-right">
+                                  <span className={`font-semibold ${champ.winRate >= 50 ? 'text-green-400' : 'text-red-400'}`}>
+                                    {champ.winRate.toFixed(2)}%
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-right text-[#B4BEC8]">
+                                  {champ.pickRate.toFixed(2)}%
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-right text-[#B4BEC8]">
+                                  {champ.matches.toLocaleString()}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-[#B4BEC8]">
-                      {champ.role || 'Any'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <span className={`font-semibold ${champ.winRate >= 50 ? 'text-green-400' : 'text-red-400'}`}>
-                        {champ.winRate.toFixed(2)}%
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-[#B4BEC8]">
-                      {champ.pickRate.toFixed(2)}%
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-[#B4BEC8]">
-                      {champ.matches.toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    );
+                  });
+              })()}
+            </>
           )}
         </div>
       </div>
