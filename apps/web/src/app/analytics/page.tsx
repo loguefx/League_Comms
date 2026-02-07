@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { getApiUrl } from '@/utils/api';
 
 interface ChampionStats {
   championId: number;
@@ -34,7 +35,8 @@ export default function AnalyticsPage() {
       if (filters.role) params.append('role', filters.role);
       if (filters.patch) params.append('patch', filters.patch);
 
-      const response = await fetch(`http://localhost:4000/analytics/champions?${params}`);
+      const apiUrl = getApiUrl();
+      const response = await fetch(`${apiUrl}/analytics/champions?${params}`);
       const data = await response.json();
       setChampions(data.champions || []);
     } catch (error) {

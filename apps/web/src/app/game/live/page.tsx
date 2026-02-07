@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { getChampionName, getChampionImageUrl, getSpellName } from '@/utils/championData';
+import { getApiUrl } from '@/utils/api';
 
 interface Player {
   summonerName: string;
@@ -57,7 +58,8 @@ export default function LiveGamePage() {
     }
 
     // Connect to WebSocket
-    const newSocket = io('http://localhost:4000', {
+    const apiUrl = getApiUrl();
+    const newSocket = io(apiUrl, {
       auth: { token },
     });
 
@@ -72,8 +74,9 @@ export default function LiveGamePage() {
       // Fetch stats for all players
       const fetchPlayerStats = async (player: Player): Promise<Player> => {
         try {
+          const apiUrl = getApiUrl();
           const response = await fetch(
-            `http://localhost:4000/stats/by-summoner/${encodeURIComponent(player.summonerName)}`,
+            `${apiUrl}/stats/by-summoner/${encodeURIComponent(player.summonerName)}`,
             {
               headers: { Authorization: `Bearer ${token}` },
             }

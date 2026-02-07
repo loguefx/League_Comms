@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAudioDevices } from '@/hooks/useAudioDevices';
 import { useAudioSettings } from '@/hooks/useAudioSettings';
+import { getApiUrl } from '@/utils/api';
 
 interface RiotAccountStatus {
   connected: boolean;
@@ -23,7 +24,7 @@ export default function SettingsPage() {
       return;
     }
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    const apiUrl = getApiUrl();
     fetch(`${apiUrl}/auth/riot/status`, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -40,7 +41,7 @@ export default function SettingsPage() {
   }, []);
 
   const handleConnect = () => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    const apiUrl = getApiUrl();
     window.location.href = `${apiUrl}/auth/riot/start`;
   };
 

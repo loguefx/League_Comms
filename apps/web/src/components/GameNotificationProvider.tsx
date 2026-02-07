@@ -3,6 +3,7 @@
 import { useEffect, useState, createContext, useContext } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { GameDetectedNotification } from './GameDetectedNotification';
+import { getApiUrl } from '@/utils/api';
 
 interface GameNotificationContextType {
   gameDetected: boolean;
@@ -30,7 +31,8 @@ export function GameNotificationProvider({ children }: { children: React.ReactNo
     const token = localStorage.getItem('auth_token');
     if (!token) return;
 
-    const newSocket = io('http://localhost:4000', {
+    const apiUrl = getApiUrl();
+    const newSocket = io(apiUrl, {
       auth: { token },
     });
 

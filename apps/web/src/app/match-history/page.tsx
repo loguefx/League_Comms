@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { calculateOPScore, getOPScoreRank } from '@/utils/opScore';
 import { getChampionName, getChampionImageUrl } from '@/utils/championData';
+import { getApiUrl } from '@/utils/api';
 
 interface MatchParticipant {
   summonerName: string;
@@ -68,7 +69,8 @@ export default function MatchHistoryPage() {
 
     try {
       // Fetch match history
-      const response = await fetch('http://localhost:4000/stats/match-history?count=20', {
+      const apiUrl = getApiUrl();
+      const response = await fetch(`${apiUrl}/stats/match-history?count=20`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       
@@ -116,7 +118,8 @@ function MatchListView({ matches, onSelectMatch }: { matches: Match[]; onSelectM
     // Try to get user's summoner name from profile
     const token = localStorage.getItem('auth_token');
     if (token) {
-      fetch('http://localhost:4000/stats/profile', {
+      const apiUrl = getApiUrl();
+      fetch(`${apiUrl}/stats/profile`, {
         headers: { Authorization: `Bearer ${token}` },
       })
         .then(res => res.json())

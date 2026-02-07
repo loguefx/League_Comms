@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useVoice } from '../hooks/useVoice';
+import { getApiUrl } from '@/utils/api';
 
 interface VoiceRoomProps {
   roomKey: string;
@@ -21,7 +22,8 @@ export function VoiceRoom({ roomKey }: VoiceRoomProps) {
       }
 
       try {
-        const response = await fetch('http://localhost:4000/voice/token', {
+        const apiUrl = getApiUrl();
+        const response = await fetch(`${apiUrl}/voice/token`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
