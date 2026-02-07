@@ -4,11 +4,12 @@ import { VoiceController } from './voice.controller';
 import { VoiceService } from './voice.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { RiotAuthModule } from '../auth/riot/riot-auth.module';
+import { AuthModule } from '../auth/auth.module';
 import { GameModule } from '../game/game.module';
 import { AccessToken } from 'livekit-server-sdk';
 
 @Module({
-  imports: [ConfigModule, PrismaModule, RiotAuthModule, GameModule],
+  imports: [ConfigModule, PrismaModule, AuthModule, RiotAuthModule, GameModule],
   controllers: [VoiceController],
   providers: [
     VoiceService,
