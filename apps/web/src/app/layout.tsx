@@ -15,24 +15,24 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>
-        <nav className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-          <div className="container mx-auto px-4 py-3">
+      <body className="bg-[#0D121E] text-white min-h-screen">
+        <nav className="bg-[#161C2A] border-b border-[#283D4D] sticky top-0 z-50 backdrop-blur-sm bg-opacity-95">
+          <div className="container mx-auto px-6 py-4">
             <div className="flex items-center justify-between">
-              <Link href="/" className="text-xl font-bold">
+              <Link href="/" className="text-2xl font-bold bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent hover:from-blue-400 hover:to-purple-500 transition">
                 League Voice Companion
               </Link>
-              <div className="flex gap-4">
-                <Link href="/match-history" className="hover:text-blue-600">
+              <div className="flex gap-6 items-center">
+                <Link href="/match-history" className="text-[#B4BEC8] hover:text-white transition font-medium">
                   Match History
                 </Link>
-                <Link href="/analytics" className="hover:text-blue-600">
+                <Link href="/analytics" className="text-[#B4BEC8] hover:text-white transition font-medium">
                   Analytics
                 </Link>
-                <Link href="/game/live" className="hover:text-blue-600">
+                <Link href="/game/live" className="text-[#B4BEC8] hover:text-white transition font-medium">
                   Live Game
                 </Link>
-                <Link href="/settings" className="hover:text-blue-600">
+                <Link href="/settings" className="text-[#B4BEC8] hover:text-white transition font-medium">
                   Settings
                 </Link>
               </div>

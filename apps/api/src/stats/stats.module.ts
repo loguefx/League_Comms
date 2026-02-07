@@ -7,10 +7,11 @@ import { MatchHistoryController } from './match-history.controller';
 import { MatchClient, SummonerClient } from '@league-voice/riot';
 import { PrismaModule } from '../prisma/prisma.module';
 import { RedisModule } from '../redis/redis.module';
+import { AuthModule } from '../auth/auth.module';
 import { RiotAuthModule } from '../auth/riot/riot-auth.module';
 
 @Module({
-  imports: [ConfigModule, PrismaModule, RedisModule, RiotAuthModule],
+  imports: [ConfigModule, PrismaModule, RedisModule, AuthModule, RiotAuthModule],
   controllers: [StatsController, MatchHistoryController],
   providers: [
     StatsService,
