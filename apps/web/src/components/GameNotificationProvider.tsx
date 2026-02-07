@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, createContext, useContext } from 'react';
+import { useEffect, useState, createContext, useContext, useRef } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
 import { GameDetectedNotification } from './GameDetectedNotification';
 import { getApiUrl } from '@/utils/api';
@@ -22,10 +23,20 @@ export function useGameNotification() {
 }
 
 export function GameNotificationProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [gameDetected, setGameDetected] = useState(false);
   const [gameId, setGameId] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
+  const hasNavigatedRef = useRef(false);
+
+  // Reset navigation flag when pathname changes away from /game/live
+  useEffect(() => {
+    if (pathname !== '/game/live') {
+      hasNavigatedRef.current = false;
+    }
+  }, [pathname]);
 
   useEffect(() => {
     const token = localStorage.getItem('auth_token');
@@ -45,6 +56,15 @@ export function GameNotificationProvider({ children }: { children: React.ReactNo
       setGameDetected(true);
       setGameId(event.gameId);
       setDismissed(false);
+
+      // Auto-navigate to live game page if not already there and haven't navigated yet
+      if (pathname !== '/game/live' && !hasNavigatedRef.current) {
+        hasNavigatedRef.current = true;
+        // Small delay to ensure the page is ready
+        setTimeout(() => {
+          router.push('/game/live');
+        }, 500);
+      }
     });
 
     setSocket(newSocket);
@@ -52,7 +72,7 @@ export function GameNotificationProvider({ children }: { children: React.ReactNo
     return () => {
       newSocket.close();
     };
-  }, []);
+  }, [router, pathname]);
 
   const dismissNotification = () => {
     setDismissed(true);

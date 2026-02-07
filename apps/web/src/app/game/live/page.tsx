@@ -397,6 +397,7 @@ export default function LiveGamePage() {
           </div>
         </div>
       </div>
+      </div>
     </div>
   );
 }
