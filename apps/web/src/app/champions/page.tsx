@@ -36,11 +36,26 @@ export default function ChampionsPage() {
       if (filters.patch) params.append('patch', filters.patch);
 
       const apiUrl = getApiUrl();
-      const response = await fetch(`${apiUrl}/champions?${params}`);
+      console.log(`[ChampionsPage] Fetching from: ${apiUrl}/champions?${params}`);
+      
+      const response = await fetch(`${apiUrl}/champions?${params}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
       const data = await response.json();
+      console.log(`[ChampionsPage] Received ${data.champions?.length || 0} champions`);
       setChampions(data.champions || []);
     } catch (error) {
       console.error('Error loading champions:', error);
+      // Set empty array on error so UI shows "No data" instead of crashing
+      setChampions([]);
     } finally {
       setLoading(false);
     }
@@ -83,10 +98,10 @@ export default function ChampionsPage() {
                 className="w-full px-4 py-3 bg-[#0D121E] border border-[#283D4D] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="" className="bg-[#0D121E] text-white">All Roles</option>
-                <option value="TOP" className="bg-[#0D121E] text-white">Top</option>
+                <option value="TOP" className="bg-[#0D121E] text-white">Top Lane</option>
                 <option value="JUNGLE" className="bg-[#0D121E] text-white">Jungle</option>
-                <option value="MID" className="bg-[#0D121E] text-white">Mid</option>
-                <option value="ADC" className="bg-[#0D121E] text-white">ADC</option>
+                <option value="MID" className="bg-[#0D121E] text-white">Mid Lane</option>
+                <option value="ADC" className="bg-[#0D121E] text-white">ADC / Bot Lane</option>
                 <option value="SUPPORT" className="bg-[#0D121E] text-white">Support</option>
               </select>
             </div>

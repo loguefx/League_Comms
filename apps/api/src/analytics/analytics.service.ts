@@ -16,15 +16,19 @@ export class AnalyticsService {
       where.rankTier = options.rank;
     }
 
-    if (options.role) {
-      where.role = options.role;
+    // Handle role filter: empty string or "ALL" means show all roles (role = null)
+    // Otherwise filter by specific role
+    if (options.role && options.role !== '' && options.role.toUpperCase() !== 'ALL') {
+      where.role = options.role.toUpperCase();
+    } else {
+      // For "All Roles", we want role = null (aggregated across all roles)
+      where.role = null;
     }
 
-    if (options.patch) {
-      where.patch = options.patch === 'latest' ? await this.getLatestPatch() : options.patch;
-    } else {
-      where.patch = await this.getLatestPatch();
-    }
+    const patchVersion = options.patch === 'latest' || !options.patch 
+      ? await this.getLatestPatch() 
+      : options.patch;
+    where.patch = patchVersion;
 
     // Debug: Check total records in table
     const totalRecords = await this.prisma.championRankAgg.count();
@@ -38,8 +42,9 @@ export class AnalyticsService {
 
     console.log(`[AnalyticsService] Found ${stats.length} records matching query`);
 
-    // Calculate win rates and pick rates
-    const totalMatches = stats.reduce((sum, s) => sum + s.matches, 0);
+    // Calculate pick rate relative to bucket total (U.GG style)
+    // Pick rate = champion games / total games in same bucket (patch + rank + role)
+    const bucketTotal = stats.reduce((sum, s) => sum + s.matches, 0);
 
     const championsWithStats = stats.map((stat) => ({
       championId: stat.championId,
@@ -49,7 +54,8 @@ export class AnalyticsService {
       matches: stat.matches,
       wins: stat.wins,
       winRate: stat.matches > 0 ? (stat.wins / stat.matches) * 100 : 0,
-      pickRate: totalMatches > 0 ? (stat.matches / totalMatches) * 100 : 0,
+      // Pick rate: champion games / total games in this bucket
+      pickRate: bucketTotal > 0 ? (stat.matches / bucketTotal) * 100 : 0,
     }));
 
     // Sort by win rate (highest to lowest), then by matches for tie-breaking

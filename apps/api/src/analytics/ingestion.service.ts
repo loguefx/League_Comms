@@ -45,8 +45,28 @@ export class IngestionService {
       // Fetch match from Riot API
       const match = await this.matchClient.getMatch(region as any, matchId);
 
-      // Extract patch version from gameVersion
+      // Extract patch version from gameVersion (e.g., "16.3.123.4567" -> "16.3")
       const patch = match.info.gameVersion.split('.').slice(0, 2).join('.');
+
+      // Filter invalid matches (remakes, wrong queue, etc.)
+      if (this.shouldSkipMatch(match)) {
+        this.logger.debug(`Skipping invalid match ${matchId}`);
+        return;
+      }
+
+      // Extract bans from match teams
+      const bans: number[] = [];
+      if (match.info.teams) {
+        match.info.teams.forEach((team: any) => {
+          if (team.bans) {
+            team.bans.forEach((ban: any) => {
+              if (ban.championId !== -1) {
+                bans.push(ban.championId);
+              }
+            });
+          }
+        });
+      }
 
       // Store match
       await this.prisma.match.create({
@@ -59,7 +79,9 @@ export class IngestionService {
             create: match.info.participants.map((p: any) => ({
               puuid: p.puuid,
               championId: p.championId,
-              role: this.normalizeRole(p.individualPosition || p.role),
+              // Use teamPosition (most reliable) with fallback to individualPosition
+              // teamPosition: TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY
+              role: this.normalizeRole(p.teamPosition || p.individualPosition || p.role),
               rankTier: p.rankTier || defaultRankTier || null,
               rankDivision: p.rankDivision || null,
               teamId: p.teamId.toString(),
@@ -69,6 +91,9 @@ export class IngestionService {
         },
       });
 
+      // Store bans separately (if you add a bans table later)
+      // For now, we'll track bans in aggregation
+
       this.logger.log(`Ingested match ${matchId}`);
     } catch (error) {
       this.logger.error(`Failed to ingest match ${matchId}:`, error);
@@ -76,13 +101,52 @@ export class IngestionService {
     }
   }
 
-  private normalizeRole(position: string): string | null {
+  /**
+   * Normalize Riot's position/role to our standard format
+   * Uses teamPosition (most reliable) with proper mapping
+   */
+  private normalizeRole(position: string | null | undefined): string | null {
+    if (!position) return null;
+    
     const normalized = position.toUpperCase();
+    
+    // Map Riot's teamPosition values to our roles
+    if (normalized === 'TOP') return 'TOP';
+    if (normalized === 'JUNGLE') return 'JUNGLE';
+    if (normalized === 'MIDDLE' || normalized === 'MID') return 'MID';
+    if (normalized === 'BOTTOM') return 'ADC';
+    if (normalized === 'UTILITY') return 'SUPPORT';
+    
+    // Fallback for older/alternative formats
     if (normalized.includes('TOP')) return 'TOP';
     if (normalized.includes('JUNGLE')) return 'JUNGLE';
-    if (normalized.includes('MID') || normalized.includes('MIDDLE')) return 'MID';
+    if (normalized.includes('MID')) return 'MID';
     if (normalized.includes('BOTTOM') || normalized.includes('ADC')) return 'ADC';
     if (normalized.includes('UTILITY') || normalized.includes('SUPPORT')) return 'SUPPORT';
+    
     return null;
+  }
+
+  /**
+   * Check if match should be skipped (remake, invalid queue, etc.)
+   */
+  private shouldSkipMatch(match: any): boolean {
+    // Skip remakes
+    if (match.info.gameEndedInEarlySurrender || match.info.gameEndedInSurrender) {
+      return true;
+    }
+
+    // Skip very short games (likely remakes)
+    if (match.info.gameDuration < 300) { // Less than 5 minutes
+      return true;
+    }
+
+    // Only process ranked solo/flex queues (420 = Ranked Solo, 440 = Ranked Flex)
+    const validQueues = [420, 440];
+    if (!validQueues.includes(match.info.queueId)) {
+      return true;
+    }
+
+    return false;
   }
 }

@@ -94,16 +94,20 @@ export class AggregationService {
   }
 
   private async aggregateForRankGroup(patch: string, groupName: string, tiers: string[]) {
+    // Aggregate by role (TOP, JUNGLE, MID, ADC, SUPPORT)
     const stats = await this.prisma.matchParticipant.groupBy({
       by: ['championId', 'role'],
       where: {
         match: { patch },
         rankTier: { in: tiers },
+        role: { not: null },
       },
       _count: true,
     });
 
     for (const stat of stats) {
+      if (!stat.role) continue;
+
       const wins = await this.prisma.matchParticipant.count({
         where: {
           championId: stat.championId,
@@ -119,7 +123,7 @@ export class AggregationService {
           rankTier_championId_role_patch: {
             rankTier: groupName,
             championId: stat.championId,
-            role: stat.role || null,
+            role: stat.role,
             patch,
           },
         },
@@ -130,7 +134,54 @@ export class AggregationService {
         create: {
           rankTier: groupName,
           championId: stat.championId,
-          role: stat.role || null,
+          role: stat.role,
+          patch,
+          matches: stat._count,
+          wins,
+        },
+      });
+    }
+
+    // Also aggregate "ALL" roles (champion across all roles)
+    const allRoleStats = await this.prisma.matchParticipant.groupBy({
+      by: ['championId'],
+      where: {
+        match: { patch },
+        rankTier: { in: tiers },
+        role: { not: null },
+      },
+      _count: true,
+    });
+
+    for (const stat of allRoleStats) {
+      const wins = await this.prisma.matchParticipant.count({
+        where: {
+          championId: stat.championId,
+          rankTier: { in: tiers },
+          match: { patch },
+          role: { not: null },
+          won: true,
+        },
+      });
+
+      // Store with role = null to represent "ALL roles"
+      await this.prisma.championRankAgg.upsert({
+        where: {
+          rankTier_championId_role_patch: {
+            rankTier: groupName,
+            championId: stat.championId,
+            role: null, // null = ALL roles
+            patch,
+          },
+        },
+        update: {
+          matches: stat._count,
+          wins,
+        },
+        create: {
+          rankTier: groupName,
+          championId: stat.championId,
+          role: null, // null = ALL roles
           patch,
           matches: stat._count,
           wins,
