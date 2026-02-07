@@ -21,12 +21,15 @@ async function bootstrap() {
   // Global exception filter
   app.useGlobalFilters(new AllExceptionsFilter());
 
-  // Global validation pipe
+  // Global validation pipe (relaxed for development)
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: true,
+      forbidNonWhitelisted: false, // Don't block requests with extra fields
       transform: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
     })
   );
 
@@ -36,6 +39,10 @@ async function bootstrap() {
   const port = process.env.PORT || 4000;
   await app.listen(port, '0.0.0.0');
   console.log(`🚀 API server running on http://localhost:${port}`);
+  console.log(`📡 Health check: http://localhost:${port}/health`);
+  console.log(`🔧 Config test: http://localhost:${port}/auth/riot/test/config`);
+  console.log(`🔑 API key test: http://localhost:${port}/auth/riot/test/api-key`);
+  console.log(`🔐 OAuth start: http://localhost:${port}/auth/riot/start`);
 }
 
 bootstrap();
