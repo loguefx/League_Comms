@@ -101,11 +101,12 @@ export default function MatchHistoryPage() {
       <div className="container mx-auto px-6 py-8 max-w-7xl">
         <h1 className="text-3xl font-bold mb-8 text-white">Match History</h1>
 
-      {selectedMatch ? (
-        <MatchDetailView match={selectedMatch} activeTab={activeTab} setActiveTab={setActiveTab} onBack={() => setSelectedMatch(null)} />
-      ) : (
-        <MatchListView matches={matches} onSelectMatch={setSelectedMatch} />
-      )}
+        {selectedMatch ? (
+          <MatchDetailView match={selectedMatch} activeTab={activeTab} setActiveTab={setActiveTab} onBack={() => setSelectedMatch(null)} />
+        ) : (
+          <MatchListView matches={matches} onSelectMatch={setSelectedMatch} />
+        )}
+      </div>
     </div>
   );
 }
