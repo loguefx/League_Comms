@@ -26,6 +26,11 @@ export class AnalyticsService {
       where.patch = await this.getLatestPatch();
     }
 
+    // Debug: Check total records in table
+    const totalRecords = await this.prisma.championRankAgg.count();
+    console.log(`[AnalyticsService] Total championRankAgg records: ${totalRecords}`);
+    console.log(`[AnalyticsService] Query where clause:`, JSON.stringify(where, null, 2));
+
     const stats = await this.prisma.championRankAgg.findMany({
       where,
       orderBy: [
@@ -34,6 +39,8 @@ export class AnalyticsService {
       ],
       take: 100,
     });
+
+    console.log(`[AnalyticsService] Found ${stats.length} records matching query`);
 
     // Calculate win rates and pick rates
     const totalMatches = stats.reduce((sum, s) => sum + s.matches, 0);
@@ -76,5 +83,22 @@ export class AnalyticsService {
     });
 
     return latest?.patch || '14.1';
+  }
+
+  async getDiagnostics() {
+    const matchCount = await this.prisma.match.count();
+    const participantCount = await this.prisma.matchParticipant.count();
+    const championAggCount = await this.prisma.championRankAgg.count();
+    
+    return {
+      database: {
+        matches: matchCount,
+        participants: participantCount,
+        championAggregations: championAggCount,
+      },
+      message: matchCount === 0 
+        ? 'Database is empty - no matches have been ingested yet. Sign in and play games, or seed with public match data.'
+        : `Database has ${matchCount} matches. ${championAggCount > 0 ? 'Champion stats available.' : 'Run aggregation to populate champion stats.'}`,
+    };
   }
 }

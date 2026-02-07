@@ -36,7 +36,7 @@ export default function AnalyticsPage() {
       if (filters.patch) params.append('patch', filters.patch);
 
       const apiUrl = getApiUrl();
-      const response = await fetch(`${apiUrl}/analytics/champions?${params}`);
+      const response = await fetch(`${apiUrl}/champions?${params}`);
       const data = await response.json();
       setChampions(data.champions || []);
     } catch (error) {

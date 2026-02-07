@@ -86,4 +86,43 @@ export class RiotTestController {
       };
     }
   }
+
+  @Get('oauth-url')
+  async getOAuthUrl() {
+    const clientId = this.configService.get<string>('RIOT_CLIENT_ID');
+    const redirectUri = this.configService.get<string>('RIOT_REDIRECT_URI');
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL');
+    
+    if (!clientId || !redirectUri) {
+      return {
+        success: false,
+        error: 'OAuth credentials not configured',
+        hasClientId: !!clientId,
+        hasRedirectUri: !!redirectUri,
+      };
+    }
+
+    try {
+      const oauthUrl = await this.riotAuthService.getAuthorizationUrl();
+      return {
+        success: true,
+        oauthUrl,
+        clientId,
+        redirectUri,
+        frontendUrl,
+        message: 'Copy the oauthUrl and open it in your browser to test OAuth',
+        troubleshooting: {
+          issue: 'If you get "An error occurred!" from Riot, the redirect URI is not registered',
+          solution1: 'Try using localhost instead: Change RIOT_REDIRECT_URI to http://localhost:4000/auth/riot/callback',
+          solution2: 'Contact Riot Support to register your redirect URI',
+          note: 'Many OAuth providers allow localhost redirect URIs without registration',
+        },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
 }

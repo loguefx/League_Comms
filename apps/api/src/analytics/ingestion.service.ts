@@ -27,8 +27,11 @@ export class IngestionService {
 
   /**
    * Ingest a single match
+   * @param region - The region code (e.g., 'na1')
+   * @param matchId - The match ID
+   * @param defaultRankTier - Optional default rank tier if not available in match data (e.g., 'CHALLENGER' for high-elo seeds)
    */
-  async ingestMatch(region: string, matchId: string): Promise<void> {
+  async ingestMatch(region: string, matchId: string, defaultRankTier?: string): Promise<void> {
     // Check if already ingested
     const existing = await this.prisma.match.findUnique({
       where: { matchId },
@@ -57,7 +60,7 @@ export class IngestionService {
               puuid: p.puuid,
               championId: p.championId,
               role: this.normalizeRole(p.individualPosition || p.role),
-              rankTier: p.rankTier || null,
+              rankTier: p.rankTier || defaultRankTier || null,
               rankDivision: p.rankDivision || null,
               teamId: p.teamId.toString(),
               won: p.win,

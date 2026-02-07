@@ -10,16 +10,27 @@ OAuth Redirect URIs are in **OAuth Applications**, not the Product/API page you'
 
 ## Fastest Way to Find It
 
-### Method 1: Check MY ACCOUNT Menu
+### ⚠️ Important: Products vs OAuth Applications
 
-1. On https://developer.riotgames.com/
-2. Click **"MY ACCOUNT"** (top right, next to your username)
-3. Look for **"Applications"** or **"OAuth Applications"** in the dropdown
-4. Click it
-5. Find your application → Click it
-6. Look for **"OAuth Redirect URIs"** section
+**The 404 error confirms:** Products (`/app/729699`) and OAuth Applications are **SEPARATE**!
 
-### Method 2: Try Direct URLs
+- **Product (729699)** = API keys, API methods (what you see at `/apis`)
+- **OAuth Application** = Client ID/Secret, Redirect URIs (different section!)
+
+You need to find the **OAuth Applications** section, not the Product page.
+
+### Method 1: Try Direct OAuth URLs (START HERE!)
+
+Try these URLs in your browser (one should work):
+
+```
+https://developer.riotgames.com/oauth2/applications
+https://developer.riotgames.com/applications
+https://developer.riotgames.com/my-applications
+https://developer.riotgames.com/oauth
+```
+
+### Method 2: Go to Main Dashboard
 
 Try these URLs in your browser:
 
@@ -28,6 +39,13 @@ https://developer.riotgames.com/oauth2/applications
 https://developer.riotgames.com/applications
 https://developer.riotgames.com/my-applications
 ```
+
+1. Go to: `https://developer.riotgames.com/`
+2. Look for:
+   - **"OAuth Applications"** section
+   - **"Applications"** link in top navigation
+   - **"MY ACCOUNT"** dropdown → **"Applications"**
+   - **"Create OAuth Application"** button
 
 ### Method 3: Create OAuth App (If It Doesn't Exist)
 

@@ -46,12 +46,7 @@ export class SummonerClient {
   async getSummonerById(region: Region, encryptedSummonerId: string): Promise<Summoner> {
     try {
       const response = await this.axios.get<Summoner>(
-        `https://${region}.api.riotgames.com/lol/summoner/v4/summoners/${encryptedSummonerId}`,
-        {
-          headers: {
-            'X-Riot-Token': this.config.apiKey,
-          },
-        }
+        `https://${region}.api.riotgames.com/lol/summoner/v4/summoners/${encryptedSummonerId}?api_key=${this.config.apiKey}`
       );
 
       return response.data;
@@ -86,12 +81,7 @@ export class SummonerClient {
   async getSummonerByPuuid(region: Region, puuid: string): Promise<Summoner> {
     try {
       const response = await this.axios.get<Summoner>(
-        `https://${region}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/${puuid}`,
-        {
-          headers: {
-            'X-Riot-Token': this.config.apiKey,
-          },
-        }
+        `https://${region}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/${puuid}?api_key=${this.config.apiKey}`
       );
 
       return response.data;
@@ -125,12 +115,7 @@ export class SummonerClient {
   async getSummonerByName(region: Region, summonerName: string): Promise<Summoner> {
     try {
       const response = await this.axios.get<Summoner>(
-        `https://${region}.api.riotgames.com/lol/summoner/v4/summoners/by-name/${encodeURIComponent(summonerName)}`,
-        {
-          headers: {
-            'X-Riot-Token': this.config.apiKey,
-          },
-        }
+        `https://${region}.api.riotgames.com/lol/summoner/v4/summoners/by-name/${encodeURIComponent(summonerName)}?api_key=${this.config.apiKey}`
       );
 
       return response.data;
@@ -159,17 +144,69 @@ export class SummonerClient {
   }
 
   /**
+   * Get challenger league entries
+   */
+  async getChallengerLeague(region: Region, queue: 'RANKED_SOLO_5x5' | 'RANKED_FLEX_SR' = 'RANKED_SOLO_5x5'): Promise<{ entries: LeagueEntry[] }> {
+    try {
+      const response = await this.axios.get<{ entries: LeagueEntry[] }>(
+        `https://${region}.api.riotgames.com/lol/league/v4/challengerleagues/by-queue/${queue}?api_key=${this.config.apiKey}`
+      );
+      return response.data;
+    } catch (error: any) {
+      if (error.response) {
+        console.error('❌ League API Error (getChallengerLeague):');
+        console.error('  Status:', error.response.status);
+        throw new Error(`Failed to get challenger league: ${error.response.status}`);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Get grandmaster league entries
+   */
+  async getGrandmasterLeague(region: Region, queue: 'RANKED_SOLO_5x5' | 'RANKED_FLEX_SR' = 'RANKED_SOLO_5x5'): Promise<{ entries: LeagueEntry[] }> {
+    try {
+      const response = await this.axios.get<{ entries: LeagueEntry[] }>(
+        `https://${region}.api.riotgames.com/lol/league/v4/grandmasterleagues/by-queue/${queue}?api_key=${this.config.apiKey}`
+      );
+      return response.data;
+    } catch (error: any) {
+      if (error.response) {
+        console.error('❌ League API Error (getGrandmasterLeague):');
+        console.error('  Status:', error.response.status);
+        throw new Error(`Failed to get grandmaster league: ${error.response.status}`);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Get master league entries
+   */
+  async getMasterLeague(region: Region, queue: 'RANKED_SOLO_5x5' | 'RANKED_FLEX_SR' = 'RANKED_SOLO_5x5'): Promise<{ entries: LeagueEntry[] }> {
+    try {
+      const response = await this.axios.get<{ entries: LeagueEntry[] }>(
+        `https://${region}.api.riotgames.com/lol/league/v4/masterleagues/by-queue/${queue}?api_key=${this.config.apiKey}`
+      );
+      return response.data;
+    } catch (error: any) {
+      if (error.response) {
+        console.error('❌ League API Error (getMasterLeague):');
+        console.error('  Status:', error.response.status);
+        throw new Error(`Failed to get master league: ${error.response.status}`);
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Get league entries for a summoner
    */
   async getLeagueEntries(region: Region, encryptedSummonerId: string): Promise<LeagueEntry[]> {
     try {
       const response = await this.axios.get<LeagueEntry[]>(
-        `https://${region}.api.riotgames.com/lol/league/v4/entries/by-summoner/${encryptedSummonerId}`,
-        {
-          headers: {
-            'X-Riot-Token': this.config.apiKey,
-          },
-        }
+        `https://${region}.api.riotgames.com/lol/league/v4/entries/by-summoner/${encryptedSummonerId}?api_key=${this.config.apiKey}`
       );
 
       return response.data;
