@@ -13,8 +13,15 @@ async function bootstrap() {
   ) as any;
 
   // Enable CORS for web and desktop clients
+  // In development, allow all origins. In production, use ALLOWED_ORIGINS env var
+  const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',')
+    : process.env.NODE_ENV === 'production'
+    ? ['http://localhost:3000']
+    : true; // Allow all origins in development
+
   app.enableCors({
-    origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
+    origin: allowedOrigins,
     credentials: true,
   } as any);
 
