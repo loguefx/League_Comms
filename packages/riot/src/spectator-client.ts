@@ -33,9 +33,27 @@ export class SpectatorClient {
 
       return response.data;
     } catch (error: unknown) {
-      if (axios.isAxiosError(error) && error.response?.status === 404) {
-        // No active game
-        return null;
+      if (axios.isAxiosError(error) && error.response) {
+        if (error.response.status === 404) {
+          // No active game - this is normal
+          return null;
+        }
+        
+        console.error('❌ Spectator API Error (getActiveGameBySummonerId):');
+        console.error('  Status:', error.response.status);
+        console.error('  Status Text:', error.response.statusText);
+        console.error('  Response Data:', JSON.stringify(error.response.data, null, 2));
+        console.error('  Region:', region);
+        console.error('  Summoner ID:', encryptedSummonerId);
+        console.error('  API Key (first 10 chars):', this.config.apiKey?.substring(0, 10) + '...');
+        
+        if (error.response.status === 401) {
+          throw new Error(`Unauthorized (401): Invalid API key`);
+        }
+        if (error.response.status === 403) {
+          throw new Error(`Forbidden (403): API key doesn't have access to Spectator API`);
+        }
+        throw new Error(`Spectator API call failed: ${error.response.status} ${error.response.statusText}`);
       }
       throw error;
     }

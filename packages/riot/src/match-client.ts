@@ -167,16 +167,39 @@ export class MatchClient {
    * Get match by match ID
    */
   async getMatch(region: Region, matchId: string): Promise<Match> {
-    const response = await this.axios.get<Match>(
-      `https://${region}.api.riotgames.com/lol/match/v5/matches/${matchId}`,
-      {
-        headers: {
-          'X-Riot-Token': this.config.apiKey,
-        },
-      }
-    );
+    try {
+      const response = await this.axios.get<Match>(
+        `https://${region}.api.riotgames.com/lol/match/v5/matches/${matchId}`,
+        {
+          headers: {
+            'X-Riot-Token': this.config.apiKey,
+          },
+        }
+      );
 
-    return response.data;
+      return response.data;
+    } catch (error: any) {
+      if (error.response) {
+        console.error('❌ Match API Error (getMatch):');
+        console.error('  Status:', error.response.status);
+        console.error('  Status Text:', error.response.statusText);
+        console.error('  Response Data:', JSON.stringify(error.response.data, null, 2));
+        console.error('  Region:', region);
+        console.error('  Match ID:', matchId);
+        
+        if (error.response.status === 401) {
+          throw new Error(`Unauthorized (401): Invalid API key`);
+        }
+        if (error.response.status === 403) {
+          throw new Error(`Forbidden (403): API key doesn't have access to Match API`);
+        }
+        if (error.response.status === 404) {
+          throw new Error(`Not Found (404): Match not found`);
+        }
+        throw new Error(`Match API call failed: ${error.response.status} ${error.response.statusText}`);
+      }
+      throw error;
+    }
   }
 
   /**
@@ -194,23 +217,47 @@ export class MatchClient {
       endTime?: number;
     }
   ): Promise<string[]> {
-    const params = new URLSearchParams();
-    if (options?.start !== undefined) params.append('start', options.start.toString());
-    if (options?.count !== undefined) params.append('count', options.count.toString());
-    if (options?.queue !== undefined) params.append('queue', options.queue.toString());
-    if (options?.type) params.append('type', options.type);
-    if (options?.startTime !== undefined) params.append('startTime', options.startTime.toString());
-    if (options?.endTime !== undefined) params.append('endTime', options.endTime.toString());
+    try {
+      const params = new URLSearchParams();
+      if (options?.start !== undefined) params.append('start', options.start.toString());
+      if (options?.count !== undefined) params.append('count', options.count.toString());
+      if (options?.queue !== undefined) params.append('queue', options.queue.toString());
+      if (options?.type) params.append('type', options.type);
+      if (options?.startTime !== undefined) params.append('startTime', options.startTime.toString());
+      if (options?.endTime !== undefined) params.append('endTime', options.endTime.toString());
 
-    const response = await this.axios.get<string[]>(
-      `https://${region}.api.riotgames.com/lol/match/v5/matches/by-puuid/${puuid}/ids?${params.toString()}`,
-      {
-        headers: {
-          'X-Riot-Token': this.config.apiKey,
-        },
+      const response = await this.axios.get<string[]>(
+        `https://${region}.api.riotgames.com/lol/match/v5/matches/by-puuid/${puuid}/ids?${params.toString()}`,
+        {
+          headers: {
+            'X-Riot-Token': this.config.apiKey,
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error: any) {
+      if (error.response) {
+        console.error('❌ Match API Error (getMatchList):');
+        console.error('  Status:', error.response.status);
+        console.error('  Status Text:', error.response.statusText);
+        console.error('  Response Data:', JSON.stringify(error.response.data, null, 2));
+        console.error('  Region:', region);
+        console.error('  PUUID:', puuid);
+        console.error('  Options:', JSON.stringify(options, null, 2));
+        
+        if (error.response.status === 401) {
+          throw new Error(`Unauthorized (401): Invalid API key`);
+        }
+        if (error.response.status === 403) {
+          throw new Error(`Forbidden (403): API key doesn't have access to Match API`);
+        }
+        if (error.response.status === 404) {
+          throw new Error(`Not Found (404): No matches found for this PUUID`);
+        }
+        throw new Error(`Match API call failed: ${error.response.status} ${error.response.statusText}`);
       }
-    );
-
-    return response.data;
+      throw error;
+    }
   }
 }
