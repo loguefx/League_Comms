@@ -19,17 +19,21 @@ import { AnalyticsModule } from './analytics/analytics.module';
       envFilePath: ['.env.local', '.env'],
     }),
     ScheduleModule.forRoot(),
-    BullModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        connection: {
-          host: configService.get('REDIS_HOST', 'localhost'),
-          port: configService.get('REDIS_PORT', 6379),
-          password: configService.get('REDIS_PASSWORD'),
-        },
-      }),
-      inject: [ConfigService],
-    }),
+    ...(process.env.USE_REDIS !== 'false'
+      ? [
+          BullModule.forRootAsync({
+            imports: [ConfigModule],
+            useFactory: (configService: ConfigService) => ({
+              connection: {
+                host: configService.get('REDIS_HOST', 'localhost'),
+                port: configService.get('REDIS_PORT', 6379),
+                password: configService.get('REDIS_PASSWORD'),
+              },
+            }),
+            inject: [ConfigService],
+          }),
+        ]
+      : []),
     PrismaModule,
     RedisModule,
     AuthModule,
