@@ -43,21 +43,20 @@ export class AggregationService {
   }
 
   private async aggregateForRankTier(patch: string, rankTier: string) {
+    // Aggregate by role (TOP, JUNGLE, MID, ADC, SUPPORT)
     const stats = await this.prisma.matchParticipant.groupBy({
       by: ['championId', 'role'],
       where: {
         match: { patch },
         rankTier,
+        role: { not: null }, // Only aggregate roles that are set
       },
       _count: true,
-      _sum: {
-        // We need to count wins - this is a simplified version
-        // In production, you'd need a more complex query
-      },
     });
 
-    // This is simplified - in production, you'd properly count wins
     for (const stat of stats) {
+      if (!stat.role) continue; // Skip if role is null
+
       const wins = await this.prisma.matchParticipant.count({
         where: {
           championId: stat.championId,
@@ -73,7 +72,7 @@ export class AggregationService {
           rankTier_championId_role_patch: {
             rankTier,
             championId: stat.championId,
-            role: stat.role || null,
+            role: stat.role,
             patch,
           },
         },
@@ -84,7 +83,54 @@ export class AggregationService {
         create: {
           rankTier,
           championId: stat.championId,
-          role: stat.role || null,
+          role: stat.role,
+          patch,
+          matches: stat._count,
+          wins,
+        },
+      });
+    }
+
+    // Also aggregate "ALL" roles (champion across all roles)
+    const allRoleStats = await this.prisma.matchParticipant.groupBy({
+      by: ['championId'],
+      where: {
+        match: { patch },
+        rankTier,
+        role: { not: null },
+      },
+      _count: true,
+    });
+
+    for (const stat of allRoleStats) {
+      const wins = await this.prisma.matchParticipant.count({
+        where: {
+          championId: stat.championId,
+          rankTier,
+          match: { patch },
+          role: { not: null },
+          won: true,
+        },
+      });
+
+      // Store with role = null to represent "ALL roles"
+      await this.prisma.championRankAgg.upsert({
+        where: {
+          rankTier_championId_role_patch: {
+            rankTier,
+            championId: stat.championId,
+            role: null, // null = ALL roles
+            patch,
+          },
+        },
+        update: {
+          matches: stat._count,
+          wins,
+        },
+        create: {
+          rankTier,
+          championId: stat.championId,
+          role: null, // null = ALL roles
           patch,
           matches: stat._count,
           wins,
