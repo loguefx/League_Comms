@@ -1,9 +1,137 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useAudioDevices } from '@/hooks/useAudioDevices';
 import { useAudioSettings } from '@/hooks/useAudioSettings';
 import { getApiUrl } from '@/utils/api';
+
+// Keybind Capture Component
+function KeybindCapture({ value, onChange }: { value: string; onChange: (key: string) => void }) {
+  const [isCapturing, setIsCapturing] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const formatKey = (key: string): string => {
+    // Format common keys
+    const keyMap: Record<string, string> = {
+      ' ': 'Space',
+      'Control': 'Ctrl',
+      'Meta': 'Cmd',
+      'Alt': 'Alt',
+      'Shift': 'Shift',
+      'Enter': 'Enter',
+      'Escape': 'Esc',
+      'Tab': 'Tab',
+      'Backspace': 'Backspace',
+      'Delete': 'Delete',
+      'ArrowUp': '↑',
+      'ArrowDown': '↓',
+      'ArrowLeft': '←',
+      'ArrowRight': '→',
+    };
+
+    if (keyMap[key]) {
+      return keyMap[key];
+    }
+
+    // Remove "Key" prefix from keys like "KeyV" -> "V"
+    if (key.startsWith('Key')) {
+      return key.slice(3);
+    }
+
+    // Remove "Digit" prefix from numbers
+    if (key.startsWith('Digit')) {
+      return key.slice(5);
+    }
+
+    return key;
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!isCapturing) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Get the key
+    let key = e.key;
+    let keyCode = e.code;
+
+    // Handle modifier keys
+    const modifiers: string[] = [];
+    if (e.ctrlKey) modifiers.push('Ctrl');
+    if (e.metaKey) modifiers.push('Cmd');
+    if (e.altKey) modifiers.push('Alt');
+    if (e.shiftKey) modifiers.push('Shift');
+
+    // Format the key
+    const formattedKey = formatKey(keyCode || key);
+
+    // Combine modifiers with key
+    if (modifiers.length > 0) {
+      onChange(`${modifiers.join('+')}+${formattedKey}`);
+    } else {
+      onChange(formattedKey);
+    }
+
+    setIsCapturing(false);
+    if (inputRef.current) {
+      inputRef.current.blur();
+    }
+  };
+
+  const handleClick = () => {
+    setIsCapturing(true);
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  };
+
+  const handleBlur = () => {
+    setIsCapturing(false);
+  };
+
+  return (
+    <div className="relative">
+      <input
+        ref={inputRef}
+        type="text"
+        readOnly
+        value={isCapturing ? 'Press any key...' : (value || 'Not set')}
+        onClick={handleClick}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
+        className={`w-full px-4 py-3 bg-[#0D121E] border rounded-lg text-white cursor-pointer transition ${
+          isCapturing
+            ? 'border-blue-500 ring-2 ring-blue-500/50'
+            : value
+            ? 'border-[#283D4D] hover:border-blue-500/50'
+            : 'border-[#283D4D] hover:border-blue-500/50'
+        }`}
+        placeholder="Click to set keybind"
+      />
+      {value && !isCapturing && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onChange('');
+          }}
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-[#78828C] hover:text-red-400 transition p-1"
+          title="Clear keybind"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      )}
+      {isCapturing && (
+        <div className="absolute -top-8 left-0 text-xs text-blue-400 font-medium">
+          Press any key or key combination...
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface RiotAccountStatus {
   connected: boolean;
@@ -199,12 +327,9 @@ export default function SettingsPage() {
                   <label className="block text-sm font-medium text-[#B4BEC8] mb-2">
                     Keybind
                   </label>
-                  <input
-                    type="text"
-                    placeholder="Press a key (e.g., V)"
+                  <KeybindCapture
                     value={settings.pushToTalkKey || ''}
-                    onChange={(e) => updateSettings({ pushToTalkKey: e.target.value })}
-                    className="w-full px-4 py-3 bg-[#0D121E] border border-[#283D4D] rounded-lg text-white placeholder-[#78828C] focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition"
+                    onChange={(key) => updateSettings({ pushToTalkKey: key })}
                   />
                 </div>
               )}
