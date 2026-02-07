@@ -12,6 +12,13 @@ export function useAudioDevices() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Check if we're in the browser and mediaDevices is available
+    if (typeof window === 'undefined' || !navigator.mediaDevices) {
+      console.warn('MediaDevices API not available. This may require HTTPS or a secure context.');
+      setLoading(false);
+      return;
+    }
+
     const loadDevices = async () => {
       try {
         // Request permission to access devices
@@ -42,17 +49,22 @@ export function useAudioDevices() {
         setLoading(false);
       } catch (error) {
         console.error('Error loading audio devices:', error);
+        // Set empty arrays on error so UI can still render
+        setInputDevices([]);
+        setOutputDevices([]);
         setLoading(false);
       }
     };
 
     loadDevices();
 
-    // Listen for device changes
-    navigator.mediaDevices.addEventListener('devicechange', loadDevices);
-    return () => {
-      navigator.mediaDevices.removeEventListener('devicechange', loadDevices);
-    };
+    // Listen for device changes (only if mediaDevices exists)
+    if (navigator.mediaDevices) {
+      navigator.mediaDevices.addEventListener('devicechange', loadDevices);
+      return () => {
+        navigator.mediaDevices.removeEventListener('devicechange', loadDevices);
+      };
+    }
   }, []);
 
   return { inputDevices, outputDevices, loading };
