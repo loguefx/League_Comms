@@ -17,16 +17,42 @@ export class RiotAuthController {
   async callback(
     @Query('code') code: string,
     @Query('state') state: string,
+    @Query('error') error: string,
     @Res() res: FastifyReply
   ) {
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+    // Handle OAuth errors from Riot
+    if (error) {
+      console.error('Riot OAuth error:', error);
+      return res.redirect(
+        `${frontendUrl}/auth/error?message=${encodeURIComponent(`Riot OAuth error: ${error}`)}`,
+        302
+      );
+    }
+
+    // Handle missing authorization code
+    if (!code) {
+      console.error('Missing authorization code in callback');
+      return res.redirect(
+        `${frontendUrl}/auth/error?message=${encodeURIComponent('Missing authorization code. Please try again.')}`,
+        302
+      );
+    }
+
     try {
+      console.log('Processing OAuth callback with code:', code.substring(0, 10) + '...');
       const result = await this.riotAuthService.handleCallback(code, state);
+      console.log('OAuth callback successful, redirecting to frontend');
       // Redirect to frontend with token
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
       return res.redirect(`${frontendUrl}/auth/callback?token=${result.token}`, 302);
-    } catch (error) {
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      return res.redirect(`${frontendUrl}/auth/error?message=${encodeURIComponent(error.message)}`, 302);
+    } catch (error: any) {
+      console.error('Error in OAuth callback:', error);
+      const errorMessage = error?.message || 'Unknown error occurred during authentication';
+      return res.redirect(
+        `${frontendUrl}/auth/error?message=${encodeURIComponent(errorMessage)}`,
+        302
+      );
     }
   }
 

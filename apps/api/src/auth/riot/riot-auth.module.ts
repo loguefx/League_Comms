@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { RiotAuthController } from './riot-auth.controller';
+import { RiotTestController } from './riot-test.controller';
 import { RiotAuthService } from './riot-auth.service';
 import { RiotTokenRefreshService } from './riot-token-refresh.service';
 import { RSOClient } from '@league-voice/riot';
@@ -10,7 +11,7 @@ import { AuthModule } from '../auth.module';
 
 @Module({
   imports: [ConfigModule, PrismaModule, RedisModule, AuthModule],
-  controllers: [RiotAuthController],
+  controllers: [RiotAuthController, RiotTestController],
   providers: [
     RiotAuthService,
     RiotTokenRefreshService,

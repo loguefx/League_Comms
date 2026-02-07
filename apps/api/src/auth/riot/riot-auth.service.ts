@@ -24,13 +24,18 @@ export class RiotAuthService {
   }
 
   async handleCallback(code: string, state?: string): Promise<{ token: string }> {
-    // Exchange code for tokens
-    const tokens = await this.rsoClient.exchangeCodeForTokens(code);
+    try {
+      console.log('Exchanging authorization code for tokens...');
+      // Exchange code for tokens
+      const tokens = await this.rsoClient.exchangeCodeForTokens(code);
+      console.log('Tokens received, expires in:', tokens.expiresIn, 'seconds');
 
-    // Get account info (PUUID, Riot ID)
-    // We need to determine region - for now, try to get from state or use default
-    const region = state?.split(':')[0] || 'na1';
-    const accountInfo = await this.rsoClient.getAccountInfo(tokens.accessToken, region as any);
+      // Get account info (PUUID, Riot ID)
+      // We need to determine region - for now, try to get from state or use default
+      const region = state?.split(':')[0] || 'na1';
+      console.log('Getting account info for region:', region);
+      const accountInfo = await this.rsoClient.getAccountInfo(tokens.accessToken, region as any);
+      console.log('Account info received:', { puuid: accountInfo.puuid, gameName: accountInfo.gameName });
 
     // Encrypt tokens
     const encryptedTokens = this.encryptTokens(tokens);
@@ -88,10 +93,25 @@ export class RiotAuthService {
       });
     }
 
-    // Create session
-    const session = await this.authService.createSession(user.id);
+      // Create session
+      console.log('Creating session for user:', user.id);
+      const session = await this.authService.createSession(user.id);
+      console.log('Session created successfully');
 
-    return { token: session.token };
+      return { token: session.token };
+    } catch (error: any) {
+      console.error('Error in handleCallback:', error);
+      if (error.response) {
+        console.error('Error response:', error.response.data);
+        console.error('Error status:', error.response.status);
+      }
+      throw new Error(
+        error.response?.data?.error_description ||
+        error.response?.data?.error ||
+        error.message ||
+        'Failed to authenticate with Riot Games'
+      );
+    }
   }
 
   async getRiotAccountStatus(userId: string) {

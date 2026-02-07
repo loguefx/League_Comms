@@ -112,6 +112,7 @@ export class RSOClient {
     const puuid = userInfoResponse.data.sub;
 
     // Get Riot ID from Account API
+    // Note: Account API v1 uses OAuth Bearer tokens, not API keys
     const accountResponse = await this.axios.get<{
       puuid: string;
       gameName: string;
@@ -120,7 +121,7 @@ export class RSOClient {
       `https://${region}.api.riotgames.com/riot/account/v1/accounts/by-puuid/${puuid}`,
       {
         headers: {
-          'X-Riot-Token': accessToken,
+          Authorization: `Bearer ${accessToken}`,
         },
       }
     );
