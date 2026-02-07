@@ -36,14 +36,22 @@ export default function ChampionsPage() {
       if (filters.patch) params.append('patch', filters.patch);
 
       const apiUrl = getApiUrl();
-      console.log(`[ChampionsPage] Fetching from: ${apiUrl}/champions?${params}`);
+      const fullUrl = `${apiUrl}/champions?${params}`;
+      console.log(`[ChampionsPage] Fetching from: ${fullUrl}`);
       
-      const response = await fetch(`${apiUrl}/champions?${params}`, {
+      // Create timeout controller for fetch requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      const response = await fetch(fullUrl, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -56,6 +64,10 @@ export default function ChampionsPage() {
       console.error('Error loading champions:', error);
       // Set empty array on error so UI shows "No data" instead of crashing
       setChampions([]);
+      // Show user-friendly error message
+      if (error instanceof Error) {
+        alert(`Failed to load champions: ${error.message}`);
+      }
     } finally {
       setLoading(false);
     }
