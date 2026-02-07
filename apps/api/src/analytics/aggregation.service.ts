@@ -40,6 +40,110 @@ export class AggregationService {
     for (const [groupName, tiers] of Object.entries(RANK_TIER_GROUPS)) {
       await this.aggregateForRankGroup(patch, groupName, [...tiers]);
     }
+
+    // Aggregate "ALL_RANKS" (across all rank tiers)
+    await this.aggregateForAllRanks(patch);
+  }
+
+  /**
+   * Aggregate champion stats across ALL ranks (for "All Ranks" filter)
+   */
+  private async aggregateForAllRanks(patch: string) {
+    const allRankTiers = ['IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'EMERALD', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER'];
+
+    // Aggregate by role (TOP, JUNGLE, MID, ADC, SUPPORT) across all ranks
+    const stats = await this.prisma.matchParticipant.groupBy({
+      by: ['championId', 'role'],
+      where: {
+        match: { patch },
+        rankTier: { in: allRankTiers },
+        role: { not: null },
+      },
+      _count: true,
+    });
+
+    for (const stat of stats) {
+      if (!stat.role) continue;
+
+      const wins = await this.prisma.matchParticipant.count({
+        where: {
+          championId: stat.championId,
+          role: stat.role,
+          rankTier: { in: allRankTiers },
+          match: { patch },
+          won: true,
+        },
+      });
+
+      await this.prisma.championRankAgg.upsert({
+        where: {
+          rankTier_championId_role_patch: {
+            rankTier: 'ALL_RANKS',
+            championId: stat.championId,
+            role: stat.role,
+            patch,
+          },
+        },
+        update: {
+          matches: stat._count,
+          wins,
+        },
+        create: {
+          rankTier: 'ALL_RANKS',
+          championId: stat.championId,
+          role: stat.role,
+          patch,
+          matches: stat._count,
+          wins,
+        },
+      });
+    }
+
+    // Also aggregate "ALL roles" across "ALL ranks"
+    const allRoleStats = await this.prisma.matchParticipant.groupBy({
+      by: ['championId'],
+      where: {
+        match: { patch },
+        rankTier: { in: allRankTiers },
+        role: { not: null },
+      },
+      _count: true,
+    });
+
+    for (const stat of allRoleStats) {
+      const wins = await this.prisma.matchParticipant.count({
+        where: {
+          championId: stat.championId,
+          rankTier: { in: allRankTiers },
+          match: { patch },
+          role: { not: null },
+          won: true,
+        },
+      });
+
+      await this.prisma.championRankAgg.upsert({
+        where: {
+          rankTier_championId_role_patch: {
+            rankTier: 'ALL_RANKS',
+            championId: stat.championId,
+            role: null, // null = ALL roles
+            patch,
+          },
+        },
+        update: {
+          matches: stat._count,
+          wins,
+        },
+        create: {
+          rankTier: 'ALL_RANKS',
+          championId: stat.championId,
+          role: null, // null = ALL roles
+          patch,
+          matches: stat._count,
+          wins,
+        },
+      });
+    }
   }
 
   private async aggregateForRankTier(patch: string, rankTier: string) {

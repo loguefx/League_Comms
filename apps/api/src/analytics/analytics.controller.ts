@@ -2,13 +2,15 @@ import { Controller, Get, Query, Post } from '@nestjs/common';
 import { AnalyticsService } from './analytics.service';
 import { IngestionService } from './ingestion.service';
 import { PublicChampionSeedService } from './public-champion-seed.service';
+import { BatchSeedService } from './batch-seed.service';
 
 @Controller('champions')
 export class AnalyticsController {
   constructor(
     private analyticsService: AnalyticsService,
     private ingestionService: IngestionService,
-    private seedService: PublicChampionSeedService
+    private seedService: PublicChampionSeedService,
+    private batchSeedService: BatchSeedService
   ) {}
 
   @Get()
@@ -79,5 +81,59 @@ export class AnalyticsController {
         error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
+  }
+
+  /**
+   * Batch seed endpoint - processes players from ALL rank tiers in batches
+   * This can capture millions of matches across all ranks
+   * 
+   * @param region - Riot API region (e.g., 'na1')
+   * @param matchesPerPlayer - Number of matches to fetch per player (default: 100)
+   * @param playersPerTierDivision - Number of players per tier/division (default: 50)
+   * @param batchSize - Number of players to process in parallel (default: 5)
+   */
+  @Post('seed/batch')
+  async batchSeedAllRanks(
+    @Query('region') region: string = 'na1',
+    @Query('matchesPerPlayer') matchesPerPlayer: string = '100',
+    @Query('playersPerTierDivision') playersPerTierDivision: string = '50',
+    @Query('batchSize') batchSize: string = '5'
+  ) {
+    try {
+      // Run batch seed in background
+      this.batchSeedService.batchSeedAllRanks(
+        region as any,
+        parseInt(matchesPerPlayer, 10),
+        parseInt(playersPerTierDivision, 10),
+        parseInt(batchSize, 10)
+      ).catch((error) => {
+        console.error('[AnalyticsController] Batch seed error:', error);
+      });
+
+      return {
+        success: true,
+        message: 'Batch seed started in background. This will process players from ALL rank tiers (Iron through Challenger) to capture millions of matches. Check /champions/progress for status.',
+        region,
+        matchesPerPlayer: parseInt(matchesPerPlayer, 10),
+        playersPerTierDivision: parseInt(playersPerTierDivision, 10),
+        batchSize: parseInt(batchSize, 10),
+        estimatedMatches: `~${parseInt(playersPerTierDivision, 10) * 28 * parseInt(matchesPerPlayer, 10)} matches (28 tier-division combinations × players × matches)`,
+      };
+    } catch (error) {
+      console.error('[AnalyticsController] Batch seed failed:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  /**
+   * Get batch seed progress
+   */
+  @Get('progress')
+  async getSeedProgress() {
+    const progress = this.batchSeedService.getProgress();
+    return progress || { status: 'not_running', message: 'No seed operation in progress' };
   }
 }

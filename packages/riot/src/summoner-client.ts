@@ -201,6 +201,42 @@ export class SummonerClient {
   }
 
   /**
+   * Get league entries by tier and division
+   * This is the key endpoint for getting players from all ranks
+   * @param region - The region code
+   * @param queue - Queue type (RANKED_SOLO_5x5 or RANKED_FLEX_SR)
+   * @param tier - Rank tier (IRON, BRONZE, SILVER, GOLD, PLATINUM, EMERALD, DIAMOND, MASTER, GRANDMASTER, CHALLENGER)
+   * @param division - Division (I, II, III, IV) - not used for MASTER, GRANDMASTER, CHALLENGER
+   * @param page - Page number (default: 1, max: usually 1-10 pages per tier/division)
+   */
+  async getLeagueEntriesByTier(
+    region: Region,
+    queue: 'RANKED_SOLO_5x5' | 'RANKED_FLEX_SR',
+    tier: string,
+    division: string = 'I',
+    page: number = 1
+  ): Promise<LeagueEntry[]> {
+    try {
+      const params = new URLSearchParams();
+      params.append('page', page.toString());
+      params.append('api_key', this.config.apiKey);
+
+      const response = await this.axios.get<LeagueEntry[]>(
+        `https://${region}.api.riotgames.com/lol/league/v4/entries/${queue}/${tier}/${division}?${params.toString()}`
+      );
+      return response.data;
+    } catch (error: any) {
+      if (error.response) {
+        console.error('❌ League API Error (getLeagueEntriesByTier):');
+        console.error('  Status:', error.response.status);
+        console.error('  Tier:', tier, 'Division:', division, 'Page:', page);
+        throw new Error(`Failed to get league entries: ${error.response.status}`);
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Get league entries for a summoner
    */
   async getLeagueEntries(region: Region, encryptedSummonerId: string): Promise<LeagueEntry[]> {

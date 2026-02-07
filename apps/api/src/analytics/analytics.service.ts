@@ -12,8 +12,10 @@ export class AnalyticsService {
   }) {
     const where: any = {};
 
-    if (options.rank) {
+    if (options.rank && options.rank !== 'ALL_RANKS') {
       where.rankTier = options.rank;
+    } else if (options.rank === 'ALL_RANKS') {
+      where.rankTier = 'ALL_RANKS';
     }
 
     // Handle role filter: empty string or "ALL" means show all roles (role = null)
