@@ -26,7 +26,7 @@ export default function RootLayout({
                 <Link href="/match-history" className="text-[#B4BEC8] hover:text-white transition font-medium">
                   Match History
                 </Link>
-                <Link href="/analytics" className="text-[#B4BEC8] hover:text-white transition font-medium">
+                <Link href="/champions" className="text-[#B4BEC8] hover:text-white transition font-medium">
                   Champions
                 </Link>
                 <Link href="/game/live" className="text-[#B4BEC8] hover:text-white transition font-medium">

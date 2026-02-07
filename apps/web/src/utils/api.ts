@@ -11,10 +11,8 @@ export function getApiUrl(): string {
   // If running in browser, use current hostname with port 4000
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
-    // If accessing via IP or domain (not localhost), use that
-    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-      return `http://${hostname}:4000`;
-    }
+    // Always use the current hostname (works for localhost, IP addresses, and domains)
+    return `http://${hostname}:4000`;
   }
 
   // Default fallback

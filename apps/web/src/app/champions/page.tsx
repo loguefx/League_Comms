@@ -14,7 +14,7 @@ interface ChampionStats {
   pickRate: number;
 }
 
-export default function AnalyticsPage() {
+export default function ChampionsPage() {
   const [champions, setChampions] = useState<ChampionStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
