@@ -1,115 +1,364 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { getApiUrl } from '@/utils/api';
 import Link from 'next/link';
 
-export default function Home() {
-  return (
-    <main className="min-h-screen bg-gradient-to-b from-[#0D121E] via-[#161C2A] to-[#0D121E]">
-      <div className="container mx-auto px-6 py-16">
-        {/* Hero Section */}
-        <div className="text-center mb-16">
-          <h1 className="text-6xl font-bold mb-6 bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent">
-            League Voice Companion
-          </h1>
-          <p className="text-xl text-[#B4BEC8] mb-2">Your ultimate League of Legends companion</p>
-          <p className="text-lg text-[#78828C]">Live game detection • Voice comms • Match analytics</p>
-        </div>
+interface PlayerStats {
+  puuid: string;
+  wins: number;
+  losses: number;
+  totalGames: number;
+  winRate: number;
+  last20Wins: number;
+  last20Losses: number;
+  last20WinRate: number;
+  mainRole: string | null;
+  topChampions: Array<{
+    championId: number;
+    games: number;
+    wins: number;
+    losses: number;
+    winRate: number;
+  }>;
+}
+
+interface RiotAccount {
+  gameName: string;
+  tagLine: string;
+  region?: string;
+  connected: boolean;
+}
+
+interface Match {
+  matchId: string;
+  gameCreation: number;
+  gameDuration: number;
+  gameMode: string;
+  gameType: string;
+  participants: Array<{
+    puuid: string;
+    championId: number;
+    teamId: number;
+    win: boolean;
+    kills: number;
+    deaths: number;
+    assists: number;
+    totalMinionsKilled: number;
+    individualPosition: string;
+    role: string;
+  }>;
+  teams: Array<{
+    teamId: number;
+    win: boolean;
+  }>;
+}
+
+export default function ProfilePage() {
+  const [stats, setStats] = useState<PlayerStats | null>(null);
+  const [account, setAccount] = useState<RiotAccount | null>(null);
+  const [recentMatches, setRecentMatches] = useState<Match[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [roleStats, setRoleStats] = useState<Record<string, { played: number; wins: number; losses: number }>>({});
+
+  useEffect(() => {
+    loadProfile();
+  }, []);
+
+  const loadProfile = async () => {
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const apiUrl = getApiUrl();
+
+      // Load account info
+      const accountRes = await fetch(`${apiUrl}/auth/riot/status`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (accountRes.ok) {
+        const accountData = await accountRes.json();
+        setAccount(accountData);
+      }
+
+      // Load player stats first
+      const statsRes = await fetch(`${apiUrl}/stats/profile`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      let statsData: PlayerStats | null = null;
+      if (statsRes.ok) {
+        statsData = await statsRes.json();
+        setStats(statsData);
+      }
+
+      // Load recent matches
+      const matchesRes = await fetch(`${apiUrl}/stats/match-history?count=10`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (matchesRes.ok) {
+        const matchesData = await matchesRes.json();
+        setRecentMatches(matchesData.slice(0, 10));
         
-        {/* Feature Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
-          <Link
-            href="/match-history"
-            className="group relative bg-[#161C2A] border border-[#283D4D] rounded-xl p-6 hover:border-blue-500/50 hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-300 transform hover:-translate-y-1"
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 bg-blue-500/10 rounded-lg group-hover:bg-blue-500/20 transition">
-                <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h2 className="text-xl font-bold text-white">Match History</h2>
-            </div>
-            <p className="text-[#B4BEC8] text-sm leading-relaxed">View detailed match history with comprehensive stats and analysis</p>
-            <div className="mt-4 text-blue-400 text-sm font-medium group-hover:translate-x-1 transition-transform inline-flex items-center gap-1">
-              View History <span>→</span>
-            </div>
-          </Link>
+        // Calculate role stats using the loaded stats puuid
+        if (statsData) {
+          const roleCounts: Record<string, { played: number; wins: number; losses: number }> = {};
+          matchesData.forEach((match: Match) => {
+            const participant = match.participants?.find((p: any) => p.puuid === statsData!.puuid);
+            if (participant) {
+              const role = participant.individualPosition || participant.role || 'UNKNOWN';
+              const normalizedRole = normalizeRole(role);
+              if (!roleCounts[normalizedRole]) {
+                roleCounts[normalizedRole] = { played: 0, wins: 0, losses: 0 };
+              }
+              roleCounts[normalizedRole].played++;
+              if (participant.win) {
+                roleCounts[normalizedRole].wins++;
+              } else {
+                roleCounts[normalizedRole].losses++;
+              }
+            }
+          });
+          setRoleStats(roleCounts);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading profile:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-          <Link
-            href="/analytics"
-            className="group relative bg-[#161C2A] border border-[#283D4D] rounded-xl p-6 hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/10 transition-all duration-300 transform hover:-translate-y-1"
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 bg-purple-500/10 rounded-lg group-hover:bg-purple-500/20 transition">
-                <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-              </div>
-              <h2 className="text-xl font-bold text-white">Analytics</h2>
-            </div>
-            <p className="text-[#B4BEC8] text-sm leading-relaxed">Champion win rates, pick rates, and meta analysis by rank</p>
-            <div className="mt-4 text-purple-400 text-sm font-medium group-hover:translate-x-1 transition-transform inline-flex items-center gap-1">
-              View Analytics <span>→</span>
-            </div>
-          </Link>
+  const normalizeRole = (role: string): string => {
+    const upper = role.toUpperCase();
+    if (upper.includes('TOP')) return 'TOP';
+    if (upper.includes('JUNGLE')) return 'JUNGLE';
+    if (upper.includes('MID')) return 'MID';
+    if (upper.includes('BOTTOM') || upper.includes('ADC')) return 'ADC';
+    if (upper.includes('UTILITY') || upper.includes('SUPPORT')) return 'SUPPORT';
+    return 'UNKNOWN';
+  };
 
-          <Link
-            href="/game/live"
-            className="group relative bg-[#161C2A] border border-[#283D4D] rounded-xl p-6 hover:border-green-500/50 hover:shadow-lg hover:shadow-green-500/10 transition-all duration-300 transform hover:-translate-y-1"
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 bg-green-500/10 rounded-lg group-hover:bg-green-500/20 transition">
-                <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <h2 className="text-xl font-bold text-white">Live Game</h2>
-            </div>
-            <p className="text-[#B4BEC8] text-sm leading-relaxed">Real-time lobby detection with teammate stats and voice comms</p>
-            <div className="mt-4 text-green-400 text-sm font-medium group-hover:translate-x-1 transition-transform inline-flex items-center gap-1">
-              View Live <span>→</span>
-            </div>
-          </Link>
+  const formatTimeAgo = (timestamp: number) => {
+    const now = Date.now();
+    const diff = now - timestamp;
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const days = Math.floor(hours / 24);
+    if (days > 0) return `${days} day${days > 1 ? 's' : ''} ago`;
+    if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    return 'Just now';
+  };
 
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0D121E] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-[#B4BEC8]">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!account?.connected) {
+    return (
+      <div className="min-h-screen bg-[#0D121E] flex items-center justify-center">
+        <div className="text-center bg-[#161C2A] border border-[#283D4D] rounded-xl p-8 max-w-md">
+          <h2 className="text-2xl font-bold text-white mb-4">Connect Your Riot Account</h2>
+          <p className="text-[#B4BEC8] mb-6">Link your Riot Games account to view your profile and stats.</p>
           <Link
             href="/settings"
-            className="group relative bg-[#161C2A] border border-[#283D4D] rounded-xl p-6 hover:border-pink-500/50 hover:shadow-lg hover:shadow-pink-500/10 transition-all duration-300 transform hover:-translate-y-1"
+            className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
           >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 bg-pink-500/10 rounded-lg group-hover:bg-pink-500/20 transition">
-                <svg className="w-6 h-6 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              </div>
-              <h2 className="text-xl font-bold text-white">Settings</h2>
-            </div>
-            <p className="text-[#B4BEC8] text-sm leading-relaxed">Configure audio devices, Riot account, and preferences</p>
-            <div className="mt-4 text-pink-400 text-sm font-medium group-hover:translate-x-1 transition-transform inline-flex items-center gap-1">
-              Configure <span>→</span>
-            </div>
+            Go to Settings
           </Link>
         </div>
+      </div>
+    );
+  }
 
-        {/* Quick Stats Section */}
-        <div className="mt-16 max-w-4xl mx-auto">
-          <div className="bg-[#161C2A] border border-[#283D4D] rounded-xl p-8">
-            <h2 className="text-2xl font-bold mb-6 text-center">Features</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-blue-400 mb-2">Auto-Detect</div>
-                <p className="text-[#B4BEC8] text-sm">Automatically detects when you join a match</p>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-purple-400 mb-2">Voice Comms</div>
-                <p className="text-[#B4BEC8] text-sm">Join voice rooms with your teammates</p>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-green-400 mb-2">Live Stats</div>
-                <p className="text-[#B4BEC8] text-sm">See teammate stats before the game starts</p>
-              </div>
+  return (
+    <div className="min-h-screen bg-[#0D121E]">
+      <div className="container mx-auto px-6 py-8 max-w-7xl">
+        {/* Player Header */}
+        <div className="bg-[#161C2A] border border-[#283D4D] rounded-xl p-6 mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-white mb-2">
+                {account.gameName}#{account.tagLine}
+                {account.region && <span className="text-[#78828C] text-lg ml-2">({account.region.toUpperCase()})</span>}
+              </h1>
+              {stats && (
+                <div className="flex items-center gap-4 mt-2">
+                  <span className="text-[#B4BEC8]">Level {stats.totalGames > 0 ? Math.floor(stats.totalGames / 10) : 1}</span>
+                  {stats.mainRole && (
+                    <span className="text-[#78828C]">Main Role: <span className="text-white">{stats.mainRole}</span></span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Personal Ratings & Recent Games */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Personal Ratings */}
+            {stats && (
+              <div className="bg-[#161C2A] border border-[#283D4D] rounded-xl p-6">
+                <h2 className="text-xl font-semibold text-white mb-4">Personal Ratings</h2>
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[#B4BEC8]">Soloqueue</span>
+                      <span className="text-[#78828C] text-sm">Overall</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-2xl font-bold text-white">
+                        {stats.wins}W - {stats.losses}L ({stats.winRate.toFixed(1)}%)
+                      </div>
+                    </div>
+                    <div className="mt-2 text-sm text-[#78828C]">
+                      Total Games: {stats.totalGames}
+                    </div>
+                  </div>
+                  <div className="pt-4 border-t border-[#283D4D]">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[#B4BEC8]">Last 20 Games</span>
+                    </div>
+                    <div className="text-xl font-semibold text-white">
+                      {stats.last20Wins}W - {stats.last20Losses}L ({stats.last20WinRate.toFixed(1)}%)
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Recent Games */}
+            <div className="bg-[#161C2A] border border-[#283D4D] rounded-xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-white">Recent Games</h2>
+                <Link href="/match-history" className="text-blue-400 hover:text-blue-300 text-sm">
+                  View All →
+                </Link>
+              </div>
+              {recentMatches.length === 0 ? (
+                <div className="text-center py-8 text-[#B4BEC8]">
+                  <p>No recent games found</p>
+                  <p className="text-sm text-[#78828C] mt-2">Play some games to see your match history</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {recentMatches.map((match) => {
+                    const participant = match.participants?.find((p: any) => p.puuid === stats?.puuid);
+                    if (!participant) return null;
+                    const won = participant.win;
+                    const kda = `${participant.kills}/${participant.deaths}/${participant.assists}`;
+                    const kdaRatio = participant.deaths > 0 
+                      ? ((participant.kills + participant.assists) / participant.deaths).toFixed(2)
+                      : (participant.kills + participant.assists).toFixed(2);
+                    
+                    return (
+                      <Link
+                        key={match.matchId}
+                        href={`/match-history?match=${match.matchId}`}
+                        className="block bg-[#0D121E] border border-[#283D4D] rounded-lg p-4 hover:border-blue-500/50 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className={`w-16 h-16 rounded-lg flex items-center justify-center font-bold text-lg ${
+                              won ? 'bg-blue-500/20 text-blue-400' : 'bg-red-500/20 text-red-400'
+                            }`}>
+                              {won ? 'W' : 'L'}
+                            </div>
+                            <div>
+                              <div className="text-white font-medium">{formatTimeAgo(match.gameCreation)}</div>
+                              <div className="text-[#78828C] text-sm">{formatDuration(match.gameDuration)}</div>
+                              <div className="text-[#B4BEC8] text-sm mt-1">
+                                {kda} KDA ({kdaRatio})
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-[#B4BEC8] text-sm">{participant.totalMinionsKilled} CS</div>
+                            <div className="text-[#78828C] text-xs mt-1">
+                              {normalizeRole(participant.individualPosition || participant.role)}
+                            </div>
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Column - Role & Champion Stats */}
+          <div className="space-y-6">
+            {/* Role Statistics */}
+            <div className="bg-[#161C2A] border border-[#283D4D] rounded-xl p-6">
+              <h2 className="text-xl font-semibold text-white mb-4">Role Statistics</h2>
+              <div className="space-y-3">
+                {Object.entries(roleStats)
+                  .sort((a, b) => b[1].played - a[1].played)
+                  .map(([role, stats]) => {
+                    const winRate = stats.played > 0 ? (stats.wins / stats.played) * 100 : 0;
+                    return (
+                      <div key={role} className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="text-white font-medium">{role}</span>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-[#B4BEC8] text-sm">Played: {stats.played}</div>
+                          <div className={`text-sm font-semibold ${winRate >= 50 ? 'text-green-400' : 'text-red-400'}`}>
+                            Winrate: {winRate.toFixed(1)}%
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                {Object.keys(roleStats).length === 0 && (
+                  <div className="text-[#78828C] text-sm text-center py-4">No role data available</div>
+                )}
+              </div>
+            </div>
+
+            {/* Champion Statistics */}
+            {stats && stats.topChampions.length > 0 && (
+              <div className="bg-[#161C2A] border border-[#283D4D] rounded-xl p-6">
+                <h2 className="text-xl font-semibold text-white mb-4">Champion Statistics</h2>
+                <div className="space-y-3">
+                  {stats.topChampions.map((champ) => (
+                    <div key={champ.championId} className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-[#283D4D] rounded-lg flex items-center justify-center">
+                          <span className="text-xs text-[#78828C]">{champ.championId}</span>
+                        </div>
+                        <span className="text-white font-medium">Champion {champ.championId}</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-[#B4BEC8] text-sm">Played: {champ.games}</div>
+                        <div className={`text-sm font-semibold ${champ.winRate >= 50 ? 'text-green-400' : 'text-red-400'}`}>
+                          {champ.winRate.toFixed(1)}%
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
-    </main>
+    </div>
   );
 }
