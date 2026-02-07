@@ -1,5 +1,5 @@
 import { Controller, Get, Query, Res, UseGuards, Request } from '@nestjs/common';
-import { FastifyReply } from 'fastify';
+import { FastifyReply, FastifyRequest } from 'fastify';
 import { RiotAuthService } from './riot-auth.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 
@@ -18,24 +18,48 @@ export class RiotAuthController {
     @Query('code') code: string,
     @Query('state') state: string,
     @Query('error') error: string,
+    @Query('error_description') errorDescription: string,
+    @Request() req: FastifyRequest,
     @Res() res: FastifyReply
   ) {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 
+    // Log full callback for debugging
+    console.log('=== OAuth Callback Received ===');
+    console.log('Full URL:', req.url);
+    console.log('Query params:', JSON.stringify(req.query, null, 2));
+    console.log('Has code:', !!code);
+    console.log('Has error:', !!error);
+    if (error) {
+      console.log('Error:', error);
+      console.log('Error description:', errorDescription);
+    }
+    console.log('==============================');
+
     // Handle OAuth errors from Riot
     if (error) {
-      console.error('Riot OAuth error:', error);
+      console.error('❌ Riot OAuth error:', error);
+      console.error('Error description:', errorDescription || 'No description');
+      const errorMsg = errorDescription || error;
       return res.redirect(
-        `${frontendUrl}/auth/error?message=${encodeURIComponent(`Riot OAuth error: ${error}`)}`,
+        `${frontendUrl}/auth/error?message=${encodeURIComponent(`Riot OAuth error: ${errorMsg}`)}`,
         302
       );
     }
 
     // Handle missing authorization code
     if (!code) {
-      console.error('Missing authorization code in callback');
+      console.error('❌ Missing authorization code in callback');
+      console.error('This usually means:');
+      console.error('  1. Redirect URI not registered in Riot Developer Portal');
+      console.error('  2. Redirect URI mismatch (check for typos, trailing slashes)');
+      console.error('  3. Riot rejected the request silently');
+      console.error('');
+      console.error('Current redirect URI:', process.env.RIOT_REDIRECT_URI);
+      console.error('Make sure this EXACT URI is registered in Riot Developer Portal');
+      
       return res.redirect(
-        `${frontendUrl}/auth/error?message=${encodeURIComponent('Missing authorization code. Please try again.')}`,
+        `${frontendUrl}/auth/error?message=${encodeURIComponent('Missing authorization code. The redirect URI may not be registered in Riot Developer Portal.')}`,
         302
       );
     }

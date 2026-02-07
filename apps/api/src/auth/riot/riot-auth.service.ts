@@ -20,7 +20,11 @@ export class RiotAuthService {
   }
 
   async getAuthorizationUrl(state?: string): Promise<string> {
-    return this.rsoClient.getAuthorizationUrl(state);
+    const url = this.rsoClient.getAuthorizationUrl(state);
+    console.log('🔐 Generated OAuth URL:', url);
+    console.log('   Redirect URI:', this.configService.get<string>('RIOT_REDIRECT_URI'));
+    console.log('   Client ID:', this.configService.get<string>('RIOT_CLIENT_ID'));
+    return url;
   }
 
   async handleCallback(code: string, state?: string): Promise<{ token: string }> {
