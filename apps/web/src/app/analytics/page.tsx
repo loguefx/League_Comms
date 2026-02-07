@@ -18,7 +18,7 @@ export default function AnalyticsPage() {
   const [champions, setChampions] = useState<ChampionStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
-    rank: 'EMERALD_PLUS',
+    rank: 'PLATINUM_PLUS',
     role: '',
     patch: 'latest',
   });
@@ -49,7 +49,7 @@ export default function AnalyticsPage() {
   return (
     <div className="min-h-screen bg-[#0D121E]">
       <div className="container mx-auto px-6 py-8 max-w-7xl">
-        <h1 className="text-3xl font-bold mb-8 text-white">Champion Analytics</h1>
+        <h1 className="text-3xl font-bold mb-8 text-white">Champions Tier List</h1>
 
         {/* Filters */}
         <div className="bg-[#161C2A] border border-[#283D4D] rounded-xl shadow-lg p-6 mb-6">
@@ -61,13 +61,17 @@ export default function AnalyticsPage() {
                 onChange={(e) => setFilters({ ...filters, rank: e.target.value })}
                 className="w-full px-4 py-3 bg-[#0D121E] border border-[#283D4D] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                <option value="EMERALD_PLUS" className="bg-[#0D121E] text-white">Emerald+</option>
+                <option value="CHALLENGER" className="bg-[#0D121E] text-white">Challenger</option>
+                <option value="GRANDMASTER_PLUS" className="bg-[#0D121E] text-white">Grandmaster+</option>
+                <option value="MASTER_PLUS" className="bg-[#0D121E] text-white">Master+</option>
                 <option value="DIAMOND_PLUS" className="bg-[#0D121E] text-white">Diamond+</option>
+                <option value="EMERALD_PLUS" className="bg-[#0D121E] text-white">Emerald+</option>
                 <option value="PLATINUM_PLUS" className="bg-[#0D121E] text-white">Platinum+</option>
-                <option value="GOLD" className="bg-[#0D121E] text-white">Gold</option>
-                <option value="SILVER" className="bg-[#0D121E] text-white">Silver</option>
-                <option value="BRONZE" className="bg-[#0D121E] text-white">Bronze</option>
-                <option value="IRON" className="bg-[#0D121E] text-white">Iron</option>
+                <option value="GOLD_PLUS" className="bg-[#0D121E] text-white">Gold+</option>
+                <option value="SILVER_PLUS" className="bg-[#0D121E] text-white">Silver+</option>
+                <option value="BRONZE_PLUS" className="bg-[#0D121E] text-white">Bronze+</option>
+                <option value="IRON_PLUS" className="bg-[#0D121E] text-white">Iron+</option>
+                <option value="ALL_RANKS" className="bg-[#0D121E] text-white">All Ranks</option>
               </select>
             </div>
 
