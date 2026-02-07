@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
@@ -18,7 +18,7 @@ export class GameDetectionService {
     private summonerClient: SummonerClient,
     private riotAuthService: RiotAuthService,
     private gameGateway: GameGateway,
-    @InjectQueue('game-detection') private gameQueue: Queue
+    @Optional() @InjectQueue('game-detection') private gameQueue?: Queue
   ) {}
 
   /**
@@ -43,19 +43,22 @@ export class GameDetectionService {
 
     this.activePollingUsers.add(userId);
 
-    // Add recurring job to queue
-    await this.gameQueue.add(
-      'poll-active-game',
-      { userId },
-      {
-        repeat: {
-          every: ACTIVE_GAME_POLL_INTERVAL_MS,
-        },
-        jobId: `poll-${userId}`,
-      }
-    );
-
-    this.logger.log(`Started polling for user ${userId}`);
+    // Add recurring job to queue (if Redis/BullMQ is available)
+    if (this.gameQueue) {
+      await this.gameQueue.add(
+        'poll-active-game',
+        { userId },
+        {
+          repeat: {
+            every: ACTIVE_GAME_POLL_INTERVAL_MS,
+          },
+          jobId: `poll-${userId}`,
+        }
+      );
+      this.logger.log(`Started polling for user ${userId}`);
+    } else {
+      this.logger.warn(`Cannot start polling: Redis/BullMQ not available. Set USE_REDIS=true to enable queue-based polling.`);
+    }
   }
 
   /**
@@ -63,8 +66,10 @@ export class GameDetectionService {
    */
   async stopPolling(userId: string): Promise<void> {
     this.activePollingUsers.delete(userId);
-    await this.gameQueue.removeRepeatableByKey(`poll-${userId}:::${ACTIVE_GAME_POLL_INTERVAL_MS}`);
-    this.logger.log(`Stopped polling for user ${userId}`);
+    if (this.gameQueue) {
+      await this.gameQueue.removeRepeatableByKey(`poll-${userId}:::${ACTIVE_GAME_POLL_INTERVAL_MS}`);
+      this.logger.log(`Stopped polling for user ${userId}`);
+    }
   }
 
   /**

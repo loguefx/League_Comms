@@ -16,12 +16,16 @@ import { BullModule } from '@nestjs/bullmq';
     ConfigModule,
     PrismaModule,
     RedisModule,
-    BullModule.registerQueue({
-      name: 'match-ingestion',
-    }),
-    BullModule.registerQueue({
-      name: 'analytics-aggregation',
-    }),
+    ...(process.env.USE_REDIS !== 'false'
+      ? [
+          BullModule.registerQueue({
+            name: 'match-ingestion',
+          }),
+          BullModule.registerQueue({
+            name: 'analytics-aggregation',
+          }),
+        ]
+      : []),
   ],
   controllers: [AnalyticsController],
   providers: [

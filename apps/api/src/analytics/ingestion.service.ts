@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { MatchClient } from '@league-voice/riot';
@@ -13,7 +13,7 @@ export class IngestionService {
     private matchClient: MatchClient,
     private prisma: PrismaService,
     private redis: RedisService,
-    @InjectQueue('match-ingestion') private ingestionQueue: Queue
+    @Optional() @InjectQueue('match-ingestion') private ingestionQueue?: Queue
   ) {}
 
   /**

@@ -18,15 +18,19 @@ import { AuthModule } from '../auth/auth.module';
     RedisModule,
     AuthModule,
     RiotAuthModule,
-    BullModule.registerQueue({
-      name: 'game-detection',
-    }),
+    ...(process.env.USE_REDIS !== 'false'
+      ? [
+          BullModule.registerQueue({
+            name: 'game-detection',
+          }),
+        ]
+      : []),
   ],
   controllers: [GameController],
   providers: [
     GameDetectionService,
     GameGateway,
-    GameQueueProcessor,
+    ...(process.env.USE_REDIS !== 'false' ? [GameQueueProcessor] : []),
     {
       provide: SpectatorClient,
       useFactory: (configService: ConfigService) => {
