@@ -30,6 +30,11 @@ export class BatchSeedService {
     private aggregationService: AggregationService
   ) {
     const apiKey = this.configService.get<string>('RIOT_API_KEY', '');
+    if (!apiKey) {
+      this.logger.error('❌ RIOT_API_KEY is missing from environment variables!');
+      throw new Error('RIOT_API_KEY is required but not found in environment variables');
+    }
+    this.logger.log(`✅ API Key loaded: ${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 4)}`);
     this.summonerClient = new SummonerClient({ apiKey });
     this.matchClient = new MatchClient({ apiKey });
   }

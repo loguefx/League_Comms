@@ -23,12 +23,7 @@ export class SpectatorClient {
   ): Promise<ActiveGame | null> {
     try {
       const response = await this.axios.get<ActiveGame>(
-        `https://${region}.api.riotgames.com/lol/spectator/v4/active-games/by-summoner/${encryptedSummonerId}`,
-        {
-          headers: {
-            'X-Riot-Token': this.config.apiKey,
-          },
-        }
+        `https://${region}.api.riotgames.com/lol/spectator/v4/active-games/by-summoner/${encryptedSummonerId}?api_key=${this.config.apiKey}`
       );
 
       return response.data;

@@ -164,17 +164,35 @@ export class MatchClient {
   }
 
   /**
+   * Convert region to Match-V5 routing region
+   * Match-V5 uses routing regions (americas, asia, europe) instead of specific regions
+   */
+  private getRoutingRegion(region: Region): string {
+    const routingMap: Record<Region, string> = {
+      'na1': 'americas',
+      'br1': 'americas',
+      'la1': 'americas',
+      'la2': 'americas',
+      'oc1': 'americas',
+      'euw1': 'europe',
+      'eun1': 'europe',
+      'tr1': 'europe',
+      'ru': 'europe',
+      'kr': 'asia',
+      'jp1': 'asia',
+    };
+    return routingMap[region] || 'americas';
+  }
+
+  /**
    * Get match by match ID
+   * Note: Match-V5 uses routing regions (americas, asia, europe)
    */
   async getMatch(region: Region, matchId: string): Promise<Match> {
     try {
+      const routingRegion = this.getRoutingRegion(region);
       const response = await this.axios.get<Match>(
-        `https://${region}.api.riotgames.com/lol/match/v5/matches/${matchId}`,
-        {
-          headers: {
-            'X-Riot-Token': this.config.apiKey,
-          },
-        }
+        `https://${routingRegion}.api.riotgames.com/lol/match/v5/matches/${matchId}?api_key=${this.config.apiKey}`
       );
 
       return response.data;
@@ -226,13 +244,10 @@ export class MatchClient {
       if (options?.startTime !== undefined) params.append('startTime', options.startTime.toString());
       if (options?.endTime !== undefined) params.append('endTime', options.endTime.toString());
 
+      params.append('api_key', this.config.apiKey);
+      const routingRegion = this.getRoutingRegion(region);
       const response = await this.axios.get<string[]>(
-        `https://${region}.api.riotgames.com/lol/match/v5/matches/by-puuid/${puuid}/ids?${params.toString()}`,
-        {
-          headers: {
-            'X-Riot-Token': this.config.apiKey,
-          },
-        }
+        `https://${routingRegion}.api.riotgames.com/lol/match/v5/matches/by-puuid/${puuid}/ids?${params.toString()}`
       );
 
       return response.data;
