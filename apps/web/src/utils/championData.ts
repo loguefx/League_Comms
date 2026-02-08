@@ -1,21 +1,191 @@
-// Champion ID to name mapping (simplified - in production, use Data Dragon)
-export const CHAMPION_NAMES: Record<number, string> = {
-  1: 'Annie',
-  2: 'Olaf',
-  3: 'Galio',
-  4: 'Twisted Fate',
-  5: 'Xin Zhao',
-  // Add more as needed - in production, fetch from Data Dragon API
-};
+// Champion data from Riot Data Dragon API
+// This file provides utilities to fetch and use champion data
 
-export function getChampionName(championId: number): string {
-  return CHAMPION_NAMES[championId] || `Champion ${championId}`;
+interface ChampionData {
+  id: string;
+  key: string;
+  name: string;
+  title: string;
+  image: {
+    full: string;
+  };
 }
 
-export function getChampionImageUrl(championId: number): string {
-  // In production, use Data Dragon CDN
-  // For now, return placeholder
-  return `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/${getChampionName(championId)}.png`;
+interface ChampionDataResponse {
+  data: Record<string, ChampionData>;
+}
+
+// Cache for champion data
+let championDataCache: Record<number, ChampionData> | null = null;
+let latestVersion: string | null = null;
+
+/**
+ * Fetch the latest Data Dragon version
+ */
+async function fetchLatestVersion(): Promise<string> {
+  try {
+    const response = await fetch('https://ddragon.leagueoflegends.com/api/versions.json');
+    const versions: string[] = await response.json();
+    return versions[0]; // Latest version
+  } catch (error) {
+    console.error('Failed to fetch Data Dragon version:', error);
+    return '14.1.1'; // Fallback version
+  }
+}
+
+/**
+ * Fetch champion data from Data Dragon
+ */
+async function fetchChampionData(): Promise<Record<number, ChampionData>> {
+  if (championDataCache) {
+    return championDataCache;
+  }
+
+  try {
+    if (!latestVersion) {
+      latestVersion = await fetchLatestVersion();
+    }
+
+    const response = await fetch(
+      `https://ddragon.leagueoflegends.com/cdn/${latestVersion}/data/en_US/champion.json`
+    );
+    const data: ChampionDataResponse = await response.json();
+
+    // Convert to map by champion ID (key is string ID, we need numeric)
+    const championMap: Record<number, ChampionData> = {};
+    Object.values(data.data).forEach((champion) => {
+      const championId = parseInt(champion.key, 10);
+      if (!isNaN(championId)) {
+        championMap[championId] = champion;
+      }
+    });
+
+    championDataCache = championMap;
+    return championMap;
+  } catch (error) {
+    console.error('Failed to fetch champion data:', error);
+    return {};
+  }
+}
+
+/**
+ * Get champion name by ID
+ */
+export async function getChampionName(championId: number): Promise<string> {
+  const championData = await fetchChampionData();
+  return championData[championId]?.name || `Champion ${championId}`;
+}
+
+/**
+ * Get champion name synchronously (uses cache if available)
+ */
+export function getChampionNameSync(championId: number): string {
+  if (championDataCache && championDataCache[championId]) {
+    return championDataCache[championId].name;
+  }
+  return `Champion ${championId}`;
+}
+
+/**
+ * Get champion image URL by ID
+ */
+export function getChampionImageUrl(championId: number, version?: string): string {
+  const championData = championDataCache;
+  if (championData && championData[championId]) {
+    const championKey = championData[championId].id;
+    const v = version || latestVersion || '14.1.1';
+    return `https://ddragon.leagueoflegends.com/cdn/${v}/img/champion/${championKey}.png`;
+  }
+  // Fallback: try to construct URL from champion ID (less reliable)
+  return `https://ddragon.leagueoflegends.com/cdn/${version || latestVersion || '14.1.1'}/img/champion/Unknown.png`;
+}
+
+/**
+ * Preload champion data (call this on app initialization)
+ */
+export async function preloadChampionData(): Promise<void> {
+  await fetchChampionData();
+}
+
+/**
+ * Calculate tier based on win rate and pick rate (U.GG-style)
+ * Tiers: S+, S, A, B, C, D
+ */
+export function calculateTier(winRate: number, pickRate: number, games: number): string {
+  // Minimum games for reliable tier (U.GG typically uses ~100-200)
+  if (games < 50) {
+    return 'D'; // Low sample size = unreliable
+  }
+
+  // Base tier on win rate with adjustments for pick rate
+  // Higher pick rate = more competitive, so we adjust expectations
+  let tierScore = winRate;
+
+  // Adjust for pick rate (popular champs are harder to maintain high WR)
+  if (pickRate > 10) {
+    tierScore += 2; // Popular champs get slight boost
+  } else if (pickRate > 5) {
+    tierScore += 1;
+  }
+
+  // Adjust for sample size (more games = more reliable)
+  if (games > 1000) {
+    tierScore += 1;
+  } else if (games < 200) {
+    tierScore -= 1;
+  }
+
+  // Determine tier
+  if (tierScore >= 55) return 'S+';
+  if (tierScore >= 53) return 'S';
+  if (tierScore >= 51) return 'A';
+  if (tierScore >= 49) return 'B';
+  if (tierScore >= 47) return 'C';
+  return 'D';
+}
+
+/**
+ * Get tier color for display
+ */
+export function getTierColor(tier: string): string {
+  switch (tier) {
+    case 'S+':
+      return 'text-yellow-400';
+    case 'S':
+      return 'text-yellow-500';
+    case 'A':
+      return 'text-green-400';
+    case 'B':
+      return 'text-blue-400';
+    case 'C':
+      return 'text-purple-400';
+    case 'D':
+      return 'text-gray-400';
+    default:
+      return 'text-gray-500';
+  }
+}
+
+/**
+ * Get tier background color for badges
+ */
+export function getTierBgColor(tier: string): string {
+  switch (tier) {
+    case 'S+':
+      return 'bg-yellow-500/20 border-yellow-500/50';
+    case 'S':
+      return 'bg-yellow-600/20 border-yellow-600/50';
+    case 'A':
+      return 'bg-green-500/20 border-green-500/50';
+    case 'B':
+      return 'bg-blue-500/20 border-blue-500/50';
+    case 'C':
+      return 'bg-purple-500/20 border-purple-500/50';
+    case 'D':
+      return 'bg-gray-500/20 border-gray-500/50';
+    default:
+      return 'bg-gray-500/20 border-gray-500/50';
+  }
 }
 
 // Role order for display (Top, Jungle, Mid, ADC, Support)

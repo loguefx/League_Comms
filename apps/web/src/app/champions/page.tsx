@@ -2,6 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { getApiUrl } from '@/utils/api';
+import {
+  preloadChampionData,
+  getChampionNameSync,
+  getChampionImageUrl,
+  calculateTier,
+  getTierColor,
+  getTierBgColor,
+} from '@/utils/championData';
 
 interface ChampionStats {
   championId: number;
@@ -10,20 +18,138 @@ interface ChampionStats {
   winRate: number;
   pickRate: number;
   banRate: number;
+  role?: string; // Optional - only present when "All Roles" is selected
 }
 
 export default function ChampionsPage() {
   const [champions, setChampions] = useState<ChampionStats[]>([]);
   const [loading, setLoading] = useState(true);
+  const [championDataLoaded, setChampionDataLoaded] = useState(false);
   const [filters, setFilters] = useState({
     rank: 'PLATINUM_PLUS',
     role: '',
     patch: 'latest',
   });
 
+  // Preload champion data on mount
   useEffect(() => {
-    loadChampions();
-  }, [filters]);
+    preloadChampionData().then(() => {
+      setChampionDataLoaded(true);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (championDataLoaded) {
+      loadChampions();
+    }
+  }, [filters, championDataLoaded]);
+
+  // Helper function to render champions table
+  const renderChampionsTable = (roleChampions: ChampionStats[]) => {
+    return (
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-[#0D121E] border-b border-[#283D4D]">
+            <tr>
+              <th className="px-4 py-4 text-left text-xs font-semibold text-[#B4BEC8] uppercase tracking-wider">
+                Rank
+              </th>
+              <th className="px-4 py-4 text-left text-xs font-semibold text-[#B4BEC8] uppercase tracking-wider">
+                Champion
+              </th>
+              <th className="px-4 py-4 text-center text-xs font-semibold text-[#B4BEC8] uppercase tracking-wider">
+                Tier
+              </th>
+              <th className="px-4 py-4 text-right text-xs font-semibold text-[#B4BEC8] uppercase tracking-wider">
+                Win Rate
+              </th>
+              <th className="px-4 py-4 text-right text-xs font-semibold text-[#B4BEC8] uppercase tracking-wider">
+                Pick Rate
+              </th>
+              <th className="px-4 py-4 text-right text-xs font-semibold text-[#B4BEC8] uppercase tracking-wider">
+                Ban Rate
+              </th>
+              <th className="px-4 py-4 text-left text-xs font-semibold text-[#B4BEC8] uppercase tracking-wider">
+                Counter Picks
+              </th>
+              <th className="px-4 py-4 text-right text-xs font-semibold text-[#B4BEC8] uppercase tracking-wider">
+                Matches
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#283D4D]">
+            {roleChampions.map((champ, index) => {
+              const tier = calculateTier(champ.winRate, champ.pickRate, champ.games);
+              const championName = getChampionNameSync(champ.championId);
+              const championImageUrl = getChampionImageUrl(champ.championId);
+
+              return (
+                <tr key={`${champ.championId}-${champ.role || 'all'}`} className="hover:bg-[#0D121E] transition-colors">
+                  <td className="px-4 py-4 whitespace-nowrap text-[#B4BEC8] font-medium">
+                    #{index + 1}
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 rounded-lg mr-3 overflow-hidden flex-shrink-0">
+                        <img
+                          src={championImageUrl}
+                          alt={championName}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            // Fallback to placeholder if image fails to load
+                            (e.target as HTMLImageElement).src = `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/Unknown.png`;
+                          }}
+                        />
+                      </div>
+                      <span className="font-medium text-white">{championName}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-center">
+                    <span
+                      className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold border ${getTierBgColor(tier)} ${getTierColor(tier)}`}
+                    >
+                      {tier}
+                    </span>
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-right">
+                    <span className={`font-semibold ${champ.winRate >= 50 ? 'text-green-400' : 'text-red-400'}`}>
+                      {champ.winRate.toFixed(2)}%
+                    </span>
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-right text-[#B4BEC8]">
+                    {champ.pickRate.toFixed(2)}%
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-right text-[#B4BEC8]">
+                    {champ.banRate?.toFixed(2) || '0.00'}%
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-1">
+                      {/* Placeholder for counter picks - can be enhanced with matchup data later */}
+                      <div className="flex -space-x-2">
+                        {[1, 2, 3, 4, 5, 6].map((i) => (
+                          <div
+                            key={i}
+                            className="w-6 h-6 rounded-full bg-[#283D4D] border border-[#3A4A5C] flex items-center justify-center text-[8px] text-[#78828C]"
+                            title="Counter pick data coming soon"
+                          >
+                            ?
+                          </div>
+                        ))}
+                      </div>
+                      <span className="text-[#78828C] text-xs ml-2">→</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-right text-[#B4BEC8]">
+                    {champ.games?.toLocaleString() || 0}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
 
   const loadChampions = async () => {
     setLoading(true);
@@ -154,7 +280,38 @@ export default function ChampionsPage() {
           ) : (
             <>
               {(() => {
-                // Group champions by role
+                // If a specific role is selected, don't group (all champions are for that role)
+                // If "All Roles" is selected, group by role if role data is available
+                const shouldGroup = !filters.role && champions.some((champ) => champ.role);
+
+                if (!shouldGroup) {
+                  // Single table for selected role or when no role data available
+                  const roleLabels: Record<string, string> = {
+                    TOP: 'Top Lane',
+                    JUNGLE: 'Jungle',
+                    MID: 'Mid Lane',
+                    ADC: 'ADC / Bot Lane',
+                    SUPPORT: 'Support',
+                    '': 'All Roles',
+                  };
+                  const currentRoleLabel = roleLabels[filters.role || ''] || 'Champions';
+
+                  return (
+                    <div key="single" className="bg-[#161C2A] border border-[#283D4D] rounded-xl shadow-lg overflow-hidden">
+                      <div className="bg-[#0D121E] border-b border-[#283D4D] px-6 py-4">
+                        <h2 className="text-xl font-bold text-white">
+                          {currentRoleLabel} ({champions.length} champions)
+                        </h2>
+                        <p className="text-sm text-[#B4BEC8] mt-1">
+                          Sorted by win rate (highest to lowest)
+                        </p>
+                      </div>
+                      {renderChampionsTable(champions)}
+                    </div>
+                  );
+                }
+
+                // Group champions by role (for "All Roles" view)
                 const roleGroups: Record<string, ChampionStats[]> = {
                   TOP: [],
                   JUNGLE: [],
@@ -197,55 +354,7 @@ export default function ChampionsPage() {
                             Sorted by win rate (highest to lowest)
                           </p>
                         </div>
-                        <table className="w-full">
-                          <thead className="bg-[#0D121E] border-b border-[#283D4D]">
-                            <tr>
-                              <th className="px-6 py-4 text-left text-xs font-semibold text-[#B4BEC8] uppercase tracking-wider">
-                                Rank
-                              </th>
-                              <th className="px-6 py-4 text-left text-xs font-semibold text-[#B4BEC8] uppercase tracking-wider">
-                                Champion
-                              </th>
-                              <th className="px-6 py-4 text-right text-xs font-semibold text-[#B4BEC8] uppercase tracking-wider">
-                                Win Rate
-                              </th>
-                              <th className="px-6 py-4 text-right text-xs font-semibold text-[#B4BEC8] uppercase tracking-wider">
-                                Pick Rate
-                              </th>
-                              <th className="px-6 py-4 text-right text-xs font-semibold text-[#B4BEC8] uppercase tracking-wider">
-                                Matches
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-[#283D4D]">
-                            {roleChampions.map((champ, index) => (
-                              <tr key={`${champ.championId}-${champ.role}`} className="hover:bg-[#0D121E] transition-colors">
-                                <td className="px-6 py-4 whitespace-nowrap text-[#B4BEC8] font-medium">
-                                  #{index + 1}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="flex items-center">
-                                    <div className="w-10 h-10 bg-[#283D4D] rounded-lg mr-3 flex items-center justify-center">
-                                      <span className="text-xs text-[#78828C]">{champ.championId}</span>
-                                    </div>
-                                    <span className="font-medium text-white">Champion {champ.championId}</span>
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-right">
-                                  <span className={`font-semibold ${champ.winRate >= 50 ? 'text-green-400' : 'text-red-400'}`}>
-                                    {champ.winRate.toFixed(2)}%
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-right text-[#B4BEC8]">
-                                  {champ.pickRate.toFixed(2)}%
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-right text-[#B4BEC8]">
-                                  {champ.games?.toLocaleString() || 0}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                        {renderChampionsTable(roleChampions)}
                       </div>
                     );
                   });
