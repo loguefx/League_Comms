@@ -31,19 +31,34 @@ export class AnalyticsController {
       const champions = Array.isArray(stats) ? stats : [];
       
       // Convert any remaining BigInt values to numbers (safety check)
-      const sanitizedChampions = champions.map((champ: any) => ({
-        championId: typeof champ.championId === 'bigint' ? Number(champ.championId) : champ.championId,
-        games: typeof champ.games === 'bigint' ? Number(champ.games) : champ.games,
-        wins: typeof champ.wins === 'bigint' ? Number(champ.wins) : champ.wins,
-        winRate: typeof champ.winRate === 'bigint' ? Number(champ.winRate) : champ.winRate,
-        pickRate: typeof champ.pickRate === 'bigint' ? Number(champ.pickRate) : champ.pickRate,
-        banRate: typeof champ.banRate === 'bigint' ? Number(champ.banRate) : champ.banRate,
-        counterPicks: Array.isArray(champ.counterPicks) ? champ.counterPicks.map((id: any) => typeof id === 'bigint' ? Number(id) : id) : champ.counterPicks || [],
-      }));
+      // Also ensure all values are properly typed for JSON serialization
+      const sanitizedChampions = champions.map((champ: any) => {
+        try {
+          return {
+            championId: Number(champ.championId) || 0,
+            games: Number(champ.games) || 0,
+            wins: Number(champ.wins) || 0,
+            winRate: Number(champ.winRate) || 0,
+            pickRate: Number(champ.pickRate) || 0,
+            banRate: Number(champ.banRate) || 0,
+            counterPicks: Array.isArray(champ.counterPicks) 
+              ? champ.counterPicks.map((id: any) => Number(id) || 0).filter((id: number) => id > 0)
+              : [],
+          };
+        } catch (mapError) {
+          console.error(`[AnalyticsController] Error mapping champion:`, mapError, champ);
+          return null;
+        }
+      }).filter((champ: any) => champ !== null);
 
-      return {
+      const response = {
         champions: sanitizedChampions,
       };
+
+      // Log response size for debugging
+      console.log(`[AnalyticsController] Returning ${sanitizedChampions.length} champions, response size: ${JSON.stringify(response).length} bytes`);
+
+      return response;
     } catch (error) {
       console.error('[AnalyticsController] Error getting champion stats:', error);
       if (error instanceof Error) {
