@@ -57,26 +57,31 @@ async function bootstrap() {
   try {
     console.log(`⏳ Starting API server on port ${port}...`);
     
-    // Use app.listen() - this should work with FastifyAdapter
-    // Add a small delay to ensure all modules are initialized
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Use app.listen() with timeout to detect if it hangs
+    const listenPromise = app.listen(port, '0.0.0.0');
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`app.listen() timed out after 10 seconds - server may be hanging`));
+      }, 10000);
+    });
     
-    await app.listen(port, '0.0.0.0');
+    await Promise.race([listenPromise, timeoutPromise]);
     
-    // Force flush console output
     console.log(`✅ Server listen() completed successfully`);
-    process.stdout.write(`🚀 API server running on http://localhost:${port}\n`);
-    process.stdout.write(`🌐 API server accessible on http://0.0.0.0:${port}\n`);
-    process.stdout.write(`📡 Health check: http://localhost:${port}/health\n`);
-    process.stdout.write(`🔧 Config test: http://localhost:${port}/auth/riot/test/config\n`);
-    process.stdout.write(`🔑 API key test: http://localhost:${port}/auth/riot/test/api-key\n`);
-    process.stdout.write(`🔐 OAuth start: http://localhost:${port}/auth/riot/start\n`);
+    console.log(`🚀 API server running on http://localhost:${port}`);
+    console.log(`🌐 API server accessible on http://0.0.0.0:${port}`);
+    console.log(`📡 Health check: http://localhost:${port}/health`);
+    console.log(`🔧 Config test: http://localhost:${port}/auth/riot/test/config`);
+    console.log(`🔑 API key test: http://localhost:${port}/auth/riot/test/api-key`);
+    console.log(`🔐 OAuth start: http://localhost:${port}/auth/riot/start`);
     
     // Verify server is actually listening
     const httpServer = app.getHttpServer();
     const address = httpServer.address();
     if (address) {
       console.log(`📍 Server is listening on:`, address);
+    } else {
+      console.warn(`⚠️  Server address is null - server may not be listening`);
     }
   } catch (error) {
     console.error('❌ Failed to start API server:', error);
