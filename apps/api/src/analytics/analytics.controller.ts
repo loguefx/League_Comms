@@ -25,13 +25,30 @@ export class AnalyticsController {
     try {
       const stats = await this.analyticsService.getChampionStats({ rank, role, patch, region });
 
-      console.log(`[AnalyticsController] Returning ${stats.length} champions for rank=${rank}, role=${role}, patch=${patch}`);
+      console.log(`[AnalyticsController] Returning ${stats?.length || 0} champions for rank=${rank}, role=${role}, patch=${patch}`);
+
+      // Ensure stats is an array and properly formatted
+      const champions = Array.isArray(stats) ? stats : [];
+      
+      // Convert any remaining BigInt values to numbers (safety check)
+      const sanitizedChampions = champions.map((champ: any) => ({
+        championId: typeof champ.championId === 'bigint' ? Number(champ.championId) : champ.championId,
+        games: typeof champ.games === 'bigint' ? Number(champ.games) : champ.games,
+        wins: typeof champ.wins === 'bigint' ? Number(champ.wins) : champ.wins,
+        winRate: typeof champ.winRate === 'bigint' ? Number(champ.winRate) : champ.winRate,
+        pickRate: typeof champ.pickRate === 'bigint' ? Number(champ.pickRate) : champ.pickRate,
+        banRate: typeof champ.banRate === 'bigint' ? Number(champ.banRate) : champ.banRate,
+        counterPicks: Array.isArray(champ.counterPicks) ? champ.counterPicks.map((id: any) => typeof id === 'bigint' ? Number(id) : id) : champ.counterPicks || [],
+      }));
 
       return {
-        champions: stats,
+        champions: sanitizedChampions,
       };
     } catch (error) {
       console.error('[AnalyticsController] Error getting champion stats:', error);
+      if (error instanceof Error) {
+        console.error('[AnalyticsController] Error stack:', error.stack);
+      }
       return {
         champions: [],
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -142,7 +159,21 @@ export class AnalyticsController {
    */
   @Get('patches')
   async getAvailablePatches() {
-    return await this.analyticsService.getAvailablePatches();
+    try {
+      const result = await this.analyticsService.getAvailablePatches();
+      console.log(`[AnalyticsController] Returning patches:`, result);
+      return result;
+    } catch (error) {
+      console.error('[AnalyticsController] Error getting patches:', error);
+      if (error instanceof Error) {
+        console.error('[AnalyticsController] Error stack:', error.stack);
+      }
+      return {
+        patches: [],
+        latest: null,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
   }
 
   /**
