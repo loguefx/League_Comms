@@ -180,6 +180,11 @@ export class MatchClient {
       'ru': 'europe',
       'kr': 'asia',
       'jp1': 'asia',
+      'ph2': 'asia', // Philippines
+      'sg2': 'asia', // Singapore
+      'th2': 'asia', // Thailand
+      'tw2': 'asia', // Taiwan
+      'vn2': 'asia', // Vietnam
     };
     return routingMap[region] || 'americas';
   }
