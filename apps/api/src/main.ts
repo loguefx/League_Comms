@@ -13,16 +13,25 @@ async function bootstrap() {
   ) as any;
 
   // Enable CORS for web and desktop clients
-  // In development, allow all origins. In production, use ALLOWED_ORIGINS env var
-  const allowedOrigins = process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',')
-    : process.env.NODE_ENV === 'production'
-    ? ['http://localhost:3000']
-    : true; // Allow all origins in development
+  // In development, always allow all origins (for IP addresses, localhost, etc.)
+  // In production, use ALLOWED_ORIGINS env var
+  let corsOrigin: boolean | string[] = true; // Default: allow all in development
+  
+  if (process.env.NODE_ENV === 'production') {
+    // Production: use ALLOWED_ORIGINS if set, otherwise default to localhost
+    corsOrigin = process.env.ALLOWED_ORIGINS
+      ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
+      : ['http://localhost:3000'];
+  } else {
+    // Development: always allow all origins (handles IP addresses, localhost, etc.)
+    corsOrigin = true;
+  }
 
   app.enableCors({
-    origin: allowedOrigins,
+    origin: corsOrigin,
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   } as any);
 
   // Global exception filter
