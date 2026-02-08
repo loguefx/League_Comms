@@ -31,28 +31,36 @@ export class MatchPullService implements OnModuleInit {
     private aggregationService: AggregationService,
     private rateLimiter: RateLimiterService
   ) {
+    this.logger.log('[MatchPullService] Constructor called');
     const apiKey = this.configService.get<string>('RIOT_API_KEY', '');
     if (!apiKey) {
-      this.logger.warn('RIOT_API_KEY not found - automatic match pulling disabled');
+      this.logger.warn('[MatchPullService] RIOT_API_KEY not found - automatic match pulling disabled');
       return;
     }
+    this.logger.log('[MatchPullService] API Key found, initializing clients...');
     this.summonerClient = new SummonerClient({ apiKey });
     this.matchClient = new MatchClient({ apiKey });
+    this.logger.log('[MatchPullService] Clients initialized successfully');
   }
 
   /**
    * Pull matches on server startup
    */
   async onModuleInit() {
-    // Wait a bit for other services to initialize
+    this.logger.log('[MatchPullService] onModuleInit called - waiting 5 seconds for server to be ready...');
+    
+    // Wait a bit for other services to initialize and server to start listening
     await new Promise(resolve => setTimeout(resolve, 5000));
     
-    this.logger.log('Starting initial match pull on startup...');
+    this.logger.log('[MatchPullService] Starting initial match pull on startup...');
     try {
       await this.pullMatchesFromAllRegions();
-      this.logger.log('Initial match pull complete');
+      this.logger.log('[MatchPullService] Initial match pull complete');
     } catch (error) {
-      this.logger.error('Initial match pull failed:', error);
+      this.logger.error('[MatchPullService] Initial match pull failed:', error);
+      if (error instanceof Error) {
+        this.logger.error('[MatchPullService] Error details:', error.message, error.stack);
+      }
     }
   }
 
