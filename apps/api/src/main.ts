@@ -55,28 +55,24 @@ async function bootstrap() {
   const port = process.env.PORT || 4000;
   
   try {
+    console.log(`⏳ Initializing NestJS application...`);
+    
+    // CRITICAL: Initialize the app first - this sets up all Fastify hooks properly
+    await app.init();
+    console.log(`✓ App initialized - Fastify hooks are ready`);
+    
     console.log(`⏳ Starting API server on port ${port}...`);
     
-    // Get the underlying Fastify instance BEFORE calling listen
-    // This ensures we have access to the server
-    const httpServer = app.getHttpServer();
-    console.log(`✓ Got HTTP server instance`);
-    
-    // Listen directly on the Fastify server using Promise wrapper
-    await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error(`Fastify listen() timed out after 10 seconds`));
-      }, 10000);
-      
-      httpServer.listen({ port, host: '0.0.0.0' }, (err?: Error) => {
-        clearTimeout(timeout);
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
+    // Now use app.listen() - this should work now that app is initialized
+    // Wrap in Promise.race with timeout to detect if it hangs
+    const listenPromise = app.listen(port, '0.0.0.0');
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`app.listen() timed out after 15 seconds`));
+      }, 15000);
     });
+    
+    await Promise.race([listenPromise, timeoutPromise]);
     
     console.log(`✅ Server listen() completed successfully`);
     console.log(`🚀 API server running on http://localhost:${port}`);
@@ -87,6 +83,7 @@ async function bootstrap() {
     console.log(`🔐 OAuth start: http://localhost:${port}/auth/riot/start`);
     
     // Verify server is actually listening
+    const httpServer = app.getHttpServer();
     const address = httpServer.address();
     if (address) {
       console.log(`📍 Server is listening on:`, address);
