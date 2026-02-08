@@ -347,18 +347,17 @@ export default function ChampionsPage() {
                 onChange={(e) => setFilters({ ...filters, patch: e.target.value })}
                 className="w-full px-4 py-3 bg-[#0D121E] border border-[#283D4D] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                {latestPatch && (
-                  <option value={latestPatch} className="bg-[#0D121E] text-white">
-                    {latestPatch} (Latest)
+                {availablePatches.length > 0 ? (
+                  availablePatches.map((patch) => (
+                    <option key={patch} value={patch} className="bg-[#0D121E] text-white">
+                      {patch}{patch === latestPatch ? ' (Latest)' : ''}
+                    </option>
+                  ))
+                ) : (
+                  <option value="latest" className="bg-[#0D121E] text-white">
+                    {filters.patch === 'latest' ? 'Loading patches...' : filters.patch}
                   </option>
                 )}
-                {availablePatches
-                  .filter((p) => p !== latestPatch)
-                  .map((patch) => (
-                    <option key={patch} value={patch} className="bg-[#0D121E] text-white">
-                      {patch}
-                    </option>
-                  ))}
               </select>
             </div>
 
