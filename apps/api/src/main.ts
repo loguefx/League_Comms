@@ -57,15 +57,26 @@ async function bootstrap() {
   try {
     console.log(`⏳ Starting API server on port ${port}...`);
     
-    // Use app.listen() with timeout to detect if it hangs
-    const listenPromise = app.listen(port, '0.0.0.0');
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => {
-        reject(new Error(`app.listen() timed out after 10 seconds - server may be hanging`));
-      }, 10000);
-    });
+    // Get the underlying Fastify instance BEFORE calling listen
+    // This ensures we have access to the server
+    const httpServer = app.getHttpServer();
+    console.log(`✓ Got HTTP server instance`);
     
-    await Promise.race([listenPromise, timeoutPromise]);
+    // Listen directly on the Fastify server using Promise wrapper
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error(`Fastify listen() timed out after 10 seconds`));
+      }, 10000);
+      
+      httpServer.listen({ port, host: '0.0.0.0' }, (err?: Error) => {
+        clearTimeout(timeout);
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+    });
     
     console.log(`✅ Server listen() completed successfully`);
     console.log(`🚀 API server running on http://localhost:${port}`);
@@ -76,7 +87,6 @@ async function bootstrap() {
     console.log(`🔐 OAuth start: http://localhost:${port}/auth/riot/start`);
     
     // Verify server is actually listening
-    const httpServer = app.getHttpServer();
     const address = httpServer.address();
     if (address) {
       console.log(`📍 Server is listening on:`, address);
