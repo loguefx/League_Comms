@@ -214,38 +214,57 @@ export default function ChampionsPage() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
-      const response = await fetch(fullUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        signal: controller.signal,
-      });
+      let response: Response;
+      try {
+        response = await fetch(fullUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          signal: controller.signal,
+        });
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        // Handle network errors (connection refused, CORS, etc.)
+        const errorMessage = fetchError?.message || String(fetchError) || 'Unknown fetch error';
+        const isConnectionError = 
+          errorMessage.includes('Failed to fetch') || 
+          errorMessage.includes('ERR_CONNECTION_REFUSED') ||
+          errorMessage.includes('NetworkError') ||
+          fetchError?.name === 'AbortError';
+        
+        throw new Error(
+          isConnectionError
+            ? `Cannot connect to API server at ${apiUrl}. Make sure the API server is running on port 4000.`
+            : `Network error: ${errorMessage}`
+        );
+      }
       
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const errorText = await response.text().catch(() => response.statusText);
+        throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
       }
 
       const data = await response.json();
       console.log(`[ChampionsPage] Received ${data.champions?.length || 0} champions`);
       setChampions(data.champions || []);
-    } catch (error) {
-      console.error('Error loading champions:', error);
-      console.error('Error details:', {
-        message: error instanceof Error ? error.message : String(error),
-        apiUrl: getApiUrl(),
-        fullUrl: `${getApiUrl()}/champions?${new URLSearchParams(Object.entries(filters).filter(([_, v]) => v)).toString()}`,
-      });
+    } catch (error: any) {
+      // Improved error handling that works with all error types
+      const errorMessage = error?.message || String(error) || 'Unknown error';
+      const errorName = error?.name || 'Error';
+      
+      console.error('Error loading champions:', errorMessage);
+      console.error('Error type:', errorName);
+      console.error('API URL:', getApiUrl());
+      
       // Set empty array on error so UI shows "No data" instead of crashing
       setChampions([]);
-      // Show user-friendly error message
-      if (error instanceof Error) {
-        const errorMsg = error.message.includes('Failed to fetch') || error.message.includes('ERR_CONNECTION_REFUSED')
-          ? `Cannot connect to API server at ${getApiUrl()}. Make sure the API server is running on port 4000.`
-          : error.message;
-        alert(`Failed to load champions: ${errorMsg}`);
+      
+      // Show user-friendly error message (only in development or if it's a connection error)
+      if (errorMessage.includes('Cannot connect') || errorMessage.includes('Failed to fetch')) {
+        console.warn('API connection failed. Make sure the API server is running.');
       }
     } finally {
       setLoading(false);
