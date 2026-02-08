@@ -99,10 +99,27 @@ export class BatchSeedService {
               1
             );
 
-            const playersToProcess = players.slice(0, playersPerTierDivision);
+            // Validate players array and filter out invalid entries
+            if (!Array.isArray(players)) {
+              this.logger.warn(`Invalid response from getLeagueEntriesByTier for ${tier} ${division}: not an array`);
+              continue;
+            }
+
+            // Filter out players without required fields
+            const validPlayers = players.filter(p => p && p.summonerId && typeof p.summonerId === 'string');
+            
+            if (validPlayers.length === 0) {
+              this.logger.warn(`No valid players found in ${tier} ${division} (got ${players.length} total, all invalid)`);
+              if (players.length > 0) {
+                this.logger.debug(`Sample player structure: ${JSON.stringify(players[0])}`);
+              }
+              continue;
+            }
+
+            const playersToProcess = validPlayers.slice(0, playersPerTierDivision);
             this.seedProgress.totalPlayers += playersToProcess.length;
 
-            this.logger.log(`Found ${players.length} players in ${tier} ${division}, processing ${playersToProcess.length}`);
+            this.logger.log(`Found ${players.length} players in ${tier} ${division}, ${validPlayers.length} valid, processing ${playersToProcess.length}`);
 
             // Process in batches
             for (let i = 0; i < playersToProcess.length; i += batchSize) {
@@ -111,6 +128,12 @@ export class BatchSeedService {
               await Promise.all(
                 batch.map(async (player) => {
                   try {
+                    // Validate summonerId before making API call
+                    if (!player.summonerId || typeof player.summonerId !== 'string') {
+                      this.logger.error(`Invalid summonerId for player ${player.summonerName}: ${player.summonerId}`);
+                      return;
+                    }
+
                     // Get summoner to get PUUID
                     const summoner = await this.summonerClient.getSummonerById(region, player.summonerId);
                     
@@ -175,8 +198,24 @@ export class BatchSeedService {
             leagueData = await this.summonerClient.getMasterLeague(region, 'RANKED_SOLO_5x5');
           }
 
-          const players = leagueData.entries.slice(0, playersPerTierDivision);
+          // Validate leagueData structure
+          if (!leagueData || !Array.isArray(leagueData.entries)) {
+            this.logger.warn(`Invalid response from ${tier} league API`);
+            continue;
+          }
+
+          // Filter out players without required fields
+          const validPlayers = leagueData.entries.filter(p => p && p.summonerId && typeof p.summonerId === 'string');
+          
+          if (validPlayers.length === 0) {
+            this.logger.warn(`No valid players found in ${tier} (got ${leagueData.entries.length} total, all invalid)`);
+            continue;
+          }
+
+          const players = validPlayers.slice(0, playersPerTierDivision);
           this.seedProgress.totalPlayers += players.length;
+
+          this.logger.log(`Found ${leagueData.entries.length} players in ${tier}, ${validPlayers.length} valid, processing ${players.length}`);
 
           // Process in batches
           for (let i = 0; i < players.length; i += batchSize) {
@@ -185,6 +224,12 @@ export class BatchSeedService {
             await Promise.all(
               batch.map(async (player) => {
                   try {
+                    // Validate summonerId before making API call
+                    if (!player.summonerId || typeof player.summonerId !== 'string') {
+                      this.logger.error(`Invalid summonerId for player ${player.summonerName}: ${player.summonerId}`);
+                      return;
+                    }
+
                     // Get summoner to get PUUID (Master+ entries don't have PUUID directly)
                     const summoner = await this.summonerClient.getSummonerById(region, player.summonerId);
                     
