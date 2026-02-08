@@ -1,12 +1,12 @@
-// SQLite-compatible Prisma schema (for no-Docker setup)
+// PostgreSQL Prisma schema
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -27,7 +27,7 @@ model RiotAccount {
   gameName        String
   tagLine         String
   region          String
-  encryptedTokens String   // SQLite doesn't support Json, store as string
+  encryptedTokens Json     // PostgreSQL supports Json type
   tokenExpiresAt  DateTime
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -78,8 +78,8 @@ model UserSettings {
   user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   autoJoinVoice Boolean @default(true)
   pttKey        String?
-  privacyFlags  String  // SQLite: store JSON as string
-  uiPrefs       String  // SQLite: store JSON as string
+  privacyFlags  Json    // PostgreSQL supports Json type
+  uiPrefs       Json    // PostgreSQL supports Json type
 }
 
 model Match {
