@@ -143,7 +143,7 @@ export class AnalyticsService {
           cs.wins,
           (cs.wins::numeric / NULLIF(cs.games, 0)) AS win_rate,
           (cs.games::numeric / NULLIF(bt.total_games, 0)) AS pick_rate,
-          (cs.banned_matches::numeric / NULLIF(bt.total_matches), 0)) AS ban_rate
+          (cs.banned_matches::numeric / NULLIF(bt.total_matches, 0)) AS ban_rate
         FROM champion_stats cs
         JOIN bucket_totals bt
           ON bt.patch = cs.patch
