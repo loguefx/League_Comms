@@ -1,6 +1,7 @@
 import { Controller, Get, Query, Post } from '@nestjs/common';
 import { AnalyticsService } from './analytics.service';
 import { IngestionService } from './ingestion.service';
+import { AggregationService } from './aggregation.service';
 import { PublicChampionSeedService } from './public-champion-seed.service';
 import { BatchSeedService } from './batch-seed.service';
 
@@ -9,6 +10,7 @@ export class AnalyticsController {
   constructor(
     private analyticsService: AnalyticsService,
     private ingestionService: IngestionService,
+    private aggregationService: AggregationService,
     private seedService: PublicChampionSeedService,
     private batchSeedService: BatchSeedService
   ) {}
@@ -133,5 +135,26 @@ export class AnalyticsController {
   async getSeedProgress() {
     const progress = this.batchSeedService.getProgress();
     return progress || { status: 'not_running', message: 'No seed operation in progress' };
+  }
+
+  /**
+   * Manually trigger aggregation (converts raw matches into champion stats)
+   * This is useful after ingesting matches to immediately see results
+   */
+  @Post('aggregate')
+  async triggerAggregation() {
+    try {
+      await this.aggregationService.aggregateChampionStats();
+      return {
+        success: true,
+        message: 'Aggregation complete. Champion stats have been updated from raw match data.',
+      };
+    } catch (error) {
+      console.error('[AnalyticsController] Aggregation failed:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
   }
 }
