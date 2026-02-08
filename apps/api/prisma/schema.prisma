@@ -85,9 +85,9 @@ model UserSettings {
 
 // U.GG-style match data models
 model Match {
-  matchId      String            @id // "NA1_123..." - Riot match ID
+  matchId      String            @id @map("match_id") // "NA1_123..." - Riot match ID
   region       String
-  queueId      Int // ranked solo = 420
+  queueId      Int               @map("queue_id") // ranked solo = 420
   gameStartTs  DateTime          @map("game_start_ts")
   durationS    Int               @map("duration_s")
   patch        String // "16.3"
