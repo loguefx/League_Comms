@@ -7,6 +7,7 @@ import { AggregationService } from './aggregation.service';
 import { PublicChampionSeedService } from './public-champion-seed.service';
 import { BatchSeedService } from './batch-seed.service';
 import { RateLimiterService } from './rate-limiter.service';
+import { MatchPullService } from './match-pull.service';
 import { MatchClient, SummonerClient } from '@league-voice/riot';
 import { PrismaModule } from '../prisma/prisma.module';
 import { RedisModule } from '../redis/redis.module';
@@ -36,6 +37,7 @@ import { BullModule } from '@nestjs/bullmq';
     PublicChampionSeedService,
     BatchSeedService,
     RateLimiterService,
+    MatchPullService,
     {
       provide: MatchClient,
       useFactory: (configService: ConfigService) => {

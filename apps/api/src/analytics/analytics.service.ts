@@ -22,18 +22,51 @@ export class AnalyticsService {
       ? await this.getLatestPatch() 
       : options.patch;
     
-    const region = options.region || 'na1';
+    // Handle region: 'world' means aggregate across all regions, otherwise filter by specific region
+    const isWorld = options.region === 'world' || !options.region;
+    const region = options.region && options.region !== 'world' ? options.region : null;
     const queueId = 420; // Ranked Solo
     const rankBracket = this.normalizeRankBracket(options.rank || 'ALL_RANKS');
     const role = this.normalizeRole(options.role || 'ALL');
 
     // Query champion stats with bucket totals for pick/ban rates
     // Handle "all_ranks" by aggregating across all rank brackets
+    // Handle "world" region by aggregating across all regions
     const isAllRanks = rankBracket === 'all_ranks';
     
     let stats;
-    if (isAllRanks) {
-      // Aggregate across all rank brackets
+    if (isAllRanks && isWorld) {
+      // Aggregate across all rank brackets AND all regions
+      stats = await this.prisma.$queryRaw<Array<{
+        champion_id: number;
+        games: bigint;
+        wins: bigint;
+        win_rate: number;
+        pick_rate: number;
+        ban_rate: number;
+      }>>`
+        SELECT
+          cs.champion_id,
+          SUM(cs.games)::bigint AS games,
+          SUM(cs.wins)::bigint AS wins,
+          (SUM(cs.wins)::numeric / NULLIF(SUM(cs.games), 0)) AS win_rate,
+          (SUM(cs.games)::numeric / NULLIF(SUM(bt.total_games), 0)) AS pick_rate,
+          (SUM(cs.banned_matches)::numeric / NULLIF(SUM(bt.total_matches), 0)) AS ban_rate
+        FROM champion_stats cs
+        JOIN bucket_totals bt
+          ON bt.patch = cs.patch
+         AND bt.region = cs.region
+         AND bt.queue_id = cs.queue_id
+         AND bt.rank_bracket = cs.rank_bracket
+         AND bt.role = cs.role
+        WHERE cs.patch = ${patch}
+          AND cs.queue_id = ${queueId}
+          AND cs.role = ${role}
+        GROUP BY cs.champion_id
+        ORDER BY win_rate DESC
+      `;
+    } else if (isAllRanks) {
+      // Aggregate across all rank brackets for specific region
       stats = await this.prisma.$queryRaw<Array<{
         champion_id: number;
         games: bigint;
@@ -63,8 +96,39 @@ export class AnalyticsService {
         GROUP BY cs.champion_id
         ORDER BY win_rate DESC
       `;
+    } else if (isWorld) {
+      // Specific rank bracket, aggregate across all regions
+      stats = await this.prisma.$queryRaw<Array<{
+        champion_id: number;
+        games: bigint;
+        wins: bigint;
+        win_rate: number;
+        pick_rate: number;
+        ban_rate: number;
+      }>>`
+        SELECT
+          cs.champion_id,
+          SUM(cs.games)::bigint AS games,
+          SUM(cs.wins)::bigint AS wins,
+          (SUM(cs.wins)::numeric / NULLIF(SUM(cs.games), 0)) AS win_rate,
+          (SUM(cs.games)::numeric / NULLIF(SUM(bt.total_games), 0)) AS pick_rate,
+          (SUM(cs.banned_matches)::numeric / NULLIF(SUM(bt.total_matches), 0)) AS ban_rate
+        FROM champion_stats cs
+        JOIN bucket_totals bt
+          ON bt.patch = cs.patch
+         AND bt.region = cs.region
+         AND bt.queue_id = cs.queue_id
+         AND bt.rank_bracket = cs.rank_bracket
+         AND bt.role = cs.role
+        WHERE cs.patch = ${patch}
+          AND cs.queue_id = ${queueId}
+          AND cs.rank_bracket = ${rankBracket}
+          AND cs.role = ${role}
+        GROUP BY cs.champion_id
+        ORDER BY win_rate DESC
+      `;
     } else {
-      // Specific rank bracket
+      // Specific rank bracket and region
       stats = await this.prisma.$queryRaw<Array<{
         champion_id: number;
         games: bigint;
@@ -79,7 +143,7 @@ export class AnalyticsService {
           cs.wins,
           (cs.wins::numeric / NULLIF(cs.games, 0)) AS win_rate,
           (cs.games::numeric / NULLIF(bt.total_games, 0)) AS pick_rate,
-          (cs.banned_matches::numeric / NULLIF(bt.total_matches, 0)) AS ban_rate
+          (cs.banned_matches::numeric / NULLIF(bt.total_matches), 0)) AS ban_rate
         FROM champion_stats cs
         JOIN bucket_totals bt
           ON bt.patch = cs.patch
@@ -106,7 +170,18 @@ export class AnalyticsService {
       banRate: Number(stat.ban_rate) * 100, // Convert to percentage
     }));
 
-    return championsWithStats;
+    // Calculate counter picks for each champion
+    const championsWithCounterPicks = await Promise.all(
+      championsWithStats.map(async (champ) => {
+        const counterPicks = await this.getCounterPicks(champ.championId, patch, role, rankBracket, region);
+        return {
+          ...champ,
+          counterPicks,
+        };
+      })
+    );
+
+    return championsWithCounterPicks;
   }
 
   /**
@@ -192,6 +267,136 @@ export class AnalyticsService {
     });
 
     return latest?.patch || '16.1';
+  }
+
+  /**
+   * Get available patches from database
+   */
+  async getAvailablePatches() {
+    const patches = await this.prisma.match.findMany({
+      select: { patch: true },
+      distinct: ['patch'],
+      orderBy: { patch: 'desc' },
+    });
+
+    const patchList = patches.map((p) => p.patch).filter(Boolean);
+    const latest = patchList[0] || null;
+
+    return {
+      patches: patchList,
+      latest,
+    };
+  }
+
+  /**
+   * Get counter picks for a champion
+   * Counter picks are champions that have high win rate AGAINST this champion
+   */
+  private async getCounterPicks(
+    championId: number,
+    patch: string,
+    role: string,
+    rankBracket: string,
+    region: string | null
+  ): Promise<number[]> {
+    try {
+      // Query matches where this champion lost
+      // Find which enemy champions won most often against this champion
+      const isAllRanks = rankBracket === 'all_ranks';
+      const isWorld = !region;
+
+      let counterPicks;
+      if (isAllRanks && isWorld) {
+        counterPicks = await this.prisma.$queryRaw<Array<{ champion_id: number; win_rate: number }>>`
+          SELECT 
+            enemy.champion_id,
+            (SUM(CASE WHEN enemy.win = true THEN 1 ELSE 0 END)::numeric / COUNT(*)::numeric) AS win_rate
+          FROM match_participants main
+          JOIN matches m ON m.match_id = main.match_id
+          JOIN match_participants enemy 
+            ON enemy.match_id = main.match_id 
+            AND enemy.team_id != main.team_id
+            AND enemy.role = main.role
+          WHERE main.champion_id = ${championId}
+            AND main.win = false
+            AND m.patch = ${patch}
+            AND main.role = ${role}
+          GROUP BY enemy.champion_id
+          HAVING COUNT(*) >= 10
+          ORDER BY win_rate DESC
+          LIMIT 6
+        `;
+      } else if (isAllRanks) {
+        counterPicks = await this.prisma.$queryRaw<Array<{ champion_id: number; win_rate: number }>>`
+          SELECT 
+            enemy.champion_id,
+            (SUM(CASE WHEN enemy.win = true THEN 1 ELSE 0 END)::numeric / COUNT(*)::numeric) AS win_rate
+          FROM match_participants main
+          JOIN matches m ON m.match_id = main.match_id
+          JOIN match_participants enemy 
+            ON enemy.match_id = main.match_id 
+            AND enemy.team_id != main.team_id
+            AND enemy.role = main.role
+          WHERE main.champion_id = ${championId}
+            AND main.win = false
+            AND m.patch = ${patch}
+            AND m.region = ${region}
+            AND main.role = ${role}
+          GROUP BY enemy.champion_id
+          HAVING COUNT(*) >= 10
+          ORDER BY win_rate DESC
+          LIMIT 6
+        `;
+      } else if (isWorld) {
+        counterPicks = await this.prisma.$queryRaw<Array<{ champion_id: number; win_rate: number }>>`
+          SELECT 
+            enemy.champion_id,
+            (SUM(CASE WHEN enemy.win = true THEN 1 ELSE 0 END)::numeric / COUNT(*)::numeric) AS win_rate
+          FROM match_participants main
+          JOIN matches m ON m.match_id = main.match_id
+          JOIN match_participants enemy 
+            ON enemy.match_id = main.match_id 
+            AND enemy.team_id != main.team_id
+            AND enemy.role = main.role
+          WHERE main.champion_id = ${championId}
+            AND main.win = false
+            AND m.patch = ${patch}
+            AND m.rank_bracket = ${rankBracket}
+            AND main.role = ${role}
+          GROUP BY enemy.champion_id
+          HAVING COUNT(*) >= 10
+          ORDER BY win_rate DESC
+          LIMIT 6
+        `;
+      } else {
+        counterPicks = await this.prisma.$queryRaw<Array<{ champion_id: number; win_rate: number }>>`
+          SELECT 
+            enemy.champion_id,
+            (SUM(CASE WHEN enemy.win = true THEN 1 ELSE 0 END)::numeric / COUNT(*)::numeric) AS win_rate
+          FROM match_participants main
+          JOIN matches m ON m.match_id = main.match_id
+          JOIN match_participants enemy 
+            ON enemy.match_id = main.match_id 
+            AND enemy.team_id != main.team_id
+            AND enemy.role = main.role
+          WHERE main.champion_id = ${championId}
+            AND main.win = false
+            AND m.patch = ${patch}
+            AND m.rank_bracket = ${rankBracket}
+            AND m.region = ${region}
+            AND main.role = ${role}
+          GROUP BY enemy.champion_id
+          HAVING COUNT(*) >= 10
+          ORDER BY win_rate DESC
+          LIMIT 6
+        `;
+      }
+
+      return counterPicks.map((cp) => Number(cp.champion_id));
+    } catch (error) {
+      this.logger.warn(`Failed to get counter picks for champion ${championId}:`, error);
+      return []; // Return empty array on error
+    }
   }
 
   /**

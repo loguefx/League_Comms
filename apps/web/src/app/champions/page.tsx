@@ -18,6 +18,7 @@ interface ChampionStats {
   winRate: number;
   pickRate: number;
   banRate: number;
+  counterPicks?: number[]; // Array of champion IDs that counter this champion
   role?: string; // Optional - only present when "All Roles" is selected
 }
 
@@ -25,17 +26,37 @@ export default function ChampionsPage() {
   const [champions, setChampions] = useState<ChampionStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [championDataLoaded, setChampionDataLoaded] = useState(false);
+  const [availablePatches, setAvailablePatches] = useState<string[]>([]);
+  const [latestPatch, setLatestPatch] = useState<string>('latest');
   const [filters, setFilters] = useState({
     rank: 'PLATINUM_PLUS',
     role: '',
     patch: 'latest',
+    region: 'world', // Default to 'world' to aggregate across all regions
   });
 
-  // Preload champion data on mount
+  // Preload champion data and fetch patches on mount
   useEffect(() => {
     preloadChampionData().then(() => {
       setChampionDataLoaded(true);
     });
+    
+    // Fetch available patches
+    const fetchPatches = async () => {
+      try {
+        const apiUrl = getApiUrl();
+        const response = await fetch(`${apiUrl}/champions/patches`);
+        const data = await response.json();
+        setAvailablePatches(data.patches || []);
+        if (data.latest) {
+          setLatestPatch(data.latest);
+          setFilters(prev => ({ ...prev, patch: data.latest }));
+        }
+      } catch (error) {
+        console.error('Failed to fetch patches:', error);
+      }
+    };
+    fetchPatches();
   }, []);
 
   useEffect(() => {
@@ -124,17 +145,40 @@ export default function ChampionsPage() {
                   </td>
                   <td className="px-4 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-1">
-                      {/* Placeholder for counter picks - can be enhanced with matchup data later */}
                       <div className="flex -space-x-2">
-                        {[1, 2, 3, 4, 5, 6].map((i) => (
-                          <div
-                            key={i}
-                            className="w-6 h-6 rounded-full bg-[#283D4D] border border-[#3A4A5C] flex items-center justify-center text-[8px] text-[#78828C]"
-                            title="Counter pick data coming soon"
-                          >
-                            ?
-                          </div>
-                        ))}
+                        {champ.counterPicks && champ.counterPicks.length > 0 ? (
+                          champ.counterPicks.slice(0, 6).map((counterChampId) => {
+                            const counterName = getChampionNameSync(counterChampId);
+                            const counterImageUrl = getChampionImageUrl(counterChampId);
+                            return (
+                              <div
+                                key={counterChampId}
+                                className="w-6 h-6 rounded-full overflow-hidden border border-[#3A4A5C] flex-shrink-0"
+                                title={counterName}
+                              >
+                                <img
+                                  src={counterImageUrl}
+                                  alt={counterName}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src = `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/Unknown.png`;
+                                  }}
+                                />
+                              </div>
+                            );
+                          })
+                        ) : (
+                          // Show placeholders if no counter picks data
+                          [1, 2, 3, 4, 5, 6].map((i) => (
+                            <div
+                              key={i}
+                              className="w-6 h-6 rounded-full bg-[#283D4D] border border-[#3A4A5C] flex items-center justify-center text-[8px] text-[#78828C]"
+                              title="No counter pick data available"
+                            >
+                              ?
+                            </div>
+                          ))
+                        )}
                       </div>
                       <span className="text-[#78828C] text-xs ml-2">→</span>
                     </div>
@@ -158,6 +202,7 @@ export default function ChampionsPage() {
       if (filters.rank) params.append('rank', filters.rank);
       if (filters.role) params.append('role', filters.role);
       if (filters.patch) params.append('patch', filters.patch);
+      if (filters.region) params.append('region', filters.region);
 
       const apiUrl = getApiUrl();
       const fullUrl = `${apiUrl}/champions?${params}`;
@@ -214,7 +259,7 @@ export default function ChampionsPage() {
 
         {/* Filters */}
         <div className="bg-[#161C2A] border border-[#283D4D] rounded-xl shadow-lg p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <label className="block text-sm font-medium mb-2 text-[#B4BEC8]">Rank Tier</label>
               <select
@@ -259,9 +304,40 @@ export default function ChampionsPage() {
                 onChange={(e) => setFilters({ ...filters, patch: e.target.value })}
                 className="w-full px-4 py-3 bg-[#0D121E] border border-[#283D4D] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                <option value="latest" className="bg-[#0D121E] text-white">Latest</option>
-                <option value="14.1" className="bg-[#0D121E] text-white">14.1</option>
-                <option value="14.2" className="bg-[#0D121E] text-white">14.2</option>
+                {latestPatch && (
+                  <option value={latestPatch} className="bg-[#0D121E] text-white">
+                    {latestPatch} (Latest)
+                  </option>
+                )}
+                {availablePatches
+                  .filter((p) => p !== latestPatch)
+                  .map((patch) => (
+                    <option key={patch} value={patch} className="bg-[#0D121E] text-white">
+                      {patch}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2 text-[#B4BEC8]">Region</label>
+              <select
+                value={filters.region}
+                onChange={(e) => setFilters({ ...filters, region: e.target.value })}
+                className="w-full px-4 py-3 bg-[#0D121E] border border-[#283D4D] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="world" className="bg-[#0D121E] text-white">World (All Regions)</option>
+                <option value="na1" className="bg-[#0D121E] text-white">North America</option>
+                <option value="euw1" className="bg-[#0D121E] text-white">Europe West</option>
+                <option value="eun1" className="bg-[#0D121E] text-white">Europe Nordic & East</option>
+                <option value="kr" className="bg-[#0D121E] text-white">Korea</option>
+                <option value="br1" className="bg-[#0D121E] text-white">Brazil</option>
+                <option value="la1" className="bg-[#0D121E] text-white">Latin America North</option>
+                <option value="la2" className="bg-[#0D121E] text-white">Latin America South</option>
+                <option value="oc1" className="bg-[#0D121E] text-white">Oceania</option>
+                <option value="ru" className="bg-[#0D121E] text-white">Russia</option>
+                <option value="tr1" className="bg-[#0D121E] text-white">Turkey</option>
+                <option value="jp1" className="bg-[#0D121E] text-white">Japan</option>
               </select>
             </div>
           </div>

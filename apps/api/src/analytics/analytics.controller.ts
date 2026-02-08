@@ -138,6 +138,14 @@ export class AnalyticsController {
   }
 
   /**
+   * Get available patches from database
+   */
+  @Get('patches')
+  async getAvailablePatches() {
+    return await this.analyticsService.getAvailablePatches();
+  }
+
+  /**
    * Manually trigger aggregation (converts raw matches into champion stats)
    * This is useful after ingesting matches to immediately see results
    */
