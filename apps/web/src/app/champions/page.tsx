@@ -38,6 +38,8 @@ export default function ChampionsPage() {
       const apiUrl = getApiUrl();
       const fullUrl = `${apiUrl}/champions?${params}`;
       console.log(`[ChampionsPage] Fetching from: ${fullUrl}`);
+      console.log(`[ChampionsPage] API URL: ${apiUrl}`);
+      console.log(`[ChampionsPage] Current hostname: ${typeof window !== 'undefined' ? window.location.hostname : 'N/A'}`);
       
       // Create timeout controller for fetch requests
       const controller = new AbortController();
@@ -62,11 +64,19 @@ export default function ChampionsPage() {
       setChampions(data.champions || []);
     } catch (error) {
       console.error('Error loading champions:', error);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : String(error),
+        apiUrl: getApiUrl(),
+        fullUrl: `${getApiUrl()}/champions?${new URLSearchParams(Object.entries(filters).filter(([_, v]) => v)).toString()}`,
+      });
       // Set empty array on error so UI shows "No data" instead of crashing
       setChampions([]);
       // Show user-friendly error message
       if (error instanceof Error) {
-        alert(`Failed to load champions: ${error.message}`);
+        const errorMsg = error.message.includes('Failed to fetch') || error.message.includes('ERR_CONNECTION_REFUSED')
+          ? `Cannot connect to API server at ${getApiUrl()}. Make sure the API server is running on port 4000.`
+          : error.message;
+        alert(`Failed to load champions: ${errorMsg}`);
       }
     } finally {
       setLoading(false);
