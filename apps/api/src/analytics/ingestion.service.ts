@@ -66,7 +66,7 @@ export class IngestionService {
               teamId: p.teamId,
               championId: p.championId,
               role: this.normalizeRole(p.teamPosition || p.individualPosition || p.role),
-              win: p.win,
+              win: p.win, // Schema uses 'win', not 'won'
             })),
           },
           bans: {

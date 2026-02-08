@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { SummonerClient, MatchClient } from '@league-voice/riot';
+import { SummonerClient, MatchClient, type LeagueEntry } from '@league-voice/riot';
 import { PrismaService } from '../prisma/prisma.service';
 import { IngestionService } from './ingestion.service';
 import { AggregationService } from './aggregation.service';
