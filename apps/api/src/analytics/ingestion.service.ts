@@ -4,6 +4,7 @@ import { Queue } from 'bullmq';
 import { MatchClient } from '@league-voice/riot';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { RateLimiterService } from './rate-limiter.service';
 
 @Injectable()
 export class IngestionService {
@@ -13,6 +14,7 @@ export class IngestionService {
     private matchClient: MatchClient,
     private prisma: PrismaService,
     private redis: RedisService,
+    private rateLimiter: RateLimiterService,
     @Optional() @InjectQueue('match-ingestion') private ingestionQueue?: Queue
   ) {}
 
@@ -33,8 +35,31 @@ export class IngestionService {
     }
 
     try {
-      // Fetch match from Riot API
-      const match = await this.matchClient.getMatch(region as any, matchId);
+      // Rate limit: wait before API call
+      await this.rateLimiter.waitForRequest();
+      
+      // Fetch match from Riot API with retry logic for 429 errors
+      let match;
+      let retryAttempt = 0;
+      while (true) {
+        try {
+          match = await this.matchClient.getMatch(region as any, matchId);
+          break; // Success, exit retry loop
+        } catch (error: any) {
+          // Check if it's a 429 rate limit error
+          if (error?.response?.status === 429 || error?.status === 429) {
+            retryAttempt++;
+            if (retryAttempt > 3) {
+              this.logger.error(`Rate limit exceeded after 3 retries for match ${matchId}`);
+              throw error;
+            }
+            await this.rateLimiter.handleRateLimitError(retryAttempt);
+            continue; // Retry
+          }
+          // Not a 429 error, throw it
+          throw error;
+        }
+      }
 
       // Filter invalid matches (remakes, wrong queue, etc.)
       if (this.shouldSkipMatch(match)) {

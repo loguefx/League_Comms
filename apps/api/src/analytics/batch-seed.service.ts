@@ -4,6 +4,7 @@ import { SummonerClient, MatchClient, type LeagueEntry } from '@league-voice/rio
 import { PrismaService } from '../prisma/prisma.service';
 import { IngestionService } from './ingestion.service';
 import { AggregationService } from './aggregation.service';
+import { RateLimiterService } from './rate-limiter.service';
 import type { Region } from '@league-voice/shared';
 
 export interface SeedProgress {
@@ -27,7 +28,8 @@ export class BatchSeedService {
     private configService: ConfigService,
     private prisma: PrismaService,
     private ingestionService: IngestionService,
-    private aggregationService: AggregationService
+    private aggregationService: AggregationService,
+    private rateLimiter: RateLimiterService
   ) {
     const apiKey = this.configService.get<string>('RIOT_API_KEY', '');
     if (!apiKey) {
@@ -131,6 +133,9 @@ export class BatchSeedService {
               await Promise.all(
                 batch.map(async (player) => {
                   try {
+                    // Rate limit: wait before API calls
+                    await this.rateLimiter.waitForRequest();
+                    
                     // Get PUUID - use directly if available, otherwise fetch via summonerId
                     let puuid: string;
                     
@@ -140,6 +145,7 @@ export class BatchSeedService {
                       this.logger.debug(`Using PUUID directly from league entry for ${player.summonerName}`);
                     } else if (player.summonerId && typeof player.summonerId === 'string') {
                       // Need to fetch PUUID via Summoner API
+                      await this.rateLimiter.waitForRequest();
                       const summoner = await this.summonerClient.getSummonerById(region, player.summonerId);
                       puuid = summoner.puuid;
                     } else {
@@ -148,6 +154,7 @@ export class BatchSeedService {
                     }
                     
                     // Get match IDs
+                    await this.rateLimiter.waitForRequest();
                     const matchIds = await this.matchClient.getMatchList(region, puuid, {
                       count: matchesPerPlayer,
                       queue: 420, // Ranked Solo
@@ -173,17 +180,14 @@ export class BatchSeedService {
                     }
 
                     this.seedProgress.processedPlayers++;
-                    
-                    // Rate limit delay (1200ms = ~50 requests/minute, well under 100/min limit)
-                    await new Promise(resolve => setTimeout(resolve, 1200));
                   } catch (error) {
                     this.logger.error(`Error processing player ${player.summonerName}: ${error}`);
                   }
                 })
               );
 
-              // Batch delay
-              await new Promise(resolve => setTimeout(resolve, 2000));
+              // Batch delay (rate limiter handles this)
+              await this.rateLimiter.waitForBatch();
             }
           } catch (error) {
             this.logger.error(`Error processing ${tier} ${division}: ${error}`);
@@ -243,12 +247,16 @@ export class BatchSeedService {
                     // Get PUUID - use directly if available, otherwise fetch via summonerId
                     let puuid: string;
                     
+                    // Rate limit: wait before API calls
+                    await this.rateLimiter.waitForRequest();
+                    
                     if (player.puuid && typeof player.puuid === 'string') {
                       // PUUID is already in the response - use it directly (faster!)
                       puuid = player.puuid;
                       this.logger.debug(`Using PUUID directly from league entry for ${player.summonerName}`);
                     } else if (player.summonerId && typeof player.summonerId === 'string') {
                       // Need to fetch PUUID via Summoner API
+                      await this.rateLimiter.waitForRequest();
                       const summoner = await this.summonerClient.getSummonerById(region, player.summonerId);
                       puuid = summoner.puuid;
                     } else {
@@ -256,6 +264,7 @@ export class BatchSeedService {
                       return;
                     }
                     
+                    await this.rateLimiter.waitForRequest();
                     const matchIds = await this.matchClient.getMatchList(region, puuid, {
                       count: matchesPerPlayer,
                       queue: 420,
@@ -280,14 +289,13 @@ export class BatchSeedService {
                     }
 
                     this.seedProgress.processedPlayers++;
-                    await new Promise(resolve => setTimeout(resolve, 1200));
                   } catch (error) {
                     this.logger.error(`Error processing player ${player.summonerName}: ${error}`);
                   }
               })
             );
 
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            await this.rateLimiter.waitForBatch();
           }
         } catch (error) {
           this.logger.error(`Error processing ${tier}: ${error}`);
