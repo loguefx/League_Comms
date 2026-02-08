@@ -56,17 +56,28 @@ async function bootstrap() {
   
   try {
     console.log(`⏳ Starting API server on port ${port}...`);
-    const address = await app.listen(port, '0.0.0.0');
+    
+    // Use app.listen() - this should work with FastifyAdapter
+    // Add a small delay to ensure all modules are initialized
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    await app.listen(port, '0.0.0.0');
+    
+    // Force flush console output
     console.log(`✅ Server listen() completed successfully`);
-    console.log(`🚀 API server running on http://localhost:${port}`);
-    console.log(`🌐 API server accessible on http://0.0.0.0:${port}`);
+    process.stdout.write(`🚀 API server running on http://localhost:${port}\n`);
+    process.stdout.write(`🌐 API server accessible on http://0.0.0.0:${port}\n`);
+    process.stdout.write(`📡 Health check: http://localhost:${port}/health\n`);
+    process.stdout.write(`🔧 Config test: http://localhost:${port}/auth/riot/test/config\n`);
+    process.stdout.write(`🔑 API key test: http://localhost:${port}/auth/riot/test/api-key\n`);
+    process.stdout.write(`🔐 OAuth start: http://localhost:${port}/auth/riot/start\n`);
+    
+    // Verify server is actually listening
+    const httpServer = app.getHttpServer();
+    const address = httpServer.address();
     if (address) {
-      console.log(`📍 Server address: ${address}`);
+      console.log(`📍 Server is listening on:`, address);
     }
-    console.log(`📡 Health check: http://localhost:${port}/health`);
-    console.log(`🔧 Config test: http://localhost:${port}/auth/riot/test/config`);
-    console.log(`🔑 API key test: http://localhost:${port}/auth/riot/test/api-key`);
-    console.log(`🔐 OAuth start: http://localhost:${port}/auth/riot/start`);
   } catch (error) {
     console.error('❌ Failed to start API server:', error);
     if (error instanceof Error) {
