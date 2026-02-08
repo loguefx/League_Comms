@@ -53,12 +53,31 @@ async function bootstrap() {
   app.useGlobalInterceptors(new RiotRateLimitInterceptor() as any);
 
   const port = process.env.PORT || 4000;
-  await app.listen(port, '0.0.0.0');
-  console.log(`🚀 API server running on http://localhost:${port}`);
-  console.log(`📡 Health check: http://localhost:${port}/health`);
-  console.log(`🔧 Config test: http://localhost:${port}/auth/riot/test/config`);
-  console.log(`🔑 API key test: http://localhost:${port}/auth/riot/test/api-key`);
-  console.log(`🔐 OAuth start: http://localhost:${port}/auth/riot/start`);
+  
+  try {
+    console.log(`⏳ Starting API server on port ${port}...`);
+    const address = await app.listen(port, '0.0.0.0');
+    console.log(`✅ Server listen() completed successfully`);
+    console.log(`🚀 API server running on http://localhost:${port}`);
+    console.log(`🌐 API server accessible on http://0.0.0.0:${port}`);
+    if (address) {
+      console.log(`📍 Server address: ${address}`);
+    }
+    console.log(`📡 Health check: http://localhost:${port}/health`);
+    console.log(`🔧 Config test: http://localhost:${port}/auth/riot/test/config`);
+    console.log(`🔑 API key test: http://localhost:${port}/auth/riot/test/api-key`);
+    console.log(`🔐 OAuth start: http://localhost:${port}/auth/riot/start`);
+  } catch (error) {
+    console.error('❌ Failed to start API server:', error);
+    if (error instanceof Error) {
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
+    process.exit(1);
+  }
 }
 
-bootstrap();
+bootstrap().catch((error) => {
+  console.error('❌ Failed to bootstrap application:', error);
+  process.exit(1);
+});
