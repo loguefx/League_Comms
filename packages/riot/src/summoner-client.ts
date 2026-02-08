@@ -20,7 +20,8 @@ export interface LeagueEntry {
   queueType: string;
   tier: string;
   rank: string;
-  summonerId: string;
+  summonerId?: string; // Optional - newer API responses may not include this
+  puuid?: string; // Optional - some API responses include PUUID directly
   summonerName: string;
   leaguePoints: number;
   wins: number;

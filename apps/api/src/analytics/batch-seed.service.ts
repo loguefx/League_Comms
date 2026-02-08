@@ -105,8 +105,11 @@ export class BatchSeedService {
               continue;
             }
 
-            // Filter out players without required fields
-            const validPlayers = players.filter(p => p && p.summonerId && typeof p.summonerId === 'string');
+            // Filter out players without required fields (need either puuid OR summonerId)
+            const validPlayers = players.filter(p => 
+              p && 
+              ((p.puuid && typeof p.puuid === 'string') || (p.summonerId && typeof p.summonerId === 'string'))
+            );
             
             if (validPlayers.length === 0) {
               this.logger.warn(`No valid players found in ${tier} ${division} (got ${players.length} total, all invalid)`);
@@ -128,17 +131,24 @@ export class BatchSeedService {
               await Promise.all(
                 batch.map(async (player) => {
                   try {
-                    // Validate summonerId before making API call
-                    if (!player.summonerId || typeof player.summonerId !== 'string') {
-                      this.logger.error(`Invalid summonerId for player ${player.summonerName}: ${player.summonerId}`);
+                    // Get PUUID - use directly if available, otherwise fetch via summonerId
+                    let puuid: string;
+                    
+                    if (player.puuid && typeof player.puuid === 'string') {
+                      // PUUID is already in the response - use it directly (faster!)
+                      puuid = player.puuid;
+                      this.logger.debug(`Using PUUID directly from league entry for ${player.summonerName}`);
+                    } else if (player.summonerId && typeof player.summonerId === 'string') {
+                      // Need to fetch PUUID via Summoner API
+                      const summoner = await this.summonerClient.getSummonerById(region, player.summonerId);
+                      puuid = summoner.puuid;
+                    } else {
+                      this.logger.error(`Player ${player.summonerName} has neither puuid nor summonerId`);
                       return;
                     }
-
-                    // Get summoner to get PUUID
-                    const summoner = await this.summonerClient.getSummonerById(region, player.summonerId);
                     
                     // Get match IDs
-                    const matchIds = await this.matchClient.getMatchList(region, summoner.puuid, {
+                    const matchIds = await this.matchClient.getMatchList(region, puuid, {
                       count: matchesPerPlayer,
                       queue: 420, // Ranked Solo
                       type: 'ranked',
@@ -204,11 +214,17 @@ export class BatchSeedService {
             continue;
           }
 
-          // Filter out players without required fields
-          const validPlayers = leagueData.entries.filter(p => p && p.summonerId && typeof p.summonerId === 'string');
+          // Filter out players without required fields (need either puuid OR summonerId)
+          const validPlayers = leagueData.entries.filter(p => 
+            p && 
+            ((p.puuid && typeof p.puuid === 'string') || (p.summonerId && typeof p.summonerId === 'string'))
+          );
           
           if (validPlayers.length === 0) {
             this.logger.warn(`No valid players found in ${tier} (got ${leagueData.entries.length} total, all invalid)`);
+            if (leagueData.entries.length > 0) {
+              this.logger.debug(`Sample player structure: ${JSON.stringify(leagueData.entries[0])}`);
+            }
             continue;
           }
 
@@ -224,16 +240,23 @@ export class BatchSeedService {
             await Promise.all(
               batch.map(async (player) => {
                   try {
-                    // Validate summonerId before making API call
-                    if (!player.summonerId || typeof player.summonerId !== 'string') {
-                      this.logger.error(`Invalid summonerId for player ${player.summonerName}: ${player.summonerId}`);
+                    // Get PUUID - use directly if available, otherwise fetch via summonerId
+                    let puuid: string;
+                    
+                    if (player.puuid && typeof player.puuid === 'string') {
+                      // PUUID is already in the response - use it directly (faster!)
+                      puuid = player.puuid;
+                      this.logger.debug(`Using PUUID directly from league entry for ${player.summonerName}`);
+                    } else if (player.summonerId && typeof player.summonerId === 'string') {
+                      // Need to fetch PUUID via Summoner API
+                      const summoner = await this.summonerClient.getSummonerById(region, player.summonerId);
+                      puuid = summoner.puuid;
+                    } else {
+                      this.logger.error(`Player ${player.summonerName} has neither puuid nor summonerId`);
                       return;
                     }
-
-                    // Get summoner to get PUUID (Master+ entries don't have PUUID directly)
-                    const summoner = await this.summonerClient.getSummonerById(region, player.summonerId);
                     
-                    const matchIds = await this.matchClient.getMatchList(region, summoner.puuid, {
+                    const matchIds = await this.matchClient.getMatchList(region, puuid, {
                       count: matchesPerPlayer,
                       queue: 420,
                       type: 'ranked',
