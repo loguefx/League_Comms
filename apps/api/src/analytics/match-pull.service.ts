@@ -57,9 +57,10 @@ export class MatchPullService implements OnModuleInit {
   }
 
   /**
-   * Scheduled match pulling - runs every 10 minutes
+   * Scheduled match pulling - runs every 2 minutes
+   * This ensures we're constantly gathering fresh match data
    */
-  @Cron(CronExpression.EVERY_10_MINUTES)
+  @Cron('*/2 * * * *') // Every 2 minutes using cron syntax
   async scheduledMatchPull() {
     this.logger.log('Running scheduled match pull...');
     try {

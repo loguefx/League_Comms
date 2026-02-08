@@ -48,9 +48,10 @@ export class AggregationService implements OnModuleInit {
   }
 
   /**
-   * Scheduled aggregation - runs every 10 minutes
+   * Scheduled aggregation - runs every 2 minutes
+   * This ensures champion stats stay up-to-date as new matches are ingested
    */
-  @Cron(CronExpression.EVERY_10_MINUTES)
+  @Cron('*/2 * * * *') // Every 2 minutes using cron syntax
   async scheduledAggregation() {
     await this.aggregateChampionStats();
   }
