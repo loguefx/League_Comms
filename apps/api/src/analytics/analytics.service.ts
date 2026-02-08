@@ -70,13 +70,47 @@ export class AnalyticsService {
   }
 
   /**
-   * Normalize rank bracket (e.g., "PLATINUM_PLUS" -> "platinum_plus")
+   * Normalize rank bracket (e.g., "PLATINUM_PLUS" -> "platinum_plus", "IRON_PLUS" -> "iron")
+   * Handles both exact tiers (iron, bronze, etc.) and plus variants (iron_plus, platinum_plus, etc.)
    */
   private normalizeRankBracket(rank: string): string {
     if (!rank || rank === 'ALL_RANKS') {
       return 'all_ranks'; // Special case for all ranks
     }
-    return rank.toLowerCase().replace(/_PLUS$/, '_plus');
+    
+    const normalized = rank.toLowerCase();
+    
+    // Handle exact tier matches (IRON_PLUS -> iron, since we store exact tiers as "iron")
+    // For now, treat "IRON_PLUS" as "iron" since we're storing exact tiers
+    if (normalized === 'iron_plus' || normalized === 'iron') {
+      return 'iron';
+    }
+    if (normalized === 'bronze_plus' || normalized === 'bronze') {
+      return 'bronze';
+    }
+    if (normalized === 'silver_plus' || normalized === 'silver') {
+      return 'silver';
+    }
+    if (normalized === 'gold_plus' || normalized === 'gold') {
+      return 'gold';
+    }
+    if (normalized === 'platinum_plus' || normalized === 'platinum') {
+      return 'platinum';
+    }
+    if (normalized === 'emerald_plus' || normalized === 'emerald') {
+      return 'emerald';
+    }
+    if (normalized === 'diamond_plus' || normalized === 'diamond') {
+      return 'diamond';
+    }
+    
+    // Master+ tiers stay as "master_plus"
+    if (normalized.includes('master') || normalized.includes('challenger') || normalized.includes('grandmaster')) {
+      return 'master_plus';
+    }
+    
+    // Default: convert _PLUS to _plus for other cases
+    return normalized.replace(/_plus$/, '_plus');
   }
 
   /**
