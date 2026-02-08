@@ -164,6 +164,8 @@ export class AnalyticsService {
       `;
     }
 
+    this.logger.log(`[getChampionStats] Found ${stats.length} raw champion stats from database`);
+    
     // Convert BigInt to numbers and format percentages
     const championsWithStats = stats.map((stat) => ({
       championId: Number(stat.champion_id),
@@ -174,17 +176,22 @@ export class AnalyticsService {
       banRate: Number(stat.ban_rate) * 100, // Convert to percentage
     }));
 
-    // Calculate counter picks for each champion
-    const championsWithCounterPicks = await Promise.all(
-      championsWithStats.map(async (champ) => {
-        const counterPicks = await this.getCounterPicks(champ.championId, patch, role, rankBracket, region);
-        return {
-          ...champ,
-          counterPicks,
-        };
-      })
-    );
+    this.logger.log(`[getChampionStats] Processed ${championsWithStats.length} champions with stats`);
 
+    // Calculate counter picks for each champion (skip if no champions to avoid unnecessary queries)
+    const championsWithCounterPicks = championsWithStats.length > 0
+      ? await Promise.all(
+          championsWithStats.map(async (champ) => {
+            const counterPicks = await this.getCounterPicks(champ.championId, patch, role, rankBracket, region);
+            return {
+              ...champ,
+              counterPicks,
+            };
+          })
+        )
+      : [];
+
+    this.logger.log(`[getChampionStats] Returning ${championsWithCounterPicks.length} champions with counter picks`);
     return championsWithCounterPicks;
   }
 
