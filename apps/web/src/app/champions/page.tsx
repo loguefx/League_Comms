@@ -27,7 +27,7 @@ export default function ChampionsPage() {
   const [loading, setLoading] = useState(true);
   const [championDataLoaded, setChampionDataLoaded] = useState(false);
   const [availablePatches, setAvailablePatches] = useState<string[]>([]);
-  const [latestPatch, setLatestPatch] = useState<string>('latest');
+  const [latestPatch, setLatestPatch] = useState<string | null>(null);
   const [filters, setFilters] = useState({
     rank: 'PLATINUM_PLUS',
     role: '',
@@ -46,14 +46,38 @@ export default function ChampionsPage() {
       try {
         const apiUrl = getApiUrl();
         const response = await fetch(`${apiUrl}/champions/patches`);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
         const data = await response.json();
-        setAvailablePatches(data.patches || []);
-        if (data.latest) {
+        console.log('[ChampionsPage] Patches data:', data);
+        
+        const patches = data.patches || [];
+        setAvailablePatches(patches);
+        
+        if (data.latest && patches.length > 0) {
           setLatestPatch(data.latest);
-          setFilters(prev => ({ ...prev, patch: data.latest }));
+          // Only update filter if it's still 'latest'
+          setFilters(prev => {
+            if (prev.patch === 'latest') {
+              return { ...prev, patch: data.latest };
+            }
+            return prev;
+          });
+        } else if (patches.length > 0) {
+          // If no latest specified but we have patches, use the first one (should be latest)
+          const firstPatch = patches[0];
+          setLatestPatch(firstPatch);
+          setFilters(prev => {
+            if (prev.patch === 'latest') {
+              return { ...prev, patch: firstPatch };
+            }
+            return prev;
+          });
         }
       } catch (error) {
         console.error('Failed to fetch patches:', error);
+        // Don't update state on error - keep existing values
       }
     };
     fetchPatches();
