@@ -55,23 +55,21 @@ async function bootstrap() {
   const port = process.env.PORT || 4000;
   
   try {
-    console.log(`⏳ Initializing NestJS application...`);
-    
-    // CRITICAL: Initialize the app first - this sets up all Fastify hooks properly
-    await app.init();
-    console.log(`✓ App initialized - Fastify hooks are ready`);
-    
     console.log(`⏳ Starting API server on port ${port}...`);
+    
+    // Don't call app.init() explicitly - NestJS handles this automatically
+    // app.listen() will call init() internally if needed
+    // Calling it explicitly was causing it to hang
+    
     console.log(`⏳ Calling app.listen(${port}, '0.0.0.0')...`);
     
-    // Start listening - don't await yet, check if it resolves
-    const listenPromise = app.listen(port, '0.0.0.0');
-    
+    // Use app.listen() - NestJS will handle initialization
     // Add a timeout to detect if it hangs
+    const listenPromise = app.listen(port, '0.0.0.0');
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => {
-        reject(new Error(`app.listen() timed out after 20 seconds - server may still be starting`));
-      }, 20000);
+        reject(new Error(`app.listen() timed out after 30 seconds`));
+      }, 30000);
     });
     
     // Race between listen and timeout
@@ -86,6 +84,7 @@ async function bootstrap() {
         console.log(`⚠️  app.listen() timed out BUT server IS listening on:`, address);
         console.log(`🚀 Server is actually running despite timeout!`);
       } else {
+        console.error(`❌ app.listen() timed out AND server is NOT listening`);
         throw error; // Re-throw if server isn't listening
       }
     }
