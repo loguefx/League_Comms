@@ -57,54 +57,57 @@ async function bootstrap() {
   try {
     console.log(`⏳ Starting API server on port ${port}...`);
     
-    // Don't call app.init() explicitly - NestJS handles this automatically
-    // app.listen() will call init() internally if needed
-    // Calling it explicitly was causing it to hang
-    
-    console.log(`⏳ Calling app.listen(${port}, '0.0.0.0')...`);
-    
-    // Use app.listen() - NestJS will handle initialization
-    // Add a timeout to detect if it hangs
+    // Start listening without awaiting - it might hang but server might still start
+    console.log(`⏳ Calling app.listen(${port}, '0.0.0.0') (non-blocking)...`);
     const listenPromise = app.listen(port, '0.0.0.0');
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => {
-        reject(new Error(`app.listen() timed out after 30 seconds`));
-      }, 30000);
-    });
     
-    // Race between listen and timeout
-    try {
-      await Promise.race([listenPromise, timeoutPromise]);
-      console.log(`✅ app.listen() promise resolved`);
-    } catch (error) {
-      // Check if server is actually listening despite timeout
+    // Don't await listenPromise - instead, poll to check if server is listening
+    // This works around the hanging promise issue
+    let serverStarted = false;
+    const maxAttempts = 30; // Check for 30 seconds
+    const checkInterval = 1000; // Check every second
+    
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, checkInterval));
+      
       const httpServer = app.getHttpServer();
       const address = httpServer.address();
+      
       if (address) {
-        console.log(`⚠️  app.listen() timed out BUT server IS listening on:`, address);
-        console.log(`🚀 Server is actually running despite timeout!`);
+        serverStarted = true;
+        console.log(`✅ Server is listening! (detected after ${attempt + 1} seconds)`);
+        console.log(`🚀 API server running on http://localhost:${port}`);
+        console.log(`🌐 API server accessible on http://0.0.0.0:${port}`);
+        console.log(`📍 Server is listening on:`, address);
+        console.log(`📡 Health check: http://localhost:${port}/health`);
+        console.log(`🔧 Config test: http://localhost:${port}/auth/riot/test/config`);
+        console.log(`🔑 API key test: http://localhost:${port}/auth/riot/test/api-key`);
+        console.log(`🔐 OAuth start: http://localhost:${port}/auth/riot/start`);
+        break;
       } else {
-        console.error(`❌ app.listen() timed out AND server is NOT listening`);
-        throw error; // Re-throw if server isn't listening
+        console.log(`⏳ Waiting for server to start... (${attempt + 1}/${maxAttempts})`);
       }
     }
     
-    // Verify server is actually listening
-    const httpServer = app.getHttpServer();
-    const address = httpServer.address();
-    
-    if (address) {
-      console.log(`✅ Server listen() completed successfully`);
-      console.log(`🚀 API server running on http://localhost:${port}`);
-      console.log(`🌐 API server accessible on http://0.0.0.0:${port}`);
-      console.log(`📍 Server is listening on:`, address);
-      console.log(`📡 Health check: http://localhost:${port}/health`);
-      console.log(`🔧 Config test: http://localhost:${port}/auth/riot/test/config`);
-      console.log(`🔑 API key test: http://localhost:${port}/auth/riot/test/api-key`);
-      console.log(`🔐 OAuth start: http://localhost:${port}/auth/riot/start`);
-    } else {
-      console.error(`❌ Server address is null - server is NOT listening`);
-      throw new Error('Server failed to start listening');
+    if (!serverStarted) {
+      // Check if listenPromise resolved (even though we didn't await it)
+      try {
+        await Promise.race([listenPromise, new Promise(resolve => setTimeout(resolve, 100))]);
+        console.log(`✅ app.listen() promise resolved`);
+      } catch (error) {
+        console.warn(`⚠️  app.listen() promise may have failed, but checking server anyway...`);
+      }
+      
+      // Final check
+      const httpServer = app.getHttpServer();
+      const address = httpServer.address();
+      
+      if (address) {
+        console.log(`✅ Server is listening on:`, address);
+        console.log(`🚀 API server running on http://localhost:${port}`);
+      } else {
+        throw new Error(`Server failed to start listening after ${maxAttempts} seconds`);
+      }
     }
   } catch (error) {
     console.error('❌ Failed to start API server:', error);
