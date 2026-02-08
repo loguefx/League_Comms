@@ -57,7 +57,13 @@ async function bootstrap() {
   try {
     console.log(`⏳ Starting API server on port ${port}...`);
     
-    // Get the HTTP server instance
+    // CRITICAL: Initialize the app first to set up all routes and middleware
+    // This ensures Fastify is ready to handle requests
+    console.log(`⏳ Initializing NestJS application...`);
+    await app.init();
+    console.log(`✓ App initialized`);
+    
+    // Get the HTTP server instance after initialization
     // Note: app.getHttpServer() returns a Node.js HTTP Server, not a Fastify instance
     const httpServer = app.getHttpServer();
     
@@ -82,9 +88,7 @@ async function bootstrap() {
     console.log(`✅ Server listen() completed`);
     
     // Verify server is actually listening
-    const finalHttpServer = app.getHttpServer();
-    const address = finalHttpServer?.address ? finalHttpServer.address() : null;
-    
+    const address = httpServer.address();
     if (address) {
       console.log(`✅ Server is listening on:`, address);
       console.log(`🚀 API server running on http://localhost:${port}`);
