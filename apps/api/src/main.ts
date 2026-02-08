@@ -60,28 +60,42 @@ async function bootstrap() {
     // CRITICAL: Initialize the app first to set up all routes and middleware
     // This ensures Fastify is ready to handle requests
     console.log(`⏳ Initializing NestJS application...`);
-    await app.init();
-    console.log(`✓ App initialized`);
+    try {
+      await app.init();
+      console.log(`✓ App initialized`);
+    } catch (initError) {
+      console.error(`❌ App initialization failed:`, initError);
+      throw initError;
+    }
     
     // Get the HTTP server instance after initialization
     // Note: app.getHttpServer() returns a Node.js HTTP Server, not a Fastify instance
+    console.log(`⏳ Getting HTTP server instance...`);
     const httpServer = app.getHttpServer();
+    console.log(`✓ Got HTTP server instance`);
     
     // Use Node.js HTTP server's listen() method directly
     console.log(`⏳ Starting to listen on port ${port}...`);
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
+        console.error(`❌ HTTP server listen() timed out after 10 seconds`);
         reject(new Error(`HTTP server listen() timed out after 10 seconds`));
       }, 10000);
       
       httpServer.listen(port, '0.0.0.0', () => {
+        console.log(`✓ HTTP server listen() callback fired`);
         clearTimeout(timeout);
         resolve();
       });
       
       httpServer.on('error', (err: Error) => {
+        console.error(`❌ HTTP server error:`, err);
         clearTimeout(timeout);
         reject(err);
+      });
+      
+      httpServer.on('listening', () => {
+        console.log(`✓ HTTP server 'listening' event fired`);
       });
     });
     
