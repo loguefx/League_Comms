@@ -62,33 +62,50 @@ async function bootstrap() {
     console.log(`✓ App initialized - Fastify hooks are ready`);
     
     console.log(`⏳ Starting API server on port ${port}...`);
+    console.log(`⏳ Calling app.listen(${port}, '0.0.0.0')...`);
     
-    // Now use app.listen() - this should work now that app is initialized
-    // Wrap in Promise.race with timeout to detect if it hangs
+    // Start listening - don't await yet, check if it resolves
     const listenPromise = app.listen(port, '0.0.0.0');
+    
+    // Add a timeout to detect if it hangs
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => {
-        reject(new Error(`app.listen() timed out after 15 seconds`));
-      }, 15000);
+        reject(new Error(`app.listen() timed out after 20 seconds - server may still be starting`));
+      }, 20000);
     });
     
-    await Promise.race([listenPromise, timeoutPromise]);
-    
-    console.log(`✅ Server listen() completed successfully`);
-    console.log(`🚀 API server running on http://localhost:${port}`);
-    console.log(`🌐 API server accessible on http://0.0.0.0:${port}`);
-    console.log(`📡 Health check: http://localhost:${port}/health`);
-    console.log(`🔧 Config test: http://localhost:${port}/auth/riot/test/config`);
-    console.log(`🔑 API key test: http://localhost:${port}/auth/riot/test/api-key`);
-    console.log(`🔐 OAuth start: http://localhost:${port}/auth/riot/start`);
+    // Race between listen and timeout
+    try {
+      await Promise.race([listenPromise, timeoutPromise]);
+      console.log(`✅ app.listen() promise resolved`);
+    } catch (error) {
+      // Check if server is actually listening despite timeout
+      const httpServer = app.getHttpServer();
+      const address = httpServer.address();
+      if (address) {
+        console.log(`⚠️  app.listen() timed out BUT server IS listening on:`, address);
+        console.log(`🚀 Server is actually running despite timeout!`);
+      } else {
+        throw error; // Re-throw if server isn't listening
+      }
+    }
     
     // Verify server is actually listening
     const httpServer = app.getHttpServer();
     const address = httpServer.address();
+    
     if (address) {
+      console.log(`✅ Server listen() completed successfully`);
+      console.log(`🚀 API server running on http://localhost:${port}`);
+      console.log(`🌐 API server accessible on http://0.0.0.0:${port}`);
       console.log(`📍 Server is listening on:`, address);
+      console.log(`📡 Health check: http://localhost:${port}/health`);
+      console.log(`🔧 Config test: http://localhost:${port}/auth/riot/test/config`);
+      console.log(`🔑 API key test: http://localhost:${port}/auth/riot/test/api-key`);
+      console.log(`🔐 OAuth start: http://localhost:${port}/auth/riot/start`);
     } else {
-      console.warn(`⚠️  Server address is null - server may not be listening`);
+      console.error(`❌ Server address is null - server is NOT listening`);
+      throw new Error('Server failed to start listening');
     }
   } catch (error) {
     console.error('❌ Failed to start API server:', error);
