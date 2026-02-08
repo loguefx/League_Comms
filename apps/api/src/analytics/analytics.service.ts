@@ -29,36 +29,70 @@ export class AnalyticsService {
     // Handle "all_ranks" by aggregating across all rank brackets
     const isAllRanks = rankBracket === 'all_ranks';
     
-    const stats = await this.prisma.$queryRaw<Array<{
-      champion_id: number;
-      games: bigint;
-      wins: bigint;
-      win_rate: number;
-      pick_rate: number;
-      ban_rate: number;
-    }>>`
-      SELECT
-        cs.champion_id,
-        ${isAllRanks ? 'SUM(cs.games)::bigint' : 'cs.games'} AS games,
-        ${isAllRanks ? 'SUM(cs.wins)::bigint' : 'cs.wins'} AS wins,
-        (${isAllRanks ? 'SUM(cs.wins)' : 'cs.wins'}::numeric / NULLIF(${isAllRanks ? 'SUM(cs.games)' : 'cs.games'}, 0)) AS win_rate,
-        (${isAllRanks ? 'SUM(cs.games)' : 'cs.games'}::numeric / NULLIF(${isAllRanks ? 'SUM(bt.total_games)' : 'bt.total_games'}, 0)) AS pick_rate,
-        (${isAllRanks ? 'SUM(cs.banned_matches)' : 'cs.banned_matches'}::numeric / NULLIF(${isAllRanks ? 'SUM(bt.total_matches)' : 'bt.total_matches'}, 0)) AS ban_rate
-      FROM champion_stats cs
-      JOIN bucket_totals bt
-        ON bt.patch = cs.patch
-       AND bt.region = cs.region
-       AND bt.queue_id = cs.queue_id
-       AND bt.rank_bracket = cs.rank_bracket
-       AND bt.role = cs.role
-      WHERE cs.patch = ${patch}
-        AND cs.region = ${region}
-        AND cs.queue_id = ${queueId}
-        ${isAllRanks ? Prisma.empty : Prisma.sql`AND cs.rank_bracket = ${rankBracket}`}
-        AND cs.role = ${role}
-      ${isAllRanks ? 'GROUP BY cs.champion_id' : ''}
-      ORDER BY win_rate DESC
-    `;
+    let stats;
+    if (isAllRanks) {
+      // Aggregate across all rank brackets
+      stats = await this.prisma.$queryRaw<Array<{
+        champion_id: number;
+        games: bigint;
+        wins: bigint;
+        win_rate: number;
+        pick_rate: number;
+        ban_rate: number;
+      }>>`
+        SELECT
+          cs.champion_id,
+          SUM(cs.games)::bigint AS games,
+          SUM(cs.wins)::bigint AS wins,
+          (SUM(cs.wins)::numeric / NULLIF(SUM(cs.games), 0)) AS win_rate,
+          (SUM(cs.games)::numeric / NULLIF(SUM(bt.total_games), 0)) AS pick_rate,
+          (SUM(cs.banned_matches)::numeric / NULLIF(SUM(bt.total_matches), 0)) AS ban_rate
+        FROM champion_stats cs
+        JOIN bucket_totals bt
+          ON bt.patch = cs.patch
+         AND bt.region = cs.region
+         AND bt.queue_id = cs.queue_id
+         AND bt.rank_bracket = cs.rank_bracket
+         AND bt.role = cs.role
+        WHERE cs.patch = ${patch}
+          AND cs.region = ${region}
+          AND cs.queue_id = ${queueId}
+          AND cs.role = ${role}
+        GROUP BY cs.champion_id
+        ORDER BY win_rate DESC
+      `;
+    } else {
+      // Specific rank bracket
+      stats = await this.prisma.$queryRaw<Array<{
+        champion_id: number;
+        games: bigint;
+        wins: bigint;
+        win_rate: number;
+        pick_rate: number;
+        ban_rate: number;
+      }>>`
+        SELECT
+          cs.champion_id,
+          cs.games,
+          cs.wins,
+          (cs.wins::numeric / NULLIF(cs.games, 0)) AS win_rate,
+          (cs.games::numeric / NULLIF(bt.total_games, 0)) AS pick_rate,
+          (cs.banned_matches::numeric / NULLIF(bt.total_matches, 0)) AS ban_rate
+        FROM champion_stats cs
+        JOIN bucket_totals bt
+          ON bt.patch = cs.patch
+         AND bt.region = cs.region
+         AND bt.queue_id = cs.queue_id
+         AND bt.rank_bracket = cs.rank_bracket
+         AND bt.role = cs.role
+        WHERE cs.patch = ${patch}
+          AND cs.region = ${region}
+          AND cs.queue_id = ${queueId}
+          AND cs.rank_bracket = ${rankBracket}
+          AND cs.role = ${role}
+        ORDER BY win_rate DESC
+      `;
+    }
 
     // Convert BigInt to numbers and format percentages
     const championsWithStats = stats.map((stat) => ({
