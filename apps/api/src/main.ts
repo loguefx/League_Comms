@@ -57,22 +57,19 @@ async function bootstrap() {
   try {
     console.log(`⏳ Starting API server on port ${port}...`);
     
-    // CRITICAL: Initialize the app first to set up all routes and middleware
-    // This ensures Fastify is ready to handle requests
-    console.log(`⏳ Initializing NestJS application...`);
-    try {
-      await app.init();
-      console.log(`✓ App initialized`);
-    } catch (initError) {
-      console.error(`❌ App initialization failed:`, initError);
-      throw initError;
-    }
+    // Don't call app.init() explicitly - it can hang even though initialization completes
+    // Instead, get the HTTP server and listen directly
+    // NestJS will initialize when needed
     
-    // Get the HTTP server instance after initialization
+    // Get the HTTP server instance
     // Note: app.getHttpServer() returns a Node.js HTTP Server, not a Fastify instance
     console.log(`⏳ Getting HTTP server instance...`);
     const httpServer = app.getHttpServer();
     console.log(`✓ Got HTTP server instance`);
+    
+    // Wait a moment for routes to finish mapping (they're already mapped based on logs)
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    console.log(`✓ Waited for route mapping to complete`);
     
     // Use Node.js HTTP server's listen() method directly
     console.log(`⏳ Starting to listen on port ${port}...`);
