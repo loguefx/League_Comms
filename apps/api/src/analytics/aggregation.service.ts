@@ -1,18 +1,38 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
-export class AggregationService {
+export class AggregationService implements OnModuleInit {
   private readonly logger = new Logger(AggregationService.name);
 
   constructor(private prisma: PrismaService) {}
 
   /**
-   * Run full aggregation (bucket totals + champion stats + ban stats)
-   * This should be called periodically (every 10-15 minutes) or on-demand
+   * Run aggregation on module initialization (server startup)
+   * This ensures champion stats are available immediately if matches exist
    */
-  @Cron(CronExpression.EVERY_10_MINUTES)
+  async onModuleInit() {
+    // Wait a bit for database to be fully ready
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    this.logger.log('Running initial aggregation on startup...');
+    try {
+      await this.aggregateChampionStats();
+      this.logger.log('Initial aggregation complete');
+    } catch (error) {
+      this.logger.warn('Initial aggregation failed (this is OK if no matches exist yet):', error);
+      // Don't throw - allow server to start even if aggregation fails
+    }
+  }
+
+  /**
+   * Run full aggregation (bucket totals + champion stats + ban stats)
+   * This is called:
+   * - On server startup (via onModuleInit)
+   * - Every 10 minutes (via @Cron)
+   * - Manually via POST /champions/aggregate
+   */
   async aggregateChampionStats() {
     this.logger.log('Starting champion stats aggregation');
     
@@ -25,6 +45,14 @@ export class AggregationService {
       this.logger.error('Aggregation failed:', error);
       throw error;
     }
+  }
+
+  /**
+   * Scheduled aggregation - runs every 10 minutes
+   */
+  @Cron(CronExpression.EVERY_10_MINUTES)
+  async scheduledAggregation() {
+    await this.aggregateChampionStats();
   }
 
   /**
