@@ -26,6 +26,9 @@ export class AnalyticsService {
     const role = this.normalizeRole(options.role || 'ALL');
 
     // Query champion stats with bucket totals for pick/ban rates
+    // Handle "all_ranks" by aggregating across all rank brackets
+    const isAllRanks = rankBracket === 'all_ranks';
+    
     const stats = await this.prisma.$queryRaw<Array<{
       champion_id: number;
       games: bigint;
@@ -36,11 +39,11 @@ export class AnalyticsService {
     }>>`
       SELECT
         cs.champion_id,
-        cs.games,
-        cs.wins,
-        (cs.wins::numeric / NULLIF(cs.games, 0)) AS win_rate,
-        (cs.games::numeric / NULLIF(bt.total_games, 0)) AS pick_rate,
-        (cs.banned_matches::numeric / NULLIF(bt.total_matches, 0)) AS ban_rate
+        ${isAllRanks ? 'SUM(cs.games)::bigint' : 'cs.games'} AS games,
+        ${isAllRanks ? 'SUM(cs.wins)::bigint' : 'cs.wins'} AS wins,
+        (${isAllRanks ? 'SUM(cs.wins)' : 'cs.wins'}::numeric / NULLIF(${isAllRanks ? 'SUM(cs.games)' : 'cs.games'}, 0)) AS win_rate,
+        (${isAllRanks ? 'SUM(cs.games)' : 'cs.games'}::numeric / NULLIF(${isAllRanks ? 'SUM(bt.total_games)' : 'bt.total_games'}, 0)) AS pick_rate,
+        (${isAllRanks ? 'SUM(cs.banned_matches)' : 'cs.banned_matches'}::numeric / NULLIF(${isAllRanks ? 'SUM(bt.total_matches)' : 'bt.total_matches'}, 0)) AS ban_rate
       FROM champion_stats cs
       JOIN bucket_totals bt
         ON bt.patch = cs.patch
@@ -51,8 +54,9 @@ export class AnalyticsService {
       WHERE cs.patch = ${patch}
         AND cs.region = ${region}
         AND cs.queue_id = ${queueId}
-        AND cs.rank_bracket = ${rankBracket}
+        ${isAllRanks ? Prisma.empty : Prisma.sql`AND cs.rank_bracket = ${rankBracket}`}
         AND cs.role = ${role}
+      ${isAllRanks ? 'GROUP BY cs.champion_id' : ''}
       ORDER BY win_rate DESC
     `;
 
@@ -70,47 +74,59 @@ export class AnalyticsService {
   }
 
   /**
-   * Normalize rank bracket (e.g., "PLATINUM_PLUS" -> "platinum_plus", "IRON_PLUS" -> "iron")
-   * Handles both exact tiers (iron, bronze, etc.) and plus variants (iron_plus, platinum_plus, etc.)
+   * Normalize rank bracket to match database values
+   * Database stores: "iron", "bronze", "silver", "gold", "platinum", "emerald", "diamond", "master_plus"
+   * Frontend sends: "IRON_PLUS", "BRONZE_PLUS", etc. or "ALL_RANKS"
+   * 
+   * This function maps frontend values to database values:
+   * - "IRON_PLUS" or "IRON" -> "iron"
+   * - "BRONZE_PLUS" or "BRONZE" -> "bronze"
+   * - "SILVER_PLUS" or "SILVER" -> "silver"
+   * - "GOLD_PLUS" or "GOLD" -> "gold"
+   * - "PLATINUM_PLUS" or "PLATINUM" -> "platinum"
+   * - "EMERALD_PLUS" or "EMERALD" -> "emerald"
+   * - "DIAMOND_PLUS" or "DIAMOND" -> "diamond"
+   * - "MASTER_PLUS", "GRANDMASTER_PLUS", "CHALLENGER" -> "master_plus"
+   * - "ALL_RANKS" -> "all_ranks" (special case for querying all)
    */
   private normalizeRankBracket(rank: string): string {
     if (!rank || rank === 'ALL_RANKS') {
       return 'all_ranks'; // Special case for all ranks
     }
     
-    const normalized = rank.toLowerCase();
+    const normalized = rank.toLowerCase().trim();
     
-    // Handle exact tier matches (IRON_PLUS -> iron, since we store exact tiers as "iron")
-    // For now, treat "IRON_PLUS" as "iron" since we're storing exact tiers
-    if (normalized === 'iron_plus' || normalized === 'iron') {
-      return 'iron';
-    }
-    if (normalized === 'bronze_plus' || normalized === 'bronze') {
-      return 'bronze';
-    }
-    if (normalized === 'silver_plus' || normalized === 'silver') {
-      return 'silver';
-    }
-    if (normalized === 'gold_plus' || normalized === 'gold') {
-      return 'gold';
-    }
-    if (normalized === 'platinum_plus' || normalized === 'platinum') {
-      return 'platinum';
-    }
-    if (normalized === 'emerald_plus' || normalized === 'emerald') {
-      return 'emerald';
-    }
-    if (normalized === 'diamond_plus' || normalized === 'diamond') {
-      return 'diamond';
-    }
+    // Remove _plus suffix if present (iron_plus -> iron)
+    const baseRank = normalized.replace(/_plus$/, '');
     
-    // Master+ tiers stay as "master_plus"
-    if (normalized.includes('master') || normalized.includes('challenger') || normalized.includes('grandmaster')) {
-      return 'master_plus';
+    // Map to database values (exact tiers stored as lowercase without _plus)
+    const rankMap: Record<string, string> = {
+      'iron': 'iron',
+      'bronze': 'bronze',
+      'silver': 'silver',
+      'gold': 'gold',
+      'platinum': 'platinum',
+      'emerald': 'emerald',
+      'diamond': 'diamond',
+      // Master+ variants all map to master_plus
+      'master': 'master_plus',
+      'grandmaster': 'master_plus',
+      'challenger': 'master_plus',
+    };
+    
+    // Check if base rank exists in map
+    if (rankMap[baseRank]) {
+      return rankMap[baseRank];
     }
     
-    // Default: convert _PLUS to _plus for other cases
-    return normalized.replace(/_plus$/, '_plus');
+    // Fallback: if it already matches a database value, return as-is
+    if (Object.values(rankMap).includes(normalized)) {
+      return normalized;
+    }
+    
+    // Default fallback: return normalized (shouldn't happen with valid inputs)
+    this.logger.warn(`Unknown rank bracket: ${rank}, using normalized value: ${normalized}`);
+    return normalized;
   }
 
   /**
