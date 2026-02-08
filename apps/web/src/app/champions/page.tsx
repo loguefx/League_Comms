@@ -5,13 +5,11 @@ import { getApiUrl } from '@/utils/api';
 
 interface ChampionStats {
   championId: number;
-  rankTier: string;
-  role: string | null;
-  patch: string;
-  matches: number;
+  games: number;
   wins: number;
   winRate: number;
   pickRate: number;
+  banRate: number;
 }
 
 export default function ChampionsPage() {
@@ -242,7 +240,7 @@ export default function ChampionsPage() {
                                   {champ.pickRate.toFixed(2)}%
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right text-[#B4BEC8]">
-                                  {champ.matches.toLocaleString()}
+                                  {champ.games?.toLocaleString() || 0}
                                 </td>
                               </tr>
                             ))}
