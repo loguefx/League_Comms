@@ -86,13 +86,13 @@ model UserSettings {
 // U.GG-style match data models
 model Match {
   matchId      String            @id // "NA1_123..." - Riot match ID
-  region       String            @notNull
-  queueId      Int               @notNull // ranked solo = 420
-  gameStartTs  DateTime          @notNull @map("game_start_ts")
-  durationS    Int               @notNull @map("duration_s")
-  patch        String            @notNull // "16.3"
-  gameVersion  String            @notNull @map("game_version") // "16.3.123.4567"
-  rankBracket  String            @notNull @default("unknown") @map("rank_bracket")
+  region       String
+  queueId      Int // ranked solo = 420
+  gameStartTs  DateTime          @map("game_start_ts")
+  durationS    Int               @map("duration_s")
+  patch        String // "16.3"
+  gameVersion  String            @map("game_version") // "16.3.123.4567"
+  rankBracket  String            @default("unknown") @map("rank_bracket")
   processedAt DateTime           @default(now()) @map("processed_at")
   participants MatchParticipant[]
   bans         MatchBan[]
@@ -104,13 +104,13 @@ model Match {
 }
 
 model MatchParticipant {
-  matchId    String  @notNull @map("match_id")
+  matchId    String  @map("match_id")
   match      Match   @relation(fields: [matchId], references: [matchId], onDelete: Cascade)
-  puuid      String  @notNull
-  teamId     Int     @notNull @map("team_id")
-  championId Int     @notNull @map("champion_id")
-  role       String  @notNull // TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY
-  win        Boolean @notNull
+  puuid      String
+  teamId     Int     @map("team_id")
+  championId Int     @map("champion_id")
+  role       String // TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY
+  win        Boolean
 
   @@id([matchId, puuid])
   @@index([championId, role, win], name: "idx_participants_dims")
@@ -119,11 +119,11 @@ model MatchParticipant {
 }
 
 model MatchBan {
-  matchId    String @notNull @map("match_id")
+  matchId    String @map("match_id")
   match      Match  @relation(fields: [matchId], references: [matchId], onDelete: Cascade)
-  teamId     Int    @notNull @map("team_id")
-  pickTurn   Int    @notNull @map("pick_turn")
-  championId Int    @notNull @map("champion_id")
+  teamId     Int    @map("team_id")
+  pickTurn   Int    @map("pick_turn")
+  championId Int    @map("champion_id")
 
   @@id([matchId, teamId, pickTurn])
   @@index([championId], name: "idx_bans_champion")
@@ -132,13 +132,13 @@ model MatchBan {
 
 // Aggregated statistics tables
 model BucketTotal {
-  patch        String   @notNull
-  region       String   @notNull
-  queueId      Int      @notNull @map("queue_id")
-  rankBracket  String   @notNull @map("rank_bracket")
-  role         String   @notNull // TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY, ALL
-  totalGames   BigInt   @notNull @map("total_games")
-  totalMatches BigInt   @notNull @map("total_matches")
+  patch        String
+  region       String
+  queueId      Int      @map("queue_id")
+  rankBracket  String   @map("rank_bracket")
+  role         String // TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY, ALL
+  totalGames   BigInt   @map("total_games")
+  totalMatches BigInt   @map("total_matches")
   updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
 
   @@id([patch, region, queueId, rankBracket, role])
@@ -146,14 +146,14 @@ model BucketTotal {
 }
 
 model ChampionStat {
-  patch         String   @notNull
-  region        String   @notNull
-  queueId       Int      @notNull @map("queue_id")
-  rankBracket   String   @notNull @map("rank_bracket")
-  role          String   @notNull // TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY, ALL
-  championId    Int      @notNull @map("champion_id")
-  games         BigInt   @notNull
-  wins          BigInt   @notNull
+  patch         String
+  region        String
+  queueId       Int      @map("queue_id")
+  rankBracket   String   @map("rank_bracket")
+  role          String // TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY, ALL
+  championId    Int      @map("champion_id")
+  games         BigInt
+  wins          BigInt
   bannedMatches BigInt   @default(0) @map("banned_matches")
   updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
 
