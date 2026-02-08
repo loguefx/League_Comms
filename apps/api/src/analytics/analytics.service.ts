@@ -27,7 +27,11 @@ export class AnalyticsService {
     const region = options.region && options.region !== 'world' ? options.region : null;
     const queueId = 420; // Ranked Solo
     const rankBracket = this.normalizeRankBracket(options.rank || 'ALL_RANKS');
+    // Frontend sends empty string '' for "All Roles", normalizeRole handles this
     const role = this.normalizeRole(options.role || 'ALL');
+    
+    this.logger.log(`[getChampionStats] Query params: rank=${options.rank}, role=${options.role}, patch=${options.patch}, region=${options.region}`);
+    this.logger.log(`[getChampionStats] Normalized: rankBracket=${rankBracket}, role=${role}, patch=${patch}, isWorld=${isWorld}, isAllRanks=${rankBracket === 'all_ranks'}`);
 
     // Query champion stats with bucket totals for pick/ban rates
     // Handle "all_ranks" by aggregating across all rank brackets
@@ -241,10 +245,15 @@ export class AnalyticsService {
   }
 
   /**
-   * Normalize role (e.g., "MID" -> "MIDDLE", "ALL" -> "ALL")
+   * Normalize role (e.g., "MID" -> "MIDDLE", "ALL" -> "ALL", "" -> "ALL")
    */
   private normalizeRole(role: string): string {
-    const normalized = role.toUpperCase();
+    // Handle empty string or undefined - map to 'ALL' for "All Roles"
+    if (!role || role.trim() === '') {
+      return 'ALL';
+    }
+    
+    const normalized = role.toUpperCase().trim();
     
     // Map common variations
     if (normalized === 'MID' || normalized === 'MIDDLE') return 'MIDDLE';
