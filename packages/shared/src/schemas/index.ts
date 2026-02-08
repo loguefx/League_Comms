@@ -13,6 +13,11 @@ export const regionSchema = z.enum([
   'ru',
   'tr1',
   'jp1',
+  'ph2', // Philippines
+  'sg2', // Singapore
+  'th2', // Thailand
+  'tw2', // Taiwan
+  'vn2', // Vietnam
 ]);
 
 // Rank validation
