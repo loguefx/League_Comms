@@ -1,4 +1,4 @@
-// PostgreSQL Prisma schema
+// PostgreSQL Prisma schema - U.GG-style tier list design
 
 generator client {
   provider = "prisma-client-js"
@@ -9,6 +9,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// User and auth models (existing)
 model User {
   id            String        @id @default(cuid())
   email         String?       @unique
@@ -27,7 +28,7 @@ model RiotAccount {
   gameName        String
   tagLine         String
   region          String
-  encryptedTokens Json     // PostgreSQL supports Json type
+  encryptedTokens Json
   tokenExpiresAt  DateTime
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -78,50 +79,85 @@ model UserSettings {
   user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   autoJoinVoice Boolean @default(true)
   pttKey        String?
-  privacyFlags  Json    // PostgreSQL supports Json type
-  uiPrefs       Json    // PostgreSQL supports Json type
+  privacyFlags  Json
+  uiPrefs       Json
 }
 
+// U.GG-style match data models
 model Match {
-  id          String            @id @default(cuid())
-  matchId     String            @unique
-  region      String
-  patch       String
-  gameMode    String
-  createdAt   DateTime          @default(now())
+  matchId      String            @id // "NA1_123..." - Riot match ID
+  region       String            @notNull
+  queueId      Int               @notNull // ranked solo = 420
+  gameStartTs  DateTime          @notNull @map("game_start_ts")
+  durationS    Int               @notNull @map("duration_s")
+  patch        String            @notNull // "16.3"
+  gameVersion  String            @notNull @map("game_version") // "16.3.123.4567"
+  rankBracket  String            @notNull @default("unknown") @map("rank_bracket")
+  processedAt DateTime           @default(now()) @map("processed_at")
   participants MatchParticipant[]
+  bans         MatchBan[]
 
-  @@index([matchId])
-  @@index([region, patch])
+  @@index([patch, queueId], name: "idx_matches_patch_queue")
+  @@index([gameStartTs], name: "idx_matches_start_ts")
+  @@index([patch, queueId, region, rankBracket], name: "idx_matches_dims")
+  @@map("matches")
 }
 
 model MatchParticipant {
-  id            String  @id @default(cuid())
-  matchId       String
-  match         Match   @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  puuid         String
-  championId    Int
-  role          String?
-  rankTier      String?
-  rankDivision  String?
-  teamId        String
-  won           Boolean
+  matchId    String  @notNull @map("match_id")
+  match      Match   @relation(fields: [matchId], references: [matchId], onDelete: Cascade)
+  puuid      String  @notNull
+  teamId     Int     @notNull @map("team_id")
+  championId Int     @notNull @map("champion_id")
+  role       String  @notNull // TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY
+  win        Boolean @notNull
 
-  @@index([matchId])
-  @@index([puuid])
-  @@index([championId, rankTier, role])
+  @@id([matchId, puuid])
+  @@index([championId, role, win], name: "idx_participants_dims")
+  @@index([matchId], name: "idx_participants_match")
+  @@map("match_participants")
 }
 
-model ChampionRankAgg {
-  id          String   @id @default(cuid())
-  rankTier    String
-  championId  Int
-  role        String?
-  patch       String
-  matches     Int      @default(0)
-  wins        Int      @default(0)
-  updatedAt   DateTime @updatedAt
+model MatchBan {
+  matchId    String @notNull @map("match_id")
+  match      Match  @relation(fields: [matchId], references: [matchId], onDelete: Cascade)
+  teamId     Int    @notNull @map("team_id")
+  pickTurn   Int    @notNull @map("pick_turn")
+  championId Int    @notNull @map("champion_id")
 
-  @@unique([rankTier, championId, role, patch])
-  @@index([rankTier, role, patch])
+  @@id([matchId, teamId, pickTurn])
+  @@index([championId], name: "idx_bans_champion")
+  @@map("match_bans")
+}
+
+// Aggregated statistics tables
+model BucketTotal {
+  patch        String   @notNull
+  region       String   @notNull
+  queueId      Int      @notNull @map("queue_id")
+  rankBracket  String   @notNull @map("rank_bracket")
+  role         String   @notNull // TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY, ALL
+  totalGames   BigInt   @notNull @map("total_games")
+  totalMatches BigInt   @notNull @map("total_matches")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@id([patch, region, queueId, rankBracket, role])
+  @@map("bucket_totals")
+}
+
+model ChampionStat {
+  patch         String   @notNull
+  region        String   @notNull
+  queueId       Int      @notNull @map("queue_id")
+  rankBracket   String   @notNull @map("rank_bracket")
+  role          String   @notNull // TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY, ALL
+  championId    Int      @notNull @map("champion_id")
+  games         BigInt   @notNull
+  wins          BigInt   @notNull
+  bannedMatches BigInt   @default(0) @map("banned_matches")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@id([patch, region, queueId, rankBracket, role, championId])
+  @@index([patch, region, queueId, rankBracket, role], name: "idx_champ_stats_bucket")
+  @@map("champion_stats")
 }

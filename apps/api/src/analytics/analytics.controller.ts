@@ -17,23 +17,21 @@ export class AnalyticsController {
   async getChampionStats(
     @Query('rank') rank?: string,
     @Query('role') role?: string,
-    @Query('patch') patch?: string
+    @Query('patch') patch?: string,
+    @Query('region') region?: string
   ) {
     try {
-      const stats = await this.analyticsService.getChampionStats({ rank, role, patch });
-      const totalMatches = await this.analyticsService.getTotalMatchesPerRank(patch);
+      const stats = await this.analyticsService.getChampionStats({ rank, role, patch, region });
 
       console.log(`[AnalyticsController] Returning ${stats.length} champions for rank=${rank}, role=${role}, patch=${patch}`);
 
       return {
         champions: stats,
-        totalMatchesPerRank: totalMatches,
       };
     } catch (error) {
       console.error('[AnalyticsController] Error getting champion stats:', error);
       return {
         champions: [],
-        totalMatchesPerRank: [],
         error: error instanceof Error ? error.message : 'Unknown error',
       };
     }

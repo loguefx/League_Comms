@@ -127,8 +127,9 @@ export class BatchSeedService {
                     for (const matchId of matchIds) {
                       if (!processedMatchIds.has(matchId)) {
                         try {
-                          // Determine rank tier from player's tier
-                          await this.ingestionService.ingestMatch(region, matchId, tier);
+                          // Convert tier to rank_bracket format (e.g., "EMERALD" -> "emerald", "MASTER" -> "master_plus")
+                          const rankBracket = this.tierToRankBracket(tier);
+                          await this.ingestionService.ingestMatch(region, matchId, rankBracket);
                           processedMatchIds.add(matchId);
                           totalMatchesIngested++;
                           this.seedProgress.totalMatchesIngested = totalMatchesIngested;
@@ -198,7 +199,9 @@ export class BatchSeedService {
                     for (const matchId of matchIds) {
                       if (!processedMatchIds.has(matchId)) {
                         try {
-                          await this.ingestionService.ingestMatch(region, matchId, tier);
+                          // Convert tier to rank_bracket format
+                          const rankBracket = this.tierToRankBracket(tier);
+                          await this.ingestionService.ingestMatch(region, matchId, rankBracket);
                           processedMatchIds.add(matchId);
                           totalMatchesIngested++;
                           this.seedProgress.totalMatchesIngested = totalMatchesIngested;
@@ -237,5 +240,21 @@ export class BatchSeedService {
       this.seedProgress.error = error instanceof Error ? error.message : 'Unknown error';
       throw error;
     }
+  }
+
+  /**
+   * Convert tier to rank_bracket format
+   * Examples: "EMERALD" -> "emerald", "MASTER" -> "master_plus", "CHALLENGER" -> "master_plus"
+   */
+  private tierToRankBracket(tier: string): string {
+    const normalized = tier.toUpperCase();
+    
+    // Master+ tiers (Master, Grandmaster, Challenger) -> "master_plus"
+    if (normalized === 'MASTER' || normalized === 'GRANDMASTER' || normalized === 'CHALLENGER') {
+      return 'master_plus';
+    }
+    
+    // Regular tiers -> lowercase
+    return normalized.toLowerCase();
   }
 }

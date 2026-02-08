@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
-import { RANK_TIER_GROUPS } from '@league-voice/shared';
 
 @Injectable()
 export class AggregationService {
@@ -9,334 +8,176 @@ export class AggregationService {
 
   constructor(private prisma: PrismaService) {}
 
-  @Cron(CronExpression.EVERY_DAY_AT_3AM)
+  /**
+   * Run full aggregation (bucket totals + champion stats + ban stats)
+   * This should be called periodically (every 10-15 minutes) or on-demand
+   */
+  @Cron(CronExpression.EVERY_10_MINUTES)
   async aggregateChampionStats() {
     this.logger.log('Starting champion stats aggregation');
-
-    // Get all unique patches
-    const patches = await this.prisma.match.findMany({
-      select: { patch: true },
-      distinct: ['patch'],
-      orderBy: { patch: 'desc' },
-      take: 5, // Last 5 patches
-    });
-
-    for (const { patch } of patches) {
-      await this.aggregateForPatch(patch);
+    
+    try {
+      await this.computeBucketTotals();
+      await this.computeChampionStats();
+      await this.computeBanStats();
+      this.logger.log('Champion stats aggregation complete');
+    } catch (error) {
+      this.logger.error('Aggregation failed:', error);
+      throw error;
     }
-
-    this.logger.log('Champion stats aggregation complete');
-  }
-
-  private async aggregateForPatch(patch: string) {
-    // Aggregate by individual rank tiers
-    const rankTiers = ['IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'EMERALD', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER'];
-
-    for (const rankTier of rankTiers) {
-      await this.aggregateForRankTier(patch, rankTier);
-    }
-
-    // Aggregate for grouped tiers (EMERALD_PLUS, etc.)
-    for (const [groupName, tiers] of Object.entries(RANK_TIER_GROUPS)) {
-      await this.aggregateForRankGroup(patch, groupName, [...tiers]);
-    }
-
-    // Aggregate "ALL_RANKS" (across all rank tiers)
-    await this.aggregateForAllRanks(patch);
   }
 
   /**
-   * Aggregate champion stats across ALL ranks (for "All Ranks" filter)
+   * Step A: Compute bucket totals (denominators for pick/ban rates)
+   * This computes totals for both role-specific and ALL roles
    */
-  private async aggregateForAllRanks(patch: string) {
-    const allRankTiers = ['IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'EMERALD', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER'];
+  private async computeBucketTotals() {
+    this.logger.log('Computing bucket totals...');
 
-    // Aggregate by role (TOP, JUNGLE, MID, ADC, SUPPORT) across all ranks
-    const stats = await this.prisma.matchParticipant.groupBy({
-      by: ['championId', 'role'],
-      where: {
-        match: { patch },
-        rankTier: { in: allRankTiers },
-        role: { not: null },
-      },
-      _count: true,
-    });
+    // Role-specific totals
+    await this.prisma.$executeRaw`
+      INSERT INTO bucket_totals (patch, region, queue_id, rank_bracket, role, total_games, total_matches, updated_at)
+      SELECT
+        m.patch,
+        m.region,
+        m.queue_id,
+        m.rank_bracket,
+        p.role,
+        COUNT(*)::bigint AS total_games,
+        COUNT(DISTINCT m.match_id)::bigint AS total_matches,
+        now()
+      FROM matches m
+      JOIN match_participants p ON p.match_id = m.match_id
+      WHERE m.queue_id = 420
+      GROUP BY m.patch, m.region, m.queue_id, m.rank_bracket, p.role
+      ON CONFLICT (patch, region, queue_id, rank_bracket, role)
+      DO UPDATE SET
+        total_games = EXCLUDED.total_games,
+        total_matches = EXCLUDED.total_matches,
+        updated_at = now()
+    `;
 
-    for (const stat of stats) {
-      if (!stat.role) continue;
+    // ALL roles totals
+    await this.prisma.$executeRaw`
+      INSERT INTO bucket_totals (patch, region, queue_id, rank_bracket, role, total_games, total_matches, updated_at)
+      SELECT
+        m.patch,
+        m.region,
+        m.queue_id,
+        m.rank_bracket,
+        'ALL' AS role,
+        COUNT(*)::bigint AS total_games,
+        COUNT(DISTINCT m.match_id)::bigint AS total_matches,
+        now()
+      FROM matches m
+      JOIN match_participants p ON p.match_id = m.match_id
+      WHERE m.queue_id = 420
+      GROUP BY m.patch, m.region, m.queue_id, m.rank_bracket
+      ON CONFLICT (patch, region, queue_id, rank_bracket, role)
+      DO UPDATE SET
+        total_games = EXCLUDED.total_games,
+        total_matches = EXCLUDED.total_matches,
+        updated_at = now()
+    `;
 
-      const wins = await this.prisma.matchParticipant.count({
-        where: {
-          championId: stat.championId,
-          role: stat.role,
-          rankTier: { in: allRankTiers },
-          match: { patch },
-          won: true,
-        },
-      });
-
-      await this.prisma.championRankAgg.upsert({
-        where: {
-          rankTier_championId_role_patch: {
-            rankTier: 'ALL_RANKS',
-            championId: stat.championId,
-            role: stat.role,
-            patch,
-          },
-        },
-        update: {
-          matches: stat._count,
-          wins,
-        },
-        create: {
-          rankTier: 'ALL_RANKS',
-          championId: stat.championId,
-          role: stat.role,
-          patch,
-          matches: stat._count,
-          wins,
-        },
-      });
-    }
-
-    // Also aggregate "ALL roles" across "ALL ranks"
-    const allRoleStats = await this.prisma.matchParticipant.groupBy({
-      by: ['championId'],
-      where: {
-        match: { patch },
-        rankTier: { in: allRankTiers },
-        role: { not: null },
-      },
-      _count: true,
-    });
-
-    for (const stat of allRoleStats) {
-      const wins = await this.prisma.matchParticipant.count({
-        where: {
-          championId: stat.championId,
-          rankTier: { in: allRankTiers },
-          match: { patch },
-          role: { not: null },
-          won: true,
-        },
-      });
-
-      await this.prisma.championRankAgg.upsert({
-        where: {
-          rankTier_championId_role_patch: {
-            rankTier: 'ALL_RANKS',
-            championId: stat.championId,
-            role: null, // null = ALL roles
-            patch,
-          },
-        },
-        update: {
-          matches: stat._count,
-          wins,
-        },
-        create: {
-          rankTier: 'ALL_RANKS',
-          championId: stat.championId,
-          role: null, // null = ALL roles
-          patch,
-          matches: stat._count,
-          wins,
-        },
-      });
-    }
+    this.logger.log('Bucket totals computed');
   }
 
-  private async aggregateForRankTier(patch: string, rankTier: string) {
-    // Aggregate by role (TOP, JUNGLE, MID, ADC, SUPPORT)
-    const stats = await this.prisma.matchParticipant.groupBy({
-      by: ['championId', 'role'],
-      where: {
-        match: { patch },
-        rankTier,
-        role: { not: null }, // Only aggregate roles that are set
-      },
-      _count: true,
-    });
+  /**
+   * Step B: Compute champion stats (games, wins) per bucket
+   * This computes stats for both role-specific and ALL roles
+   */
+  private async computeChampionStats() {
+    this.logger.log('Computing champion stats...');
 
-    for (const stat of stats) {
-      if (!stat.role) continue; // Skip if role is null
+    // Role-specific stats
+    await this.prisma.$executeRaw`
+      INSERT INTO champion_stats (patch, region, queue_id, rank_bracket, role, champion_id, games, wins, updated_at)
+      SELECT
+        m.patch,
+        m.region,
+        m.queue_id,
+        m.rank_bracket,
+        p.role,
+        p.champion_id,
+        COUNT(*)::bigint AS games,
+        SUM(CASE WHEN p.win THEN 1 ELSE 0 END)::bigint AS wins,
+        now()
+      FROM matches m
+      JOIN match_participants p ON p.match_id = m.match_id
+      WHERE m.queue_id = 420
+      GROUP BY m.patch, m.region, m.queue_id, m.rank_bracket, p.role, p.champion_id
+      ON CONFLICT (patch, region, queue_id, rank_bracket, role, champion_id)
+      DO UPDATE SET
+        games = EXCLUDED.games,
+        wins = EXCLUDED.wins,
+        updated_at = now()
+    `;
 
-      const wins = await this.prisma.matchParticipant.count({
-        where: {
-          championId: stat.championId,
-          role: stat.role,
-          rankTier,
-          match: { patch },
-          won: true,
-        },
-      });
+    // ALL roles stats
+    await this.prisma.$executeRaw`
+      INSERT INTO champion_stats (patch, region, queue_id, rank_bracket, role, champion_id, games, wins, updated_at)
+      SELECT
+        m.patch,
+        m.region,
+        m.queue_id,
+        m.rank_bracket,
+        'ALL' AS role,
+        p.champion_id,
+        COUNT(*)::bigint AS games,
+        SUM(CASE WHEN p.win THEN 1 ELSE 0 END)::bigint AS wins,
+        now()
+      FROM matches m
+      JOIN match_participants p ON p.match_id = m.match_id
+      WHERE m.queue_id = 420
+      GROUP BY m.patch, m.region, m.queue_id, m.rank_bracket, p.champion_id
+      ON CONFLICT (patch, region, queue_id, rank_bracket, role, champion_id)
+      DO UPDATE SET
+        games = EXCLUDED.games,
+        wins = EXCLUDED.wins,
+        updated_at = now()
+    `;
 
-      await this.prisma.championRankAgg.upsert({
-        where: {
-          rankTier_championId_role_patch: {
-            rankTier,
-            championId: stat.championId,
-            role: stat.role,
-            patch,
-          },
-        },
-        update: {
-          matches: stat._count,
-          wins,
-        },
-        create: {
-          rankTier,
-          championId: stat.championId,
-          role: stat.role,
-          patch,
-          matches: stat._count,
-          wins,
-        },
-      });
-    }
-
-    // Also aggregate "ALL" roles (champion across all roles)
-    const allRoleStats = await this.prisma.matchParticipant.groupBy({
-      by: ['championId'],
-      where: {
-        match: { patch },
-        rankTier,
-        role: { not: null },
-      },
-      _count: true,
-    });
-
-    for (const stat of allRoleStats) {
-      const wins = await this.prisma.matchParticipant.count({
-        where: {
-          championId: stat.championId,
-          rankTier,
-          match: { patch },
-          role: { not: null },
-          won: true,
-        },
-      });
-
-      // Store with role = null to represent "ALL roles"
-      await this.prisma.championRankAgg.upsert({
-        where: {
-          rankTier_championId_role_patch: {
-            rankTier,
-            championId: stat.championId,
-            role: null, // null = ALL roles
-            patch,
-          },
-        },
-        update: {
-          matches: stat._count,
-          wins,
-        },
-        create: {
-          rankTier,
-          championId: stat.championId,
-          role: null, // null = ALL roles
-          patch,
-          matches: stat._count,
-          wins,
-        },
-      });
-    }
+    this.logger.log('Champion stats computed');
   }
 
-  private async aggregateForRankGroup(patch: string, groupName: string, tiers: string[]) {
-    // Aggregate by role (TOP, JUNGLE, MID, ADC, SUPPORT)
-    const stats = await this.prisma.matchParticipant.groupBy({
-      by: ['championId', 'role'],
-      where: {
-        match: { patch },
-        rankTier: { in: tiers },
-        role: { not: null },
-      },
-      _count: true,
-    });
+  /**
+   * Step C: Compute ban stats (banned_matches per champion per bucket)
+   */
+  private async computeBanStats() {
+    this.logger.log('Computing ban stats...');
 
-    for (const stat of stats) {
-      if (!stat.role) continue;
+    await this.prisma.$executeRaw`
+      WITH banned AS (
+        SELECT
+          m.patch, m.region, m.queue_id, m.rank_bracket,
+          b.champion_id,
+          COUNT(DISTINCT m.match_id)::bigint AS banned_matches
+        FROM matches m
+        JOIN match_bans b ON b.match_id = m.match_id
+        WHERE m.queue_id = 420
+        GROUP BY m.patch, m.region, m.queue_id, m.rank_bracket, b.champion_id
+      )
+      UPDATE champion_stats cs
+      SET banned_matches = b.banned_matches,
+          updated_at = now()
+      FROM banned b
+      WHERE cs.patch = b.patch
+        AND cs.region = b.region
+        AND cs.queue_id = b.queue_id
+        AND cs.rank_bracket = b.rank_bracket
+        AND cs.champion_id = b.champion_id
+        AND cs.role = 'ALL'
+    `;
 
-      const wins = await this.prisma.matchParticipant.count({
-        where: {
-          championId: stat.championId,
-          role: stat.role,
-          rankTier: { in: tiers },
-          match: { patch },
-          won: true,
-        },
-      });
+    this.logger.log('Ban stats computed');
+  }
 
-      await this.prisma.championRankAgg.upsert({
-        where: {
-          rankTier_championId_role_patch: {
-            rankTier: groupName,
-            championId: stat.championId,
-            role: stat.role,
-            patch,
-          },
-        },
-        update: {
-          matches: stat._count,
-          wins,
-        },
-        create: {
-          rankTier: groupName,
-          championId: stat.championId,
-          role: stat.role,
-          patch,
-          matches: stat._count,
-          wins,
-        },
-      });
-    }
-
-    // Also aggregate "ALL" roles (champion across all roles)
-    const allRoleStats = await this.prisma.matchParticipant.groupBy({
-      by: ['championId'],
-      where: {
-        match: { patch },
-        rankTier: { in: tiers },
-        role: { not: null },
-      },
-      _count: true,
-    });
-
-    for (const stat of allRoleStats) {
-      const wins = await this.prisma.matchParticipant.count({
-        where: {
-          championId: stat.championId,
-          rankTier: { in: tiers },
-          match: { patch },
-          role: { not: null },
-          won: true,
-        },
-      });
-
-      // Store with role = null to represent "ALL roles"
-      await this.prisma.championRankAgg.upsert({
-        where: {
-          rankTier_championId_role_patch: {
-            rankTier: groupName,
-            championId: stat.championId,
-            role: null, // null = ALL roles
-            patch,
-          },
-        },
-        update: {
-          matches: stat._count,
-          wins,
-        },
-        create: {
-          rankTier: groupName,
-          championId: stat.championId,
-          role: null, // null = ALL roles
-          patch,
-          matches: stat._count,
-          wins,
-        },
-      });
-    }
+  /**
+   * Manual trigger for aggregation (useful for testing or on-demand updates)
+   */
+  async triggerAggregation() {
+    this.logger.log('Manually triggering aggregation...');
+    await this.aggregateChampionStats();
   }
 }
