@@ -9,7 +9,7 @@ import { Prisma } from '@prisma/client';
 @Injectable()
 export class BuildAggregationService {
   private readonly logger = new Logger(BuildAggregationService.name);
-  private readonly MIN_GAMES_THRESHOLD = 200; // Minimum games for a build to be recommended
+  private readonly MIN_GAMES_THRESHOLD = 10; // Minimum games for a build to be recommended (lowered for initial data)
   private readonly SMOOTHING_K = 200; // Bayesian smoothing constant
 
   constructor(private prisma: PrismaService) {}
@@ -82,7 +82,7 @@ export class BuildAggregationService {
         pp.primary_style_id, pp.sub_style_id, pp.perk_ids, pp.stat_shards
       ON CONFLICT (
         patch, region, queue_id, rank_bracket, role, champion_id,
-        primary_style_id, sub_style_id
+        primary_style_id, sub_style_id, perk_ids, stat_shards
       )
       DO UPDATE SET
         games = EXCLUDED.games,
@@ -121,7 +121,7 @@ export class BuildAggregationService {
         pp.primary_style_id, pp.sub_style_id, pp.perk_ids, pp.stat_shards
       ON CONFLICT (
         patch, region, queue_id, rank_bracket, role, champion_id,
-        primary_style_id, sub_style_id
+        primary_style_id, sub_style_id, perk_ids, stat_shards
       )
       DO UPDATE SET
         games = EXCLUDED.games,

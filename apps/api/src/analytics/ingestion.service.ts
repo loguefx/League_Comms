@@ -188,8 +188,13 @@ export class IngestionService {
       .filter((p: any) => p.perks) // Only if perks exist
       .map((p: any) => {
         const perks = p.perks;
-        const primaryStyle = perks.styles?.find((s: any) => s.description === 'primaryStyle');
-        const subStyle = perks.styles?.find((s: any) => s.description === 'subStyle');
+        // Riot API uses 'primaryStyle' or 'Primary' for description
+        const primaryStyle = perks.styles?.find((s: any) => 
+          s.description === 'primaryStyle' || s.description === 'Primary' || s.style !== undefined
+        ) || perks.styles?.[0]; // Fallback to first style if description doesn't match
+        const subStyle = perks.styles?.find((s: any) => 
+          s.description === 'subStyle' || s.description === 'Sub' || (s.style !== undefined && s !== primaryStyle)
+        ) || perks.styles?.[1]; // Fallback to second style
         
         // Extract perk IDs: [keystone, primary1, primary2, primary3, sub1, sub2]
         const perkIds: number[] = [];
