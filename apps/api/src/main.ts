@@ -53,31 +53,36 @@ async function bootstrap() {
   app.useGlobalInterceptors(new RiotRateLimitInterceptor() as any);
 
   // Add BigInt serializer for Fastify JSON responses
+  // Hook into Fastify's reply to convert BigInt before serialization
   const fastifyInstance = app.getHttpAdapter().getInstance();
-  fastifyInstance.setSerializerCompiler(() => {
-    return (data: any) => {
-      // Recursively convert BigInt values to numbers
-      const convertBigInt = (obj: any): any => {
-        if (obj === null || obj === undefined) {
-          return obj;
-        }
-        if (typeof obj === 'bigint') {
-          return Number(obj);
-        }
-        if (Array.isArray(obj)) {
-          return obj.map(convertBigInt);
-        }
-        if (typeof obj === 'object') {
-          const converted: any = {};
-          for (const key in obj) {
-            converted[key] = convertBigInt(obj[key]);
-          }
-          return converted;
-        }
-        return obj;
-      };
-      return JSON.stringify(convertBigInt(data));
-    };
+  
+  // Recursively convert BigInt values to numbers
+  const convertBigInt = (obj: any): any => {
+    if (obj === null || obj === undefined) {
+      return obj;
+    }
+    if (typeof obj === 'bigint') {
+      return Number(obj);
+    }
+    if (Array.isArray(obj)) {
+      return obj.map(convertBigInt);
+    }
+    if (typeof obj === 'object' && obj.constructor === Object) {
+      const converted: any = {};
+      for (const key in obj) {
+        converted[key] = convertBigInt(obj[key]);
+      }
+      return converted;
+    }
+    return obj;
+  };
+  
+  // Add hook to convert BigInt before sending response
+  fastifyInstance.addHook('onSend', async (request, reply, payload) => {
+    if (typeof payload === 'object' && payload !== null) {
+      return convertBigInt(payload);
+    }
+    return payload;
   });
 
   const port = process.env.PORT || 4000;
