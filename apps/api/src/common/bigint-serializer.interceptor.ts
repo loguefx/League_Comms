@@ -10,12 +10,14 @@ import { map } from 'rxjs/operators';
 @Injectable()
 export class BigIntSerializerInterceptor implements NestInterceptor {
   // @ts-ignore - RxJS type conflicts in monorepo
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<any> | Promise<Observable<any>> {
     // @ts-ignore - RxJS type conflicts in monorepo
-    return next.handle().pipe(
+    const result = next.handle().pipe(
       // @ts-ignore - RxJS type conflicts in monorepo
       map((data: any) => this.convertBigInt(data))
     );
+    // Use unknown first to bypass duplicate RxJS type conflicts
+    return result as unknown as Observable<any>;
   }
 
   /**
