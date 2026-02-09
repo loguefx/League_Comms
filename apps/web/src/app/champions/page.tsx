@@ -47,44 +47,69 @@ export default function ChampionsPage() {
       setPatchesLoading(true);
       try {
         const apiUrl = getApiUrl();
-        const response = await fetch(`${apiUrl}/champions/patches`);
+        console.log('[ChampionsPage] Fetching patches from:', `${apiUrl}/champions/patches`);
+        
+        const response = await fetch(`${apiUrl}/champions/patches`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        console.log('[ChampionsPage] Patches response status:', response.status, response.statusText);
+        
         if (!response.ok) {
+          const errorText = await response.text();
+          console.error('[ChampionsPage] Patches API error response:', errorText);
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
+        
         const data = await response.json();
-        console.log('[ChampionsPage] Patches data:', data);
+        console.log('[ChampionsPage] Patches data received:', JSON.stringify(data, null, 2));
+        console.log('[ChampionsPage] Patches array:', data.patches);
+        console.log('[ChampionsPage] Latest patch:', data.latest);
         
-        const patches = data.patches || [];
-        setAvailablePatches(patches);
+        // Ensure patches is an array
+        const patches = Array.isArray(data.patches) ? data.patches : [];
+        console.log('[ChampionsPage] Processed patches array:', patches);
+        console.log('[ChampionsPage] Patches count:', patches.length);
         
-        if (data.latest && patches.length > 0) {
-          setLatestPatch(data.latest);
-          // Only update filter if it's still 'latest'
+        if (patches.length > 0) {
+          setAvailablePatches(patches);
+          console.log('[ChampionsPage] Set availablePatches to:', patches);
+          
+          // Determine latest patch
+          const latest = data.latest || patches[0];
+          setLatestPatch(latest);
+          console.log('[ChampionsPage] Set latestPatch to:', latest);
+          
+          // Update filter if it's still 'latest'
           setFilters(prev => {
-            if (prev.patch === 'latest') {
-              return { ...prev, patch: data.latest };
-            }
-            return prev;
-          });
-        } else if (patches.length > 0) {
-          // If no latest specified but we have patches, use the first one (should be latest)
-          const firstPatch = patches[0];
-          setLatestPatch(firstPatch);
-          setFilters(prev => {
-            if (prev.patch === 'latest') {
-              return { ...prev, patch: firstPatch };
+            if (prev.patch === 'latest' || !prev.patch) {
+              console.log('[ChampionsPage] Updating filter patch from', prev.patch, 'to', latest);
+              return { ...prev, patch: latest };
             }
             return prev;
           });
         } else {
           // No patches available - might mean no matches ingested yet
           console.warn('[ChampionsPage] No patches available - database might be empty');
+          console.warn('[ChampionsPage] Raw data received:', data);
+          setAvailablePatches([]);
+          setLatestPatch(null);
         }
       } catch (error) {
-        console.error('Failed to fetch patches:', error);
-        // Don't update state on error - keep existing values
+        console.error('[ChampionsPage] Failed to fetch patches:', error);
+        if (error instanceof Error) {
+          console.error('[ChampionsPage] Error message:', error.message);
+          console.error('[ChampionsPage] Error stack:', error.stack);
+        }
+        // Set empty array on error so UI shows "No patches available"
+        setAvailablePatches([]);
+        setLatestPatch(null);
       } finally {
         setPatchesLoading(false);
+        console.log('[ChampionsPage] Finished fetching patches, loading set to false');
       }
     };
     fetchPatches();

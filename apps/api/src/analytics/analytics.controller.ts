@@ -182,7 +182,15 @@ export class AnalyticsController {
       const result = await this.analyticsService.getAvailablePatches();
       console.log(`[AnalyticsController] Service returned:`, JSON.stringify(result, null, 2));
       console.log(`[AnalyticsController] Patches count: ${result.patches?.length || 0}, Latest: ${result.latest || 'null'}`);
-      return result;
+      
+      // Ensure response is always in the correct format
+      const response = {
+        patches: Array.isArray(result.patches) ? result.patches : [],
+        latest: result.latest || null,
+      };
+      
+      console.log(`[AnalyticsController] Returning response:`, JSON.stringify(response, null, 2));
+      return response;
     } catch (error) {
       console.error('[AnalyticsController] Error getting patches:', error);
       if (error instanceof Error) {
