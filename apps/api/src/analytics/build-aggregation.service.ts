@@ -91,9 +91,11 @@ export class BuildAggregationService {
         pp.primary_style_id, pp.sub_style_id, pp.perk_ids, pp.stat_shards
       ON CONFLICT (
         patch, region, queue_id, rank_bracket, role, champion_id,
-        primary_style_id, sub_style_id, perk_ids, stat_shards
+        primary_style_id, sub_style_id
       )
       DO UPDATE SET
+        perk_ids = EXCLUDED.perk_ids,
+        stat_shards = EXCLUDED.stat_shards,
         games = EXCLUDED.games,
         wins = EXCLUDED.wins,
         updated_at = NOW()
@@ -130,9 +132,11 @@ export class BuildAggregationService {
         pp.primary_style_id, pp.sub_style_id, pp.perk_ids, pp.stat_shards
       ON CONFLICT (
         patch, region, queue_id, rank_bracket, role, champion_id,
-        primary_style_id, sub_style_id, perk_ids, stat_shards
+        primary_style_id, sub_style_id
       )
       DO UPDATE SET
+        perk_ids = EXCLUDED.perk_ids,
+        stat_shards = EXCLUDED.stat_shards,
         games = EXCLUDED.games,
         wins = EXCLUDED.wins,
         updated_at = NOW()
