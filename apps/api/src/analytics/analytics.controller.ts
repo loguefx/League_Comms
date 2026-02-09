@@ -814,14 +814,31 @@ export class AnalyticsController {
       return finalResponse;
     } catch (error: any) {
       // #region agent log
-      console.log('[DEBUG] Caught error in getChampionBuild', { errorMessage: error.message, errorName: error.name, errorStack: error.stack?.substring(0, 500) });
+      console.log('[DEBUG] ========== ERROR CAUGHT IN getChampionBuild ==========');
+      console.log('[DEBUG] Error message:', error.message);
+      console.log('[DEBUG] Error name:', error.name);
+      console.log('[DEBUG] Error stack:', error.stack);
+      console.log('[DEBUG] Error toString:', String(error));
+      console.log('[DEBUG] Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+      console.log('[DEBUG] =======================================================');
       fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'analytics.controller.ts:770',message:'Caught error in getChampionBuild',data:{errorMessage:error.message,errorName:error.name,errorStack:error.stack?.substring(0,500)},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
       // #endregion
       console.error('[AnalyticsController] Error getting champion build:', error);
       
       // If it's a BigInt serialization error, return a safe fallback response
-      if (error.message && (error.message.includes('BigInt') || error.message.includes('serialize'))) {
+      const isBigIntError = error.message && (
+        error.message.includes('BigInt') || 
+        error.message.includes('serialize') ||
+        error.message.includes('Do not know how to serialize')
+      );
+      
+      if (isBigIntError) {
         // #region agent log
+        console.log('[DEBUG] ========== BIGINT ERROR DETECTED ==========');
+        console.log('[DEBUG] Champion ID:', championId);
+        console.log('[DEBUG] Error message:', error.message);
+        console.log('[DEBUG] Error name:', error.name);
+        console.log('[DEBUG] ===========================================');
         fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'analytics.controller.ts:775',message:'BigInt serialization error detected',data:{championId,errorMessage:error.message},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
         // #endregion
         console.error(`[getChampionBuild] BigInt serialization error detected for champion ${championId}`);
