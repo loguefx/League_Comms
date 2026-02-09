@@ -61,34 +61,60 @@ export class BuildAggregationService {
     this.logger.log(`Found ${Number(perkCount[0]?.count || 0)} participant perks for patch ${patch}`);
 
     // Group by: patch, region, queueId, rankBracket, role, championId, rune page signature
+    // Use DISTINCT ON to pick the most common perk_ids/stat_shards for each primary key
     await this.prisma.$executeRaw`
+      WITH rune_aggregates AS (
+        SELECT
+          m.patch,
+          m.region,
+          m.queue_id,
+          m.rank_bracket,
+          pp.role,
+          pp.champion_id,
+          pp.primary_style_id,
+          pp.sub_style_id,
+          pp.perk_ids,
+          pp.stat_shards,
+          COUNT(*)::bigint AS games,
+          SUM(CASE WHEN pp.win THEN 1 ELSE 0 END)::bigint AS wins
+        FROM participant_perks pp
+        JOIN matches m ON m.match_id = pp.match_id
+        WHERE m.patch = ${patch}
+          AND m.queue_id = 420
+        GROUP BY
+          m.patch, m.region, m.queue_id, m.rank_bracket,
+          pp.role, pp.champion_id,
+          pp.primary_style_id, pp.sub_style_id, pp.perk_ids, pp.stat_shards
+      ),
+      ranked_runes AS (
+        SELECT *,
+          ROW_NUMBER() OVER (
+            PARTITION BY patch, region, queue_id, rank_bracket, role, champion_id, primary_style_id, sub_style_id
+            ORDER BY games DESC
+          ) as rn
+        FROM rune_aggregates
+      )
       INSERT INTO champion_rune_pages (
         patch, region, queue_id, rank_bracket, role, champion_id,
         primary_style_id, sub_style_id, perk_ids, stat_shards,
         games, wins, updated_at
       )
       SELECT
-        m.patch,
-        m.region,
-        m.queue_id,
-        m.rank_bracket,
-        pp.role,
-        pp.champion_id,
-        pp.primary_style_id,
-        pp.sub_style_id,
-        pp.perk_ids,
-        pp.stat_shards,
-        COUNT(*)::bigint AS games,
-        SUM(CASE WHEN pp.win THEN 1 ELSE 0 END)::bigint AS wins,
+        patch,
+        region,
+        queue_id,
+        rank_bracket,
+        role,
+        champion_id,
+        primary_style_id,
+        sub_style_id,
+        perk_ids,
+        stat_shards,
+        games,
+        wins,
         NOW() AS updated_at
-      FROM participant_perks pp
-      JOIN matches m ON m.match_id = pp.match_id
-      WHERE m.patch = ${patch}
-        AND m.queue_id = 420
-      GROUP BY
-        m.patch, m.region, m.queue_id, m.rank_bracket,
-        pp.role, pp.champion_id,
-        pp.primary_style_id, pp.sub_style_id, pp.perk_ids, pp.stat_shards
+      FROM ranked_runes
+      WHERE rn = 1
       ON CONFLICT (
         patch, region, queue_id, rank_bracket, role, champion_id,
         primary_style_id, sub_style_id
@@ -103,33 +129,58 @@ export class BuildAggregationService {
 
     // Also aggregate "ALL" role (aggregate across all roles)
     await this.prisma.$executeRaw`
+      WITH rune_aggregates_all AS (
+        SELECT
+          m.patch,
+          m.region,
+          m.queue_id,
+          m.rank_bracket,
+          'ALL' AS role,
+          pp.champion_id,
+          pp.primary_style_id,
+          pp.sub_style_id,
+          pp.perk_ids,
+          pp.stat_shards,
+          COUNT(*)::bigint AS games,
+          SUM(CASE WHEN pp.win THEN 1 ELSE 0 END)::bigint AS wins
+        FROM participant_perks pp
+        JOIN matches m ON m.match_id = pp.match_id
+        WHERE m.patch = ${patch}
+          AND m.queue_id = 420
+        GROUP BY
+          m.patch, m.region, m.queue_id, m.rank_bracket,
+          pp.champion_id,
+          pp.primary_style_id, pp.sub_style_id, pp.perk_ids, pp.stat_shards
+      ),
+      ranked_runes_all AS (
+        SELECT *,
+          ROW_NUMBER() OVER (
+            PARTITION BY patch, region, queue_id, rank_bracket, role, champion_id, primary_style_id, sub_style_id
+            ORDER BY games DESC
+          ) as rn
+        FROM rune_aggregates_all
+      )
       INSERT INTO champion_rune_pages (
         patch, region, queue_id, rank_bracket, role, champion_id,
         primary_style_id, sub_style_id, perk_ids, stat_shards,
         games, wins, updated_at
       )
       SELECT
-        m.patch,
-        m.region,
-        m.queue_id,
-        m.rank_bracket,
-        'ALL' AS role,
-        pp.champion_id,
-        pp.primary_style_id,
-        pp.sub_style_id,
-        pp.perk_ids,
-        pp.stat_shards,
-        COUNT(*)::bigint AS games,
-        SUM(CASE WHEN pp.win THEN 1 ELSE 0 END)::bigint AS wins,
+        patch,
+        region,
+        queue_id,
+        rank_bracket,
+        role,
+        champion_id,
+        primary_style_id,
+        sub_style_id,
+        perk_ids,
+        stat_shards,
+        games,
+        wins,
         NOW() AS updated_at
-      FROM participant_perks pp
-      JOIN matches m ON m.match_id = pp.match_id
-      WHERE m.patch = ${patch}
-        AND m.queue_id = 420
-      GROUP BY
-        m.patch, m.region, m.queue_id, m.rank_bracket,
-        pp.champion_id,
-        pp.primary_style_id, pp.sub_style_id, pp.perk_ids, pp.stat_shards
+      FROM ranked_runes_all
+      WHERE rn = 1
       ON CONFLICT (
         patch, region, queue_id, rank_bracket, role, champion_id,
         primary_style_id, sub_style_id
