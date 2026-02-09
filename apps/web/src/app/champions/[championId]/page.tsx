@@ -74,17 +74,6 @@ function getItemImageUrl(itemId: number): string {
   return `https://ddragon.leagueoflegends.com/cdn/${version}/img/item/${itemId}.png`;
 }
 
-// Get rune style image URL
-function getRuneStyleImageUrl(styleId: number): string {
-  const styleMap: Record<number, string> = {
-    8000: '7201_Precision', 8100: '7200_Domination',
-    8200: '7202_Sorcery', 8300: '7204_Inspiration',
-    8400: '7203_Whimsy',
-  };
-  const styleName = styleMap[styleId] || '7200_Domination';
-  return `https://ddragon.leagueoflegends.com/cdn/img/${styleName}.png`;
-}
-
 export default function ChampionBuildPage() {
   const params = useParams();
   const searchParams = useSearchParams();
