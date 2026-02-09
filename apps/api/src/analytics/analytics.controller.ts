@@ -620,8 +620,8 @@ export class AnalyticsController {
         winRate: Number(championStats.winRate) || 0,
         pickRate: Number(championStats.pickRate) || 0,
         banRate: Number(championStats.banRate) || 0,
-        counterPicks: Array.isArray(championStats.counterPicks)
-          ? championStats.counterPicks.map((id: any) => Number(id) || 0).filter((id: number) => id > 0)
+        counterPicks: Array.isArray((championStats as any).counterPicks)
+          ? (championStats as any).counterPicks.map((id: any) => Number(id) || 0).filter((id: number) => id > 0)
           : [],
       } : null;
 
