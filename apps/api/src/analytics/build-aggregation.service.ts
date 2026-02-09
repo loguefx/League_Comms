@@ -603,9 +603,6 @@ export class BuildAggregationService {
     // When role is 'ALL', we need to aggregate across all roles (don't filter by role)
     const roleFilter = normalizedRole === 'ALL' ? Prisma.empty : Prisma.sql`AND role = ${normalizedRole}`;
 
-    // When role is 'ALL', we need to aggregate across all roles (don't filter by role)
-    const roleFilter = normalizedRole === 'ALL' ? Prisma.empty : Prisma.sql`AND role = ${normalizedRole}`;
-
     this.logger.log(`[getRecommendedRunes] Querying for championId=${championId}, patch=${patch}, rankBracket=${rankBracket}, role=${normalizedRole}, region=${region || 'world'}`);
 
     // First, check if any data exists at all for this champion
