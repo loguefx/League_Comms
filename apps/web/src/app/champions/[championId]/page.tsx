@@ -140,9 +140,21 @@ export default function ChampionBuildPage() {
           ...(region !== 'world' && { region }),
         });
 
-        const response = await fetch(`${apiUrl}/champions/${championId}/build?${params}`);
+        let response;
+        try {
+          response = await fetch(`${apiUrl}/champions/${championId}/build?${params}`);
+        } catch (fetchError: any) {
+          // Handle network errors (connection refused, timeout, etc.)
+          console.error('[loadBuild] Failed to fetch from server:', fetchError);
+          if (fetchError.message.includes('Failed to fetch') || fetchError.message.includes('ERR_CONNECTION_REFUSED')) {
+            throw new Error('Cannot connect to the API server. Please ensure the server is running on port 4000.');
+          }
+          throw new Error(`Network error: ${fetchError.message}`);
+        }
+
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          const errorText = await response.text().catch(() => 'Unknown error');
+          throw new Error(`HTTP ${response.status}: ${response.statusText}. ${errorText}`);
         }
 
         let data;
