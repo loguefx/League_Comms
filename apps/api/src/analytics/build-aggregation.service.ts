@@ -400,7 +400,7 @@ export class BuildAggregationService {
             wins,
             NOW() AS updated_at
           FROM ranked_items
-          WHERE rn <= 5
+          WHERE rn = 1
           ON CONFLICT (
             patch, region, queue_id, rank_bracket, role, champion_id, build_type
           )
@@ -473,7 +473,7 @@ export class BuildAggregationService {
             wins,
             NOW() AS updated_at
           FROM ranked_combinations
-          WHERE rn <= 5
+          WHERE rn = 1
           ON CONFLICT (
             patch, region, queue_id, rank_bracket, role, champion_id, build_type
           )
