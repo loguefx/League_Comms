@@ -650,36 +650,62 @@ export default function ChampionBuildPage() {
                                 alt={runeName}
                                 className="w-full h-full object-cover rounded-lg"
                                 style={{ display: 'block' }}
+                                crossOrigin="anonymous"
                                 onLoad={() => {
-                                  console.log(`[RuneImage] Successfully loaded rune image for perk ${perkIdNum}: ${runeImg}`);
+                                  console.log(`[RuneImage] ✅ Successfully loaded rune image for perk ${perkIdNum}: ${runeImg}`);
                                   // #region agent log
-                                  fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:647',message:'Rune image loaded successfully',data:{perkIdNum,runeImg},timestamp:Date.now(),runId:'debug2',hypothesisId:'O'})}).catch(()=>{});
+                                  fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:647',message:'Rune image loaded successfully',data:{perkIdNum,runeImg,imageElementExists:true,imageNaturalWidth:0,imageNaturalHeight:0},timestamp:Date.now(),runId:'debug3',hypothesisId:'Q'})}).catch(()=>{});
                                   // #endregion
                                 }}
                                 onError={async (e) => {
-                                  console.error(`[RuneImage] Failed to load rune image for perk ${perkIdNum}: ${runeImg}`);
+                                  const img = e.target as HTMLImageElement;
+                                  const errorDetails = {
+                                    perkIdNum,
+                                    runeImg,
+                                    perkId,
+                                    naturalWidth: img.naturalWidth,
+                                    naturalHeight: img.naturalHeight,
+                                    complete: img.complete,
+                                    currentSrc: img.currentSrc,
+                                    src: img.src,
+                                    error: img.error?.message || 'Unknown error'
+                                  };
+                                  console.error(`[RuneImage] ❌ Failed to load rune image for perk ${perkIdNum}:`, errorDetails);
                                   // #region agent log
-                                  fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:650',message:'Rune image failed to load',data:{perkIdNum,runeImg,perkId,error:'Image failed to load'},timestamp:Date.now(),runId:'debug2',hypothesisId:'P'})}).catch(()=>{});
+                                  fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:650',message:'Rune image failed to load',data:errorDetails,timestamp:Date.now(),runId:'debug3',hypothesisId:'R'})}).catch(()=>{});
                                   // #endregion
+                                  // Test if URL is accessible
+                                  try {
+                                    const testResponse = await fetch(runeImg, { method: 'HEAD', mode: 'no-cors' });
+                                    console.log(`[RuneImage] URL accessibility test for ${runeImg}:`, testResponse);
+                                    // #region agent log
+                                    fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:655',message:'URL accessibility test',data:{runeImg,testResponseStatus:testResponse.status,testResponseOk:testResponse.ok},timestamp:Date.now(),runId:'debug3',hypothesisId:'S'})}).catch(()=>{});
+                                    // #endregion
+                                  } catch (fetchErr) {
+                                    console.error(`[RuneImage] URL fetch test failed:`, fetchErr);
+                                    // #region agent log
+                                    fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:658',message:'URL fetch test failed',data:{runeImg,error:fetchErr instanceof Error?fetchErr.message:String(fetchErr)},timestamp:Date.now(),runId:'debug3',hypothesisId:'T'})}).catch(()=>{});
+                                    // #endregion
+                                  }
                                   // Try to reload the rune image
                                   try {
                                     const { getRuneImageUrl } = await import('@/utils/runeData');
                                     const newUrl = await getRuneImageUrl(perkIdNum);
                                     if (newUrl && newUrl !== runeImg) {
                                       console.log(`[RuneImage] Retrying with new URL for perk ${perkIdNum}: ${newUrl}`);
-                                      (e.target as HTMLImageElement).src = newUrl;
+                                      img.src = newUrl;
                                     } else {
                                       console.warn(`[RuneImage] No alternative URL found for perk ${perkIdNum}, showing fallback`);
-                                      (e.target as HTMLImageElement).style.display = 'none';
-                                      const parent = (e.target as HTMLImageElement).parentElement;
+                                      img.style.display = 'none';
+                                      const parent = img.parentElement;
                                       if (parent) {
                                         parent.innerHTML = `<span class="text-xs text-[#94A3B8]">${perkIdNum}</span>`;
                                       }
                                     }
                                   } catch (err) {
                                     console.error(`[RuneImage] Error reloading rune ${perkIdNum}:`, err);
-                                    (e.target as HTMLImageElement).style.display = 'none';
-                                    const parent = (e.target as HTMLImageElement).parentElement;
+                                    img.style.display = 'none';
+                                    const parent = img.parentElement;
                                     if (parent) {
                                       parent.innerHTML = `<span class="text-xs text-[#94A3B8]">${perkIdNum}</span>`;
                                     }
@@ -719,23 +745,51 @@ export default function ChampionBuildPage() {
                         src={runeStyleImages.get(selectedBuild.runes.subStyleId)!}
                         alt={`Style ${selectedBuild.runes.subStyleId}`}
                         className="w-full h-full object-cover"
+                        crossOrigin="anonymous"
+                        onLoad={() => {
+                          console.log(`[RuneStyleImage] ✅ Successfully loaded sub style ${selectedBuild.runes.subStyleId}`);
+                          // #region agent log
+                          fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:744',message:'Sub style image loaded successfully',data:{styleId:selectedBuild.runes.subStyleId,imageUrl:runeStyleImages.get(selectedBuild.runes.subStyleId)},timestamp:Date.now(),runId:'debug3',hypothesisId:'W'})}).catch(()=>{});
+                          // #endregion
+                        }}
                         onError={async (e) => {
-                          console.error(`[RuneStyleImage] Failed to load sub style ${selectedBuild.runes.subStyleId}: ${runeStyleImages.get(selectedBuild.runes.subStyleId)}`);
+                          const img = e.target as HTMLImageElement;
+                          const styleUrl = runeStyleImages.get(selectedBuild.runes.subStyleId);
+                          const errorDetails = {
+                            styleId: selectedBuild.runes.subStyleId,
+                            styleUrl,
+                            naturalWidth: img.naturalWidth,
+                            naturalHeight: img.naturalHeight,
+                            complete: img.complete,
+                            currentSrc: img.currentSrc,
+                            src: img.src,
+                            error: img.error?.message || 'Unknown error'
+                          };
+                          console.error(`[RuneStyleImage] ❌ Failed to load sub style ${selectedBuild.runes.subStyleId}:`, errorDetails);
+                          // #region agent log
+                          fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:748',message:'Sub style image failed to load',data:errorDetails,timestamp:Date.now(),runId:'debug3',hypothesisId:'X'})}).catch(()=>{});
+                          // #endregion
                           try {
                             const { getRuneStyleImageUrl } = await import('@/utils/runeData');
                             const newUrl = await getRuneStyleImageUrl(selectedBuild.runes.subStyleId);
                             if (newUrl) {
-                              (e.target as HTMLImageElement).src = newUrl;
+                              img.src = newUrl;
                               // Update the state
                               setRuneStyleImages(prev => new Map(prev).set(selectedBuild.runes.subStyleId, newUrl));
                             } else {
-                              (e.target as HTMLImageElement).style.display = 'none';
-                              (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">Style ${selectedBuild.runes.subStyleId}</span>`;
+                              img.style.display = 'none';
+                              const parent = img.parentElement;
+                              if (parent) {
+                                parent.innerHTML = `<span class="text-xs text-[#94A3B8]">Style ${selectedBuild.runes.subStyleId}</span>`;
+                              }
                             }
                           } catch (err) {
                             console.error(`[RuneStyleImage] Error reloading style ${selectedBuild.runes.subStyleId}:`, err);
-                            (e.target as HTMLImageElement).style.display = 'none';
-                            (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">Style ${selectedBuild.runes.subStyleId}</span>`;
+                            img.style.display = 'none';
+                            const parent = img.parentElement;
+                            if (parent) {
+                              parent.innerHTML = `<span class="text-xs text-[#94A3B8]">Style ${selectedBuild.runes.subStyleId}</span>`;
+                            }
                           }
                         }}
                       />
