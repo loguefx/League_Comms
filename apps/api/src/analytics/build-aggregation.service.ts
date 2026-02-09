@@ -1177,8 +1177,10 @@ export class BuildAggregationService {
         const games = Number(ib.games);
         const wins = Number(ib.wins);
         const smoothedWinRate = (wins + this.SMOOTHING_K * 0.5) / (games + this.SMOOTHING_K);
+        // Filter out zeros (empty slots) from items array
+        const filteredItems = Array.isArray(ib.items) ? ib.items.filter(id => Number(id) > 0) : [];
         return {
-          items: ib.items,
+          items: filteredItems,
           winRate: smoothedWinRate,
           games,
         };

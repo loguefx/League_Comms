@@ -601,6 +601,20 @@ export class AnalyticsController {
       }
       console.log(`[getChampionBuild] ======================================`);
 
+      // #region agent log
+      console.log(`[DEBUG] Item builds received:`, {
+        starting: allItemBuilds.starting.length,
+        core: allItemBuilds.core.length,
+        fourth: allItemBuilds.fourth.length,
+        fifth: allItemBuilds.fifth.length,
+        sixth: allItemBuilds.sixth.length,
+        startingSample: allItemBuilds.starting[0] || null,
+        coreSample: allItemBuilds.core[0] || null,
+        fourthSample: allItemBuilds.fourth[0] || null,
+      });
+      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'analytics.controller.ts:603',message:'Item builds received from service',data:{starting:allItemBuilds.starting.length,core:allItemBuilds.core.length,fourth:allItemBuilds.fourth.length,fifth:allItemBuilds.fifth.length,sixth:allItemBuilds.sixth.length,startingSample:allItemBuilds.starting[0]||null,coreSample:allItemBuilds.core[0]||null,fourthSample:allItemBuilds.fourth[0]||null},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+
       // Get build archetypes (correlated runes + items + spells)
       const buildArchetypes = await this.buildAggregationService.getBuildArchetypes(
         champId,
@@ -691,7 +705,7 @@ export class AnalyticsController {
               games: Number(spells[0].games),
             } : null,
             items: {
-              items: items[0].items.map(id => Number(id)),
+              items: items[0].items.map(id => Number(id)).filter(id => id > 0),
               winRate: Number(items[0].winRate) * 100,
               games: Number(items[0].games),
             },
@@ -745,27 +759,27 @@ export class AnalyticsController {
         tierStats: sanitizedTierStats,
         itemBuilds: {
           starting: allItemBuilds.starting.map(ib => ({
-            items: ib.items.map(id => Number(id)),
+            items: ib.items.map(id => Number(id)).filter(id => id > 0),
             winRate: Number(ib.winRate) * 100,
             games: Number(ib.games),
           })),
           core: allItemBuilds.core.map(ib => ({
-            items: ib.items.map(id => Number(id)),
+            items: ib.items.map(id => Number(id)).filter(id => id > 0),
             winRate: Number(ib.winRate) * 100,
             games: Number(ib.games),
           })),
           fourth: allItemBuilds.fourth.map(ib => ({
-            items: ib.items.map(id => Number(id)),
+            items: ib.items.map(id => Number(id)).filter(id => id > 0),
             winRate: Number(ib.winRate) * 100,
             games: Number(ib.games),
           })),
           fifth: allItemBuilds.fifth.map(ib => ({
-            items: ib.items.map(id => Number(id)),
+            items: ib.items.map(id => Number(id)).filter(id => id > 0),
             winRate: Number(ib.winRate) * 100,
             games: Number(ib.games),
           })),
           sixth: allItemBuilds.sixth.map(ib => ({
-            items: ib.items.map(id => Number(id)),
+            items: ib.items.map(id => Number(id)).filter(id => id > 0),
             winRate: Number(ib.winRate) * 100,
             games: Number(ib.games),
           })),
@@ -797,7 +811,7 @@ export class AnalyticsController {
               games: safeNumber(archetype.spells?.games),
             },
             items: {
-              items: Array.isArray(archetype.items?.items) ? archetype.items.items.map(id => safeNumber(id)) : [],
+              items: Array.isArray(archetype.items?.items) ? archetype.items.items.map(id => safeNumber(id)).filter(id => id > 0) : [],
               winRate: safeNumber(archetype.items?.winRate) * 100,
               games: safeNumber(archetype.items?.games),
             },
