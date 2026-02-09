@@ -136,7 +136,15 @@ export default function ChampionBuildPage() {
             <h1 className="text-2xl font-bold text-red-500 mb-4">Error</h1>
             <p className="text-[#B4BEC8]">{error || 'Champion build not found'}</p>
             <button
-              onClick={() => router.push('/champions')}
+              onClick={() => {
+                const params = new URLSearchParams({
+                  rank,
+                  role: role || 'ALL',
+                  patch,
+                  ...(region !== 'world' && { region }),
+                });
+                router.push(`/champions?${params.toString()}`);
+              }}
               className="mt-6 px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
             >
               Back to Champions
@@ -163,7 +171,15 @@ export default function ChampionBuildPage() {
               Try selecting different filters or wait for more matches to be processed.
             </p>
             <button
-              onClick={() => router.push('/champions')}
+              onClick={() => {
+                const params = new URLSearchParams({
+                  rank,
+                  role: role || 'ALL',
+                  patch,
+                  ...(region !== 'world' && { region }),
+                });
+                router.push(`/champions?${params.toString()}`);
+              }}
               className="mt-6 px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
             >
               Back to Champions
@@ -180,7 +196,15 @@ export default function ChampionBuildPage() {
         {/* Header */}
         <div className="mb-8">
           <button
-            onClick={() => router.push('/champions')}
+            onClick={() => {
+              const params = new URLSearchParams({
+                rank,
+                role: role || 'ALL',
+                patch,
+                ...(region !== 'world' && { region }),
+              });
+              router.push(`/champions?${params.toString()}`);
+            }}
             className="mb-4 text-[#B4BEC8] hover:text-white transition-colors"
           >
             ← Back to Champions

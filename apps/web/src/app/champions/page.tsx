@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { getApiUrl } from '@/utils/api';
 import {
   preloadChampionData,
@@ -25,18 +25,38 @@ interface ChampionStats {
 
 export default function ChampionsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [champions, setChampions] = useState<ChampionStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [championDataLoaded, setChampionDataLoaded] = useState(false);
   const [availablePatches, setAvailablePatches] = useState<string[]>([]);
   const [latestPatch, setLatestPatch] = useState<string | null>(null);
   const [patchesLoading, setPatchesLoading] = useState(true);
+  
+  // Initialize filters from URL params or use defaults
   const [filters, setFilters] = useState({
-    rank: 'PLATINUM_PLUS',
-    role: '',
-    patch: 'latest',
-    region: 'world', // Default to 'world' to aggregate across all regions
+    rank: searchParams.get('rank') || 'PLATINUM_PLUS',
+    role: searchParams.get('role') || '',
+    patch: searchParams.get('patch') || 'latest',
+    region: searchParams.get('region') || 'world',
   });
+  
+  // Update filters when URL params change (e.g., when navigating back)
+  useEffect(() => {
+    const urlRank = searchParams.get('rank');
+    const urlRole = searchParams.get('role');
+    const urlPatch = searchParams.get('patch');
+    const urlRegion = searchParams.get('region');
+    
+    if (urlRank || urlRole !== null || urlPatch || urlRegion) {
+      setFilters({
+        rank: urlRank || 'PLATINUM_PLUS',
+        role: urlRole || '',
+        patch: urlPatch || 'latest',
+        region: urlRegion || 'world',
+      });
+    }
+  }, [searchParams]);
 
   // Preload champion data and fetch patches on mount
   useEffect(() => {
