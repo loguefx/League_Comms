@@ -495,7 +495,7 @@ export class AnalyticsController {
         normalizedRegion
       );
       
-      // Log item build counts for debugging
+      // Log item build counts for debugging (sanitize BigInt before logging)
       console.log(`[getChampionBuild] ========== ITEM BUILDS DEBUG ==========`);
       console.log(`[getChampionBuild] Champion ID: ${champId}, Patch: ${actualPatch}, Rank: ${rankBracket}, Role: ${normalizedRole}, Region: ${normalizedRegion || 'world'}`);
       console.log(`[getChampionBuild] Item builds counts:`, {
@@ -505,11 +505,29 @@ export class AnalyticsController {
         fifth: allItemBuilds.fifth.length,
         sixth: allItemBuilds.sixth.length,
       });
-      console.log(`[getChampionBuild] Starting items data:`, JSON.stringify(allItemBuilds.starting, null, 2));
-      console.log(`[getChampionBuild] Core items data:`, JSON.stringify(allItemBuilds.core, null, 2));
-      console.log(`[getChampionBuild] Fourth items data:`, JSON.stringify(allItemBuilds.fourth, null, 2));
-      console.log(`[getChampionBuild] Fifth items data:`, JSON.stringify(allItemBuilds.fifth, null, 2));
-      console.log(`[getChampionBuild] Sixth items data:`, JSON.stringify(allItemBuilds.sixth, null, 2));
+      // Sanitize BigInt before JSON.stringify to prevent serialization errors
+      const sanitizeForLog = (obj: any): any => {
+        if (obj === null || obj === undefined) return obj;
+        if (typeof obj === 'bigint') return Number(obj);
+        if (Array.isArray(obj)) return obj.map(sanitizeForLog);
+        if (typeof obj === 'object') {
+          const sanitized: any = {};
+          for (const key in obj) {
+            sanitized[key] = sanitizeForLog(obj[key]);
+          }
+          return sanitized;
+        }
+        return obj;
+      };
+      try {
+        console.log(`[getChampionBuild] Starting items data:`, JSON.stringify(sanitizeForLog(allItemBuilds.starting), null, 2));
+        console.log(`[getChampionBuild] Core items data:`, JSON.stringify(sanitizeForLog(allItemBuilds.core), null, 2));
+        console.log(`[getChampionBuild] Fourth items data:`, JSON.stringify(sanitizeForLog(allItemBuilds.fourth), null, 2));
+        console.log(`[getChampionBuild] Fifth items data:`, JSON.stringify(sanitizeForLog(allItemBuilds.fifth), null, 2));
+        console.log(`[getChampionBuild] Sixth items data:`, JSON.stringify(sanitizeForLog(allItemBuilds.sixth), null, 2));
+      } catch (logError) {
+        console.warn(`[getChampionBuild] Failed to log item builds data:`, logError);
+      }
       console.log(`[getChampionBuild] ======================================`);
 
       // Get build archetypes (correlated runes + items + spells)
