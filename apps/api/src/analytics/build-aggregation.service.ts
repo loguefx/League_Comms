@@ -917,7 +917,7 @@ export class BuildAggregationService {
           AND queue_id = 420
           AND role = ${normalizedRole}
           AND champion_id = ${championId}
-          AND build_type = 'core'
+          AND build_type IN ('core', 'full')
           AND games >= ${this.MIN_GAMES_THRESHOLD}
         GROUP BY items
         ORDER BY SUM(games) DESC
@@ -939,7 +939,7 @@ export class BuildAggregationService {
           AND queue_id = 420
           AND role = ${normalizedRole}
           AND champion_id = ${championId}
-          AND build_type = 'core'
+          AND build_type IN ('core', 'full')
           AND games >= ${this.MIN_GAMES_THRESHOLD}
         GROUP BY items
         ORDER BY SUM(games) DESC
@@ -961,7 +961,7 @@ export class BuildAggregationService {
           AND rank_bracket = ${rankBracket}
           AND role = ${normalizedRole}
           AND champion_id = ${championId}
-          AND build_type = 'core'
+          AND build_type IN ('core', 'full')
           AND games >= ${this.MIN_GAMES_THRESHOLD}
         GROUP BY items
         ORDER BY SUM(games) DESC
@@ -984,7 +984,7 @@ export class BuildAggregationService {
           AND rank_bracket = ${rankBracket}
           AND role = ${normalizedRole}
           AND champion_id = ${championId}
-          AND build_type = 'core'
+          AND build_type IN ('core', 'full')
           AND games >= ${this.MIN_GAMES_THRESHOLD}
         ORDER BY games DESC
         LIMIT ${limit}

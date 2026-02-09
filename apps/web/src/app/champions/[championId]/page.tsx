@@ -4,6 +4,14 @@ import { useEffect, useState } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { getApiUrl } from '@/utils/api';
 import { getChampionNameSync, getChampionImageUrl, preloadChampionData } from '@/utils/championData';
+import { 
+  preloadRuneData, 
+  getRuneImageUrl, 
+  getRuneName, 
+  getRuneStyleImageUrl,
+  getStatShardImageUrl,
+  getStatShardName
+} from '@/utils/runeData';
 
 interface BuildArchetype {
   archetype: string;
@@ -55,12 +63,15 @@ function getSpellImageUrl(spellId: number): string {
     14: 'Ignite', 21: 'Barrier',
   };
   const spellName = spellMap[spellId] || 'SummonerSpell';
-  return `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/spell/${spellName}.png`;
+  // Use latest version from runeData cache if available, otherwise fallback
+  const version = typeof window !== 'undefined' && (window as any).__DD_VERSION__ || '14.1.1';
+  return `https://ddragon.leagueoflegends.com/cdn/${version}/img/spell/${spellName}.png`;
 }
 
 // Get item image URL
 function getItemImageUrl(itemId: number): string {
-  return `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/item/${itemId}.png`;
+  const version = typeof window !== 'undefined' && (window as any).__DD_VERSION__ || '14.1.1';
+  return `https://ddragon.leagueoflegends.com/cdn/${version}/img/item/${itemId}.png`;
 }
 
 // Get rune style image URL
@@ -85,6 +96,10 @@ export default function ChampionBuildPage() {
   const [championDataLoaded, setChampionDataLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedBuildIndex, setSelectedBuildIndex] = useState(0);
+  const [runeImages, setRuneImages] = useState<Map<number, string>>(new Map());
+  const [runeNames, setRuneNames] = useState<Map<number, string>>(new Map());
+  const [statShardImages, setStatShardImages] = useState<Map<number, string>>(new Map());
+  const [statShardNames, setStatShardNames] = useState<Map<number, string>>(new Map());
 
   const rank = searchParams.get('rank') || 'ALL_RANKS';
   const role = searchParams.get('role') || 'ALL';
@@ -92,7 +107,10 @@ export default function ChampionBuildPage() {
   const region = searchParams.get('region') || 'world';
 
   useEffect(() => {
-    preloadChampionData().then(() => {
+    Promise.all([
+      preloadChampionData(),
+      preloadRuneData()
+    ]).then(() => {
       setChampionDataLoaded(true);
     });
   }, []);
@@ -309,19 +327,46 @@ export default function ChampionBuildPage() {
               <div className="bg-[#1E293B]/50 rounded-xl p-4 border border-[#334155]">
                 <div className="text-xs text-[#64748B] mb-3 font-semibold uppercase tracking-wider">Primary</div>
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 rounded-lg bg-[#0F172A] border border-[#334155] flex items-center justify-center">
-                    <span className="text-xs text-[#94A3B8]">Style {selectedBuild.runes.primaryStyleId}</span>
+                  <div className="w-12 h-12 rounded-lg bg-[#0F172A] border border-[#334155] flex items-center justify-center overflow-hidden">
+                    <img
+                      src={getRuneStyleImageUrl(selectedBuild.runes.primaryStyleId)}
+                      alt={`Style ${selectedBuild.runes.primaryStyleId}`}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                        (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">Style ${selectedBuild.runes.primaryStyleId}</span>`;
+                      }}
+                    />
                   </div>
                   <div className="flex gap-2">
-                    {selectedBuild.runes.perkIds.slice(0, 4).map((perkId, idx) => (
-                      <div
-                        key={idx}
-                        className="w-10 h-10 rounded-lg bg-[#0F172A] border-2 border-[#334155] hover:border-blue-500/50 transition-colors flex items-center justify-center group relative"
-                        title={`Perk ${perkId}`}
-                      >
-                        <span className="text-xs text-[#94A3B8] group-hover:text-blue-400 transition-colors">{perkId}</span>
-                      </div>
-                    ))}
+                    {selectedBuild.runes.perkIds.slice(0, 4).map((perkId, idx) => {
+                      const runeImg = runeImages.get(perkId);
+                      const runeName = runeNames.get(perkId) || `Perk ${perkId}`;
+                      return (
+                        <div
+                          key={idx}
+                          className="w-10 h-10 rounded-lg bg-[#0F172A] border-2 border-[#334155] hover:border-blue-500/50 transition-colors flex items-center justify-center group relative overflow-hidden"
+                          title={runeName}
+                        >
+                          {runeImg ? (
+                            <img
+                              src={runeImg}
+                              alt={runeName}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                                (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${perkId}</span>`;
+                              }}
+                            />
+                          ) : (
+                            <span className="text-xs text-[#94A3B8] group-hover:text-blue-400 transition-colors">{perkId}</span>
+                          )}
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-[#0F172A] border border-[#334155] rounded text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20">
+                            {runeName}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -330,19 +375,46 @@ export default function ChampionBuildPage() {
               <div className="bg-[#1E293B]/50 rounded-xl p-4 border border-[#334155]">
                 <div className="text-xs text-[#64748B] mb-3 font-semibold uppercase tracking-wider">Secondary</div>
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 rounded-lg bg-[#0F172A] border border-[#334155] flex items-center justify-center">
-                    <span className="text-xs text-[#94A3B8]">Style {selectedBuild.runes.subStyleId}</span>
+                  <div className="w-12 h-12 rounded-lg bg-[#0F172A] border border-[#334155] flex items-center justify-center overflow-hidden">
+                    <img
+                      src={getRuneStyleImageUrl(selectedBuild.runes.subStyleId)}
+                      alt={`Style ${selectedBuild.runes.subStyleId}`}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                        (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">Style ${selectedBuild.runes.subStyleId}</span>`;
+                      }}
+                    />
                   </div>
                   <div className="flex gap-2">
-                    {selectedBuild.runes.perkIds.slice(4, 6).map((perkId, idx) => (
-                      <div
-                        key={idx}
-                        className="w-10 h-10 rounded-lg bg-[#0F172A] border-2 border-[#334155] hover:border-purple-500/50 transition-colors flex items-center justify-center group relative"
-                        title={`Perk ${perkId}`}
-                      >
-                        <span className="text-xs text-[#94A3B8] group-hover:text-purple-400 transition-colors">{perkId}</span>
-                      </div>
-                    ))}
+                    {selectedBuild.runes.perkIds.slice(4, 6).map((perkId, idx) => {
+                      const runeImg = runeImages.get(perkId);
+                      const runeName = runeNames.get(perkId) || `Perk ${perkId}`;
+                      return (
+                        <div
+                          key={idx}
+                          className="w-10 h-10 rounded-lg bg-[#0F172A] border-2 border-[#334155] hover:border-purple-500/50 transition-colors flex items-center justify-center group relative overflow-hidden"
+                          title={runeName}
+                        >
+                          {runeImg ? (
+                            <img
+                              src={runeImg}
+                              alt={runeName}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                                (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${perkId}</span>`;
+                              }}
+                            />
+                          ) : (
+                            <span className="text-xs text-[#94A3B8] group-hover:text-purple-400 transition-colors">{perkId}</span>
+                          )}
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-[#0F172A] border border-[#334155] rounded text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20">
+                            {runeName}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -352,15 +424,34 @@ export default function ChampionBuildPage() {
             <div className="mt-4 pt-4 border-t border-[#334155]">
               <div className="text-xs text-[#64748B] mb-3 font-semibold uppercase tracking-wider">Stat Shards</div>
               <div className="flex gap-3">
-                {selectedBuild.runes.statShards.map((shardId, idx) => (
-                  <div
-                    key={idx}
-                    className="w-10 h-10 rounded-lg bg-[#1E293B] border-2 border-[#334155] hover:border-cyan-500/50 transition-colors flex items-center justify-center group"
-                    title={`Shard ${shardId}`}
-                  >
-                    <span className="text-xs text-[#94A3B8] group-hover:text-cyan-400 transition-colors">{shardId}</span>
-                  </div>
-                ))}
+                {selectedBuild.runes.statShards.map((shardId, idx) => {
+                  const shardImg = statShardImages.get(shardId);
+                  const shardName = statShardNames.get(shardId) || `Shard ${shardId}`;
+                  return (
+                    <div
+                      key={idx}
+                      className="w-10 h-10 rounded-lg bg-[#1E293B] border-2 border-[#334155] hover:border-cyan-500/50 transition-colors flex items-center justify-center group relative overflow-hidden"
+                      title={shardName}
+                    >
+                      {shardImg ? (
+                        <img
+                          src={shardImg}
+                          alt={shardName}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                            (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${shardId}</span>`;
+                          }}
+                        />
+                      ) : (
+                        <span className="text-xs text-[#94A3B8] group-hover:text-cyan-400 transition-colors">{shardId}</span>
+                      )}
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-[#0F172A] border border-[#334155] rounded text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20">
+                        {shardName}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -378,19 +469,31 @@ export default function ChampionBuildPage() {
                   </div>
                 </div>
                 <div className="flex gap-4">
-                  <div className="w-16 h-16 rounded-xl bg-[#1E293B] border-2 border-[#334155] hover:border-blue-500/50 transition-all hover:scale-110 flex items-center justify-center group relative">
-                    <span className="text-xs text-[#94A3B8] group-hover:text-blue-400 transition-colors font-semibold">
-                      {selectedBuild.spells.spell1Id}
-                    </span>
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-[#0F172A] border border-[#334155] rounded text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                  <div className="w-16 h-16 rounded-xl bg-[#1E293B] border-2 border-[#334155] hover:border-blue-500/50 transition-all hover:scale-110 flex items-center justify-center group relative overflow-hidden">
+                    <img
+                      src={getSpellImageUrl(selectedBuild.spells.spell1Id)}
+                      alt={`Spell ${selectedBuild.spells.spell1Id}`}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                        (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8] group-hover:text-blue-400 transition-colors font-semibold">${selectedBuild.spells.spell1Id}</span>`;
+                      }}
+                    />
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-[#0F172A] border border-[#334155] rounded text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
                       Spell {selectedBuild.spells.spell1Id}
                     </div>
                   </div>
-                  <div className="w-16 h-16 rounded-xl bg-[#1E293B] border-2 border-[#334155] hover:border-blue-500/50 transition-all hover:scale-110 flex items-center justify-center group relative">
-                    <span className="text-xs text-[#94A3B8] group-hover:text-blue-400 transition-colors font-semibold">
-                      {selectedBuild.spells.spell2Id}
-                    </span>
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-[#0F172A] border border-[#334155] rounded text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                  <div className="w-16 h-16 rounded-xl bg-[#1E293B] border-2 border-[#334155] hover:border-blue-500/50 transition-all hover:scale-110 flex items-center justify-center group relative overflow-hidden">
+                    <img
+                      src={getSpellImageUrl(selectedBuild.spells.spell2Id)}
+                      alt={`Spell ${selectedBuild.spells.spell2Id}`}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                        (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8] group-hover:text-blue-400 transition-colors font-semibold">${selectedBuild.spells.spell2Id}</span>`;
+                      }}
+                    />
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-[#0F172A] border border-[#334155] rounded text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
                       Spell {selectedBuild.spells.spell2Id}
                     </div>
                   </div>
@@ -398,25 +501,31 @@ export default function ChampionBuildPage() {
               </div>
             )}
 
-            {/* Core Items */}
+            {/* Items */}
             <div className="bg-[#0F172A]/80 backdrop-blur-sm border border-[#1E293B] rounded-2xl p-6 shadow-xl">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-white">Core Items</h2>
+                <h2 className="text-2xl font-bold text-white">Items</h2>
                 <div className="text-sm text-[#94A3B8]">
                   <span className="text-emerald-400 font-semibold">{selectedBuild.items.winRate.toFixed(1)}%</span> win rate •{' '}
                   <span className="text-white">{selectedBuild.items.games.toLocaleString()}</span> games
                 </div>
               </div>
               <div className="flex flex-wrap gap-3">
-                {selectedBuild.items.items.map((itemId, idx) => (
+                {selectedBuild.items.items.filter(itemId => itemId > 0).map((itemId, idx) => (
                   <div
                     key={idx}
-                    className="w-16 h-16 rounded-xl bg-[#1E293B] border-2 border-[#334155] hover:border-amber-500/50 transition-all hover:scale-110 flex items-center justify-center group relative"
+                    className="w-16 h-16 rounded-xl bg-[#1E293B] border-2 border-[#334155] hover:border-amber-500/50 transition-all hover:scale-110 flex items-center justify-center group relative overflow-hidden"
                     title={`Item ${itemId}`}
                   >
-                    <span className="text-xs text-[#94A3B8] group-hover:text-amber-400 transition-colors font-semibold">
-                      {itemId}
-                    </span>
+                    <img
+                      src={getItemImageUrl(itemId)}
+                      alt={`Item ${itemId}`}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                        (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8] group-hover:text-amber-400 transition-colors font-semibold">${itemId}</span>`;
+                      }}
+                    />
                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-[#0F172A] border border-[#334155] rounded text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
                       Item {itemId}
                     </div>
