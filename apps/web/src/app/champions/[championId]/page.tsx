@@ -86,9 +86,9 @@ function getSpellImageUrl(spellId: number, version: string = '14.1.1'): string {
 }
 
 // Get item image URL
-function getItemImageUrl(itemId: number): string {
-  const version = typeof window !== 'undefined' && (window as any).__DD_VERSION__ || '14.1.1';
-  return `https://ddragon.leagueoflegends.com/cdn/${version}/img/item/${itemId}.png`;
+function getItemImageUrl(itemId: number, version?: string): string {
+  const ddVersion = version || (typeof window !== 'undefined' && (window as any).__DD_VERSION__) || '14.1.1';
+  return `https://ddragon.leagueoflegends.com/cdn/${ddVersion}/img/item/${itemId}.png`;
 }
 
 export default function ChampionBuildPage() {
@@ -428,9 +428,24 @@ export default function ChampionBuildPage() {
                         src={runeStyleImages.get(selectedBuild.runes.primaryStyleId)!}
                         alt={`Style ${selectedBuild.runes.primaryStyleId}`}
                         className="w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = 'none';
-                          (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">Style ${selectedBuild.runes.primaryStyleId}</span>`;
+                        onError={async (e) => {
+                          console.error(`[RuneStyleImage] Failed to load primary style ${selectedBuild.runes.primaryStyleId}: ${runeStyleImages.get(selectedBuild.runes.primaryStyleId)}`);
+                          try {
+                            const { getRuneStyleImageUrl } = await import('@/utils/runeData');
+                            const newUrl = await getRuneStyleImageUrl(selectedBuild.runes.primaryStyleId);
+                            if (newUrl) {
+                              (e.target as HTMLImageElement).src = newUrl;
+                              // Update the state
+                              setRuneStyleImages(prev => new Map(prev).set(selectedBuild.runes.primaryStyleId, newUrl));
+                            } else {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                              (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">Style ${selectedBuild.runes.primaryStyleId}</span>`;
+                            }
+                          } catch (err) {
+                            console.error(`[RuneStyleImage] Error reloading style ${selectedBuild.runes.primaryStyleId}:`, err);
+                            (e.target as HTMLImageElement).style.display = 'none';
+                            (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">Style ${selectedBuild.runes.primaryStyleId}</span>`;
+                          }
                         }}
                       />
                     ) : (
@@ -443,7 +458,7 @@ export default function ChampionBuildPage() {
                       const runeName = runeNames.get(perkId) || `Perk ${perkId}`;
                       return (
                         <div
-                          key={idx}
+                          key={`${perkId}-${idx}`}
                           className="w-10 h-10 rounded-lg bg-[#0F172A] border-2 border-[#334155] hover:border-blue-500/50 transition-colors flex items-center justify-center group relative overflow-hidden"
                           title={runeName}
                         >
@@ -452,9 +467,23 @@ export default function ChampionBuildPage() {
                               src={runeImg}
                               alt={runeName}
                               className="w-full h-full object-cover"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).style.display = 'none';
-                                (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${perkId}</span>`;
+                              onError={async (e) => {
+                                console.error(`[RuneImage] Failed to load rune image for perk ${perkId}: ${runeImg}`);
+                                // Try to reload the rune image
+                                try {
+                                  const { getRuneImageUrl } = await import('@/utils/runeData');
+                                  const newUrl = await getRuneImageUrl(perkId);
+                                  if (newUrl && newUrl !== runeImg) {
+                                    (e.target as HTMLImageElement).src = newUrl;
+                                  } else {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                    (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${perkId}</span>`;
+                                  }
+                                } catch (err) {
+                                  console.error(`[RuneImage] Error reloading rune ${perkId}:`, err);
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                  (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${perkId}</span>`;
+                                }
                               }}
                             />
                           ) : (
@@ -480,9 +509,24 @@ export default function ChampionBuildPage() {
                         src={runeStyleImages.get(selectedBuild.runes.subStyleId)!}
                         alt={`Style ${selectedBuild.runes.subStyleId}`}
                         className="w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = 'none';
-                          (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">Style ${selectedBuild.runes.subStyleId}</span>`;
+                        onError={async (e) => {
+                          console.error(`[RuneStyleImage] Failed to load sub style ${selectedBuild.runes.subStyleId}: ${runeStyleImages.get(selectedBuild.runes.subStyleId)}`);
+                          try {
+                            const { getRuneStyleImageUrl } = await import('@/utils/runeData');
+                            const newUrl = await getRuneStyleImageUrl(selectedBuild.runes.subStyleId);
+                            if (newUrl) {
+                              (e.target as HTMLImageElement).src = newUrl;
+                              // Update the state
+                              setRuneStyleImages(prev => new Map(prev).set(selectedBuild.runes.subStyleId, newUrl));
+                            } else {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                              (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">Style ${selectedBuild.runes.subStyleId}</span>`;
+                            }
+                          } catch (err) {
+                            console.error(`[RuneStyleImage] Error reloading style ${selectedBuild.runes.subStyleId}:`, err);
+                            (e.target as HTMLImageElement).style.display = 'none';
+                            (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">Style ${selectedBuild.runes.subStyleId}</span>`;
+                          }
                         }}
                       />
                     ) : (
@@ -495,7 +539,7 @@ export default function ChampionBuildPage() {
                       const runeName = runeNames.get(perkId) || `Perk ${perkId}`;
                       return (
                         <div
-                          key={idx}
+                          key={`${perkId}-${idx}`}
                           className="w-10 h-10 rounded-lg bg-[#0F172A] border-2 border-[#334155] hover:border-purple-500/50 transition-colors flex items-center justify-center group relative overflow-hidden"
                           title={runeName}
                         >
@@ -504,9 +548,23 @@ export default function ChampionBuildPage() {
                               src={runeImg}
                               alt={runeName}
                               className="w-full h-full object-cover"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).style.display = 'none';
-                                (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${perkId}</span>`;
+                              onError={async (e) => {
+                                console.error(`[RuneImage] Failed to load rune image for perk ${perkId}: ${runeImg}`);
+                                // Try to reload the rune image
+                                try {
+                                  const { getRuneImageUrl } = await import('@/utils/runeData');
+                                  const newUrl = await getRuneImageUrl(perkId);
+                                  if (newUrl && newUrl !== runeImg) {
+                                    (e.target as HTMLImageElement).src = newUrl;
+                                  } else {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                    (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${perkId}</span>`;
+                                  }
+                                } catch (err) {
+                                  console.error(`[RuneImage] Error reloading rune ${perkId}:`, err);
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                  (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${perkId}</span>`;
+                                }
                               }}
                             />
                           ) : (

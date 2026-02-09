@@ -485,6 +485,15 @@ export class AnalyticsController {
         normalizedRole,
         normalizedRegion
       );
+      
+      // Log item build counts for debugging
+      console.log(`[getChampionBuild] Item builds for champion ${champId}:`, {
+        starting: allItemBuilds.starting.length,
+        core: allItemBuilds.core.length,
+        fourth: allItemBuilds.fourth.length,
+        fifth: allItemBuilds.fifth.length,
+        sixth: allItemBuilds.sixth.length,
+      });
 
       // Get build archetypes (correlated runes + items + spells)
       const buildArchetypes = await this.buildAggregationService.getBuildArchetypes(
