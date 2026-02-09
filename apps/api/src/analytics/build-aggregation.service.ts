@@ -595,6 +595,11 @@ export class BuildAggregationService {
     const isAllRanks = rankBracket === 'all_ranks';
     const isWorld = !region;
 
+    // #region agent log
+    console.log('[DEBUG] getRecommendedRunes entry', { championId, patch, rankBracket, role, region, limit, normalizedRole, isAllRanks, isWorld });
+    fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:594',message:'getRecommendedRunes entry',data:{championId,patch,rankBracket,role,region,limit,normalizedRole,isAllRanks,isWorld},timestamp:Date.now(),runId:'debug2',hypothesisId:'G'})}).catch(()=>{});
+    // #endregion
+
     this.logger.log(`[getRecommendedRunes] Querying for championId=${championId}, patch=${patch}, rankBracket=${rankBracket}, role=${normalizedRole}, region=${region || 'world'}`);
 
     // First, check if any data exists at all for this champion
@@ -830,7 +835,16 @@ export class BuildAggregationService {
 
     this.logger.log(`[getRecommendedRunes] Found ${runePages.length} rune pages for champion ${championId}`);
 
+    // #region agent log
+    console.log('[DEBUG] getRecommendedRunes query result', { runePagesLength: runePages?.length || 0, runePagesSample: runePages?.[0] || null });
+    fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:833',message:'getRecommendedRunes query result',data:{runePagesLength:runePages?.length||0,runePagesSample:runePages?.[0]||null},timestamp:Date.now(),runId:'debug2',hypothesisId:'H'})}).catch(()=>{});
+    // #endregion
+
     if (!runePages || runePages.length === 0) {
+      // #region agent log
+      console.log('[DEBUG] getRecommendedRunes returning empty array');
+      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:834',message:'getRecommendedRunes returning empty',data:{championId,patch,rankBracket,role,region},timestamp:Date.now(),runId:'debug2',hypothesisId:'I'})}).catch(()=>{});
+      // #endregion
       this.logger.warn(`[getRecommendedRunes] No rune pages found for champion ${championId} with filters: patch=${patch}, role=${normalizedRole}, rank=${rankBracket}, region=${region || 'world'}`);
       return [];
     }
@@ -1182,6 +1196,11 @@ export class BuildAggregationService {
     const isAllRanks = rankBracket === 'all_ranks';
     const isWorld = !region;
 
+    // #region agent log
+    console.log('[DEBUG] getRecommendedItems entry', { championId, patch, rankBracket, role, region, limit, normalizedRole, isAllRanks, isWorld });
+    fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:1190',message:'getRecommendedItems entry',data:{championId,patch,rankBracket,role,region,limit,normalizedRole,isAllRanks,isWorld},timestamp:Date.now(),runId:'debug2',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
+
     let itemBuilds;
     if (isAllRanks && isWorld) {
       itemBuilds = await this.prisma.$queryRaw<Array<{
@@ -1272,7 +1291,16 @@ export class BuildAggregationService {
       `;
     }
 
+    // #region agent log
+    console.log('[DEBUG] getRecommendedItems query result', { itemBuildsLength: itemBuilds?.length || 0, itemBuildsSample: itemBuilds?.[0] || null });
+    fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:1275',message:'getRecommendedItems query result',data:{itemBuildsLength:itemBuilds?.length||0,itemBuildsSample:itemBuilds?.[0]||null},timestamp:Date.now(),runId:'debug2',hypothesisId:'E'})}).catch(()=>{});
+    // #endregion
+
     if (!itemBuilds || itemBuilds.length === 0) {
+      // #region agent log
+      console.log('[DEBUG] getRecommendedItems returning empty array');
+      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:1276',message:'getRecommendedItems returning empty',data:{championId,patch,rankBracket,role,region},timestamp:Date.now(),runId:'debug2',hypothesisId:'F'})}).catch(()=>{});
+      // #endregion
       return [];
     }
 
@@ -1329,6 +1357,11 @@ export class BuildAggregationService {
     const isAllRanks = rankBracket === 'all_ranks';
     const isWorld = !region;
 
+    // #region agent log
+    console.log('[DEBUG] getBuildArchetypes entry', { championId, patch, rankBracket, role, region, limit });
+    fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:1297',message:'getBuildArchetypes entry',data:{championId,patch,rankBracket,role,region,limit},timestamp:Date.now(),runId:'debug2',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+
     // Get top rune pages and item builds
     const [runePages, itemBuilds, spellSets] = await Promise.all([
       this.getRecommendedRunes(championId, patch, rankBracket, role, region, limit * 2),
@@ -1336,9 +1369,18 @@ export class BuildAggregationService {
       this.getRecommendedSpells(championId, patch, rankBracket, role, region, limit * 2),
     ]);
 
+    // #region agent log
+    console.log('[DEBUG] getBuildArchetypes after Promise.all', { runePagesLength: runePages.length, itemBuildsLength: itemBuilds.length, spellSetsLength: spellSets.length });
+    fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:1339',message:'getBuildArchetypes after Promise.all',data:{runePagesLength:runePages.length,itemBuildsLength:itemBuilds.length,spellSetsLength:spellSets.length,runePagesSample:runePages[0]||null,itemBuildsSample:itemBuilds[0]||null},timestamp:Date.now(),runId:'debug2',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+
     this.logger.log(`[getBuildArchetypes] Found ${runePages.length} rune pages, ${itemBuilds.length} item builds, ${spellSets.length} spell sets for champion ${championId} (patch=${patch}, role=${normalizedRole}, rank=${rankBracket}, region=${region || 'world'})`);
 
     if (runePages.length === 0 || itemBuilds.length === 0) {
+      // #region agent log
+      console.log('[DEBUG] getBuildArchetypes returning empty - runes or items missing', { runePagesLength: runePages.length, itemBuildsLength: itemBuilds.length });
+      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:1341',message:'getBuildArchetypes returning empty',data:{runePagesLength:runePages.length,itemBuildsLength:itemBuilds.length,championId,patch,rankBracket,role,region},timestamp:Date.now(),runId:'debug2',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
       this.logger.warn(`[getBuildArchetypes] No build data found for champion ${championId} - runes: ${runePages.length}, items: ${itemBuilds.length}`);
       
       // Check if data exists in the database at all
