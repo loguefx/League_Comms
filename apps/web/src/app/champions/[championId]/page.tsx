@@ -294,6 +294,16 @@ export default function ChampionBuildPage() {
             console.log(`[loadRuneImages] Missing rune images:`, data.builds.flatMap(b => b.runes.perkIds).filter(id => !runeImgMap.has(id)));
             console.log(`[loadRuneImages] ================================================`);
             
+            // #region agent log
+            const primaryStyleIds = data.builds.map(b => b.runes.primaryStyleId);
+            const subStyleIds = data.builds.map(b => b.runes.subStyleId);
+            const loadedStyleIds = Array.from(styleImgMap.keys());
+            console.log(`[loadRuneImages] Primary style IDs from builds:`, primaryStyleIds);
+            console.log(`[loadRuneImages] Sub style IDs from builds:`, subStyleIds);
+            console.log(`[loadRuneImages] Loaded style IDs:`, loadedStyleIds);
+            fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:299',message:'Rune style images loaded',data:{runeImagesCount:runeImgMap.size,styleImagesCount:styleImgMap.size,primaryStyleIds,subStyleIds,loadedStyleIds},timestamp:Date.now(),runId:'debug1',hypothesisId:'A'})}).catch(()=>{});
+            // #endregion
+            
             setRuneImages(runeImgMap);
             setRuneNames(runeNameMap);
             setRuneStyleImages(styleImgMap);
@@ -351,9 +361,9 @@ export default function ChampionBuildPage() {
 
   const championName = getChampionNameSync(championId);
   const championImageUrl = getChampionImageUrl(championId);
-  const selectedBuild = build.builds[selectedBuildIndex];
+  const selectedBuild = build.builds && build.builds.length > 0 ? build.builds[selectedBuildIndex] : null;
 
-  if (!selectedBuild) {
+  if (!selectedBuild && (!build.builds || build.builds.length === 0)) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#0A0E1A] via-[#0F172A] to-[#0A0E1A] flex items-center justify-center">
         <div className="text-center max-w-md">
@@ -483,6 +493,18 @@ export default function ChampionBuildPage() {
                 <div className="text-xs text-[#64748B] mb-3 font-semibold uppercase tracking-wider">Primary</div>
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-12 h-12 rounded-lg bg-[#0F172A] border border-[#334155] flex items-center justify-center overflow-hidden">
+                    {(() => {
+                      // #region agent log
+                      const primaryStyleId = selectedBuild.runes.primaryStyleId;
+                      const hasStyleImage = runeStyleImages.has(primaryStyleId);
+                      const styleImageUrl = runeStyleImages.get(primaryStyleId);
+                      const styleImagesSize = runeStyleImages.size;
+                      const allStyleIds = Array.from(runeStyleImages.keys());
+                      console.log(`[RuneStyleRender] Primary style ${primaryStyleId}:`, { hasStyleImage, styleImageUrl, styleImagesSize, allStyleIds });
+                      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:486',message:'Primary rune style render check',data:{primaryStyleId,hasStyleImage,styleImageUrl,styleImagesSize,allStyleIds},timestamp:Date.now(),runId:'debug1',hypothesisId:'A'})}).catch(()=>{});
+                      // #endregion
+                      return null;
+                    })()}
                     {runeStyleImages.get(selectedBuild.runes.primaryStyleId) ? (
                       <img
                         src={runeStyleImages.get(selectedBuild.runes.primaryStyleId)!}
@@ -700,7 +722,20 @@ export default function ChampionBuildPage() {
               console.log('[ItemBuildRender] Fourth items length:', build.itemBuilds?.fourth?.length || 0);
               console.log('[ItemBuildRender] Fifth items length:', build.itemBuilds?.fifth?.length || 0);
               console.log('[ItemBuildRender] Sixth items length:', build.itemBuilds?.sixth?.length || 0);
-              return null;
+              // #region agent log
+              const itemBuildsData = {
+                starting: build.itemBuilds?.starting?.length || 0,
+                core: build.itemBuilds?.core?.length || 0,
+                fourth: build.itemBuilds?.fourth?.length || 0,
+                fifth: build.itemBuilds?.fifth?.length || 0,
+                sixth: build.itemBuilds?.sixth?.length || 0,
+                startingSample: build.itemBuilds?.starting?.[0] || null,
+                coreSample: build.itemBuilds?.core?.[0] || null,
+                fourthSample: build.itemBuilds?.fourth?.[0] || null,
+              };
+              fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:697',message:'Item builds render check',data:itemBuildsData,timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+              // #endregion
+              return null; // Debug logging only, don't render anything here
             })()}
             {build.itemBuilds && (
               <div className="bg-[#0F172A]/80 backdrop-blur-sm border border-[#1E293B] rounded-2xl p-6 shadow-xl">

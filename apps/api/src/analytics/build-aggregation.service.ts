@@ -9,7 +9,7 @@ import { Prisma } from '@prisma/client';
 @Injectable()
 export class BuildAggregationService {
   private readonly logger = new Logger(BuildAggregationService.name);
-  private readonly MIN_GAMES_THRESHOLD = 10; // Minimum games for a build to be recommended (lowered for initial data)
+  private readonly MIN_GAMES_THRESHOLD = 1; // Minimum games for a build to be recommended (lowered for initial data)
   private readonly SMOOTHING_K = 200; // Bayesian smoothing constant
 
   constructor(private prisma: PrismaService) {}
@@ -1198,7 +1198,7 @@ export class BuildAggregationService {
           AND queue_id = 420
           AND role = ${normalizedRole}
           AND champion_id = ${championId}
-          AND build_type IN ('core', 'full')
+          AND build_type = 'core'
           AND games >= ${this.MIN_GAMES_THRESHOLD}
         GROUP BY items
         ORDER BY SUM(games) DESC
@@ -1220,7 +1220,7 @@ export class BuildAggregationService {
           AND queue_id = 420
           AND role = ${normalizedRole}
           AND champion_id = ${championId}
-          AND build_type IN ('core', 'full')
+          AND build_type = 'core'
           AND games >= ${this.MIN_GAMES_THRESHOLD}
         GROUP BY items
         ORDER BY SUM(games) DESC
@@ -1242,7 +1242,7 @@ export class BuildAggregationService {
           AND rank_bracket = ${rankBracket}
           AND role = ${normalizedRole}
           AND champion_id = ${championId}
-          AND build_type IN ('core', 'full')
+          AND build_type = 'core'
           AND games >= ${this.MIN_GAMES_THRESHOLD}
         GROUP BY items
         ORDER BY SUM(games) DESC
@@ -1265,7 +1265,7 @@ export class BuildAggregationService {
           AND rank_bracket = ${rankBracket}
           AND role = ${normalizedRole}
           AND champion_id = ${championId}
-          AND build_type IN ('core', 'full')
+          AND build_type = 'core'
           AND games >= ${this.MIN_GAMES_THRESHOLD}
         ORDER BY games DESC
         LIMIT ${limit}
