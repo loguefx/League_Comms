@@ -859,10 +859,60 @@ export class AnalyticsController {
         }
       }
       
-      // If we get here, all attempts failed - return sanitized version anyway
-      // The interceptor will handle it, but log a warning
-      console.warn(`[getChampionBuild] ⚠️ Returning response after failed serialization attempts - interceptor will handle it`);
-      return finalResponse;
+      // If we get here, all attempts failed - use a custom serializer as last resort
+      console.warn(`[getChampionBuild] ⚠️ All serialization attempts failed, using custom serializer`);
+      
+      // Create a completely new object with all BigInt values converted
+      const createSafeResponse = (obj: any, path: string = 'root'): any => {
+        if (obj === null || obj === undefined) return obj;
+        if (typeof obj === 'bigint') {
+          console.warn(`[createSafeResponse] Found BigInt at ${path}, converting to number`);
+          return Number(obj);
+        }
+        if (typeof obj === 'number' && (obj === Infinity || obj === -Infinity || isNaN(obj))) {
+          return null; // Replace invalid numbers
+        }
+        if (Array.isArray(obj)) {
+          return obj.map((item, idx) => createSafeResponse(item, `${path}[${idx}]`));
+        }
+        if (typeof obj === 'object') {
+          const safe: any = {};
+          for (const key in obj) {
+            if (obj.hasOwnProperty(key)) {
+              try {
+                safe[key] = createSafeResponse(obj[key], `${path}.${key}`);
+              } catch (e) {
+                safe[key] = null; // Skip problematic keys
+              }
+            }
+          }
+          return safe;
+        }
+        return obj;
+      };
+      
+      const safeResponse = createSafeResponse(finalResponse);
+      
+      // Try one final serialization
+      try {
+        JSON.stringify(safeResponse);
+        console.log(`[getChampionBuild] ✅ Custom serializer succeeded`);
+        return safeResponse;
+      } catch (finalError: any) {
+        console.error(`[getChampionBuild] ❌ Even custom serializer failed:`, finalError.message);
+        // Return minimal safe response
+        return {
+          championId: champId,
+          patch: actualPatch,
+          rank: rankBracket,
+          role: normalizedRole,
+          region: normalizedRegion || 'world',
+          tierStats: null,
+          itemBuilds: { starting: [], core: [], fourth: [], fifth: [], sixth: [] },
+          builds: [],
+          error: 'Data serialization error - some data could not be processed. Please try again or contact support.',
+        };
+      }
     } catch (error: any) {
       // #region agent log
       console.log('[DEBUG] ========== ERROR CAUGHT IN getChampionBuild ==========');
