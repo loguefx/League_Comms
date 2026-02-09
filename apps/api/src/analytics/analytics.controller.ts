@@ -643,40 +643,41 @@ export class AnalyticsController {
           : [],
       } : null;
 
-      return {
+      // Build the response object
+      const responseData = {
         championId: champId,
         patch: actualPatch,
         rank: rankBracket,
         role: normalizedRole,
         region: normalizedRegion || 'world',
         tierStats: sanitizedTierStats,
-          itemBuilds: {
-            starting: allItemBuilds.starting.map(ib => ({
-              items: ib.items.map(id => Number(id)),
-              winRate: Number(ib.winRate) * 100,
-              games: Number(ib.games),
-            })),
-            core: allItemBuilds.core.map(ib => ({
-              items: ib.items.map(id => Number(id)),
-              winRate: Number(ib.winRate) * 100,
-              games: Number(ib.games),
-            })),
-            fourth: allItemBuilds.fourth.map(ib => ({
-              items: ib.items.map(id => Number(id)),
-              winRate: Number(ib.winRate) * 100,
-              games: Number(ib.games),
-            })),
-            fifth: allItemBuilds.fifth.map(ib => ({
-              items: ib.items.map(id => Number(id)),
-              winRate: Number(ib.winRate) * 100,
-              games: Number(ib.games),
-            })),
-            sixth: allItemBuilds.sixth.map(ib => ({
-              items: ib.items.map(id => Number(id)),
-              winRate: Number(ib.winRate) * 100,
-              games: Number(ib.games),
-            })),
-          },
+        itemBuilds: {
+          starting: allItemBuilds.starting.map(ib => ({
+            items: ib.items.map(id => Number(id)),
+            winRate: Number(ib.winRate) * 100,
+            games: Number(ib.games),
+          })),
+          core: allItemBuilds.core.map(ib => ({
+            items: ib.items.map(id => Number(id)),
+            winRate: Number(ib.winRate) * 100,
+            games: Number(ib.games),
+          })),
+          fourth: allItemBuilds.fourth.map(ib => ({
+            items: ib.items.map(id => Number(id)),
+            winRate: Number(ib.winRate) * 100,
+            games: Number(ib.games),
+          })),
+          fifth: allItemBuilds.fifth.map(ib => ({
+            items: ib.items.map(id => Number(id)),
+            winRate: Number(ib.winRate) * 100,
+            games: Number(ib.games),
+          })),
+          sixth: allItemBuilds.sixth.map(ib => ({
+            items: ib.items.map(id => Number(id)),
+            winRate: Number(ib.winRate) * 100,
+            games: Number(ib.games),
+          })),
+        },
         builds: buildArchetypes.map(archetype => ({
           archetype: archetype.archetype,
           runes: {
@@ -702,6 +703,41 @@ export class AnalyticsController {
           overallWinRate: Number(archetype.overallWinRate) * 100,
         })),
       };
+
+      // Final sanitization pass - recursively convert any remaining BigInt values
+      const sanitizeBigInt = (obj: any): any => {
+        if (obj === null || obj === undefined) {
+          return obj;
+        }
+        if (typeof obj === 'bigint') {
+          console.warn(`[getChampionBuild] Found BigInt in final sanitization, converting to number`);
+          return Number(obj);
+        }
+        if (Array.isArray(obj)) {
+          return obj.map(item => sanitizeBigInt(item));
+        }
+        if (typeof obj === 'object') {
+          const sanitized: any = {};
+          for (const key in obj) {
+            if (obj.hasOwnProperty(key)) {
+              sanitized[key] = sanitizeBigInt(obj[key]);
+            }
+          }
+          return sanitized;
+        }
+        return obj;
+      };
+
+      // Test serialization before returning
+      try {
+        JSON.stringify(responseData);
+        return sanitizeBigInt(responseData);
+      } catch (serializeError: any) {
+        console.error(`[getChampionBuild] Failed to serialize response data:`, serializeError.message);
+        console.error(`[getChampionBuild] Response data keys:`, Object.keys(responseData));
+        // Return sanitized version anyway - the interceptor will handle it
+        return sanitizeBigInt(responseData);
+      }
     } catch (error: any) {
       console.error('[AnalyticsController] Error getting champion build:', error);
       
