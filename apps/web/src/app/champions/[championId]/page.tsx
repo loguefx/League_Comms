@@ -150,6 +150,18 @@ export default function ChampionBuildPage() {
           throw new Error(data.error);
         }
 
+        console.log('[loadBuild] Received build data:', {
+          championId: data.championId,
+          builds: data.builds?.length || 0,
+          itemBuilds: data.itemBuilds ? {
+            starting: data.itemBuilds.starting?.length || 0,
+            core: data.itemBuilds.core?.length || 0,
+            fourth: data.itemBuilds.fourth?.length || 0,
+            fifth: data.itemBuilds.fifth?.length || 0,
+            sixth: data.itemBuilds.sixth?.length || 0,
+          } : null,
+        });
+
         setBuild(data);
         if (data.builds && data.builds.length > 0) {
           setSelectedBuildIndex(0);
