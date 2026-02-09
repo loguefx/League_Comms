@@ -21,6 +21,10 @@ export class BuildAggregationService {
    */
   async aggregateBuilds(patch?: string): Promise<void> {
     this.logger.log(`Starting build aggregation${patch ? ` for patch ${patch}` : ''}...`);
+    // #region agent log
+    const aggStartTime = Date.now();
+    fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:22',message:'aggregateBuilds called',data:{patch:patch||'all'},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
 
     try {
       // Get patches to process
@@ -32,8 +36,15 @@ export class BuildAggregationService {
             WHERE patch IS NOT NULL
           `.then((results) => results.map((r) => r.patch));
 
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:29',message:'Patches found for aggregation',data:{patchesCount:patches.length,patches:patches},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+
       if (patches.length === 0) {
         this.logger.warn('No patches found in database for build aggregation');
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:35',message:'No patches found - early return',data:{},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
         return;
       }
 
@@ -41,13 +52,24 @@ export class BuildAggregationService {
 
       for (const p of patches) {
         this.logger.log(`Aggregating builds for patch ${p}...`);
+        // #region agent log
+        const patchStartTime = Date.now();
+        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:42',message:'Starting patch aggregation',data:{patch:p},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
         try {
           await this.aggregateRunePages(p);
           await this.aggregateSpellSets(p);
           await this.aggregateItemBuilds(p);
           this.logger.log(`✓ Build aggregation complete for patch ${p}`);
+          // #region agent log
+          const patchDuration = Date.now() - patchStartTime;
+          fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:47',message:'Patch aggregation complete',data:{patch:p,durationMs:patchDuration},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+          // #endregion
         } catch (error) {
           this.logger.error(`✗ Build aggregation failed for patch ${p}:`, error);
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:50',message:'Patch aggregation error',data:{patch:p,errorMessage:error instanceof Error ? error.message : String(error)},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+          // #endregion
           // Continue with next patch even if one fails
         }
       }
@@ -66,8 +88,15 @@ export class BuildAggregationService {
       ]);
 
       this.logger.log(`Build aggregation complete. Total aggregated: ${Number(runePageCount[0]?.count || 0)} rune pages, ${Number(itemBuildCount[0]?.count || 0)} item builds, ${Number(spellSetCount[0]?.count || 0)} spell sets`);
+      // #region agent log
+      const aggDuration = Date.now() - aggStartTime;
+      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:68',message:'Build aggregation complete',data:{runePages:Number(runePageCount[0]?.count || 0),itemBuilds:Number(itemBuildCount[0]?.count || 0),spellSets:Number(spellSetCount[0]?.count || 0),durationMs:aggDuration},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
     } catch (error) {
       this.logger.error('Build aggregation failed:', error);
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:70',message:'Build aggregation failed',data:{errorMessage:error instanceof Error ? error.message : String(error)},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       throw error;
     }
   }
@@ -319,6 +348,24 @@ export class BuildAggregationService {
    */
   private async aggregateItemBuilds(patch: string): Promise<void> {
     this.logger.log(`Aggregating item builds for patch ${patch}...`);
+    // #region agent log
+    const itemBuildStartTime = Date.now();
+    // Check total items in DB before filtering
+    const totalItemsBefore = await this.prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*)::bigint as count FROM participant_final_items pfi
+      JOIN matches m ON m.match_id = pfi.match_id
+      WHERE m.patch = ${patch} AND m.queue_id = 420
+    `;
+    // Check items with 6+ full items
+    const itemsWith6Full = await this.prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*)::bigint as count FROM participant_final_items pfi
+      JOIN matches m ON m.match_id = pfi.match_id
+      WHERE m.patch = ${patch} AND m.queue_id = 420
+        AND array_length(array_remove((pfi.items[1:6])::int[], 0), 1) >= 6
+        AND (SELECT COUNT(*) FROM unnest((pfi.items[1:6])::int[]) AS item WHERE item >= 3000 AND item > 0) >= 6
+    `;
+    fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:320',message:'Starting item build aggregation',data:{patch,totalItems:Number(totalItemsBefore[0]?.count || 0),itemsWith6Full:Number(itemsWith6Full[0]?.count || 0)},timestamp:Date.now(),runId:'debug1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
 
     // Extract items by position in the array (PostgreSQL arrays are 1-indexed)
     // Starting items: items[1:2] (first 2 items)
@@ -358,8 +405,10 @@ export class BuildAggregationService {
               AND array_length(pfi.items, 1) >= ${startPos}
               AND (pfi.items[${startPos}])::int > 0
               AND (pfi.items[${startPos}])::int IS NOT NULL
-              -- Only include matches where players have at least 6 completed items (filter out early game matches)
+              -- Only include matches where players have exactly 6 completed full items (>= 3000) in slots 1-6
+              -- This ensures we only show builds from matches where players completed their full 6-item build
               AND array_length(array_remove((pfi.items[1:6])::int[], 0), 1) >= 6
+              AND (SELECT COUNT(*) FROM unnest((pfi.items[1:6])::int[]) AS item WHERE item >= 3000 AND item > 0) >= 6
               ${roleFilter ? Prisma.sql`AND pfi.role = ${roleFilter}` : Prisma.empty}
           ),
           item_at_position AS (
@@ -427,6 +476,33 @@ export class BuildAggregationService {
             wins = EXCLUDED.wins,
             updated_at = NOW()
         `;
+        // #region agent log
+        const filteredCountResult = await this.prisma.$queryRaw<Array<{ count: bigint }>>`
+          WITH filtered_items AS (
+            SELECT
+              m.patch,
+              m.region,
+              m.queue_id,
+              m.rank_bracket,
+              pfi.role,
+              pfi.champion_id,
+              (pfi.items[${startPos}])::int AS item_id,
+              pfi.win
+            FROM participant_final_items pfi
+            JOIN matches m ON m.match_id = pfi.match_id
+            WHERE m.patch = ${patch}
+              AND m.queue_id = 420
+              AND array_length(pfi.items, 1) >= ${startPos}
+              AND (pfi.items[${startPos}])::int > 0
+              AND (pfi.items[${startPos}])::int IS NOT NULL
+              AND array_length(array_remove((pfi.items[1:6])::int[], 0), 1) >= 6
+              AND (SELECT COUNT(*) FROM unnest((pfi.items[1:6])::int[]) AS item WHERE item >= 3000 AND item > 0) >= 6
+              ${roleFilter ? Prisma.sql`AND pfi.role = ${roleFilter}` : Prisma.empty}
+          )
+          SELECT COUNT(*)::bigint as count FROM filtered_items
+        `;
+        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:343',message:'Single item aggregation query executed',data:{buildType,patch,startPos,filteredCount:Number(filteredCountResult[0]?.count || 0),roleFilter:roleFilter||'ALL'},timestamp:Date.now(),runId:'debug1',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
       } else {
         // Multiple items: extract slice and aggregate combinations
         await this.prisma.$executeRaw`
@@ -448,8 +524,10 @@ export class BuildAggregationService {
               AND array_length((pfi.items[${startPos}:${endPos}])::int[], 1) >= 1
               AND (pfi.items[${startPos}:${endPos}])::int[] IS NOT NULL
               AND array_length(array_remove((pfi.items[${startPos}:${endPos}])::int[], 0), 1) >= 1
-              -- Only include matches where players have at least 6 completed items (filter out early game matches)
+              -- Only include matches where players have exactly 6 completed full items (>= 3000) in slots 1-6
+              -- This ensures we only show builds from matches where players completed their full 6-item build
               AND array_length(array_remove((pfi.items[1:6])::int[], 0), 1) >= 6
+              AND (SELECT COUNT(*) FROM unnest((pfi.items[1:6])::int[]) AS item WHERE item >= 3000 AND item > 0) >= 6
               ${roleFilter ? Prisma.sql`AND pfi.role = ${roleFilter}` : Prisma.empty}
           ),
           item_combinations AS (
@@ -518,6 +596,34 @@ export class BuildAggregationService {
             wins = EXCLUDED.wins,
             updated_at = NOW()
         `;
+        // #region agent log
+        const filteredCountResult = await this.prisma.$queryRaw<Array<{ count: bigint }>>`
+          WITH filtered_items AS (
+            SELECT
+              m.patch,
+              m.region,
+              m.queue_id,
+              m.rank_bracket,
+              pfi.role,
+              pfi.champion_id,
+              (pfi.items[${startPos}:${endPos}])::int[] AS item_slice,
+              pfi.win
+            FROM participant_final_items pfi
+            JOIN matches m ON m.match_id = pfi.match_id
+            WHERE m.patch = ${patch}
+              AND m.queue_id = 420
+              AND array_length(pfi.items, 1) >= ${endPos}
+              AND array_length((pfi.items[${startPos}:${endPos}])::int[], 1) >= 1
+              AND (pfi.items[${startPos}:${endPos}])::int[] IS NOT NULL
+              AND array_length(array_remove((pfi.items[${startPos}:${endPos}])::int[], 0), 1) >= 1
+              AND array_length(array_remove((pfi.items[1:6])::int[], 0), 1) >= 6
+              AND (SELECT COUNT(*) FROM unnest((pfi.items[1:6])::int[]) AS item WHERE item >= 3000 AND item > 0) >= 6
+              ${roleFilter ? Prisma.sql`AND pfi.role = ${roleFilter}` : Prisma.empty}
+          )
+          SELECT COUNT(*)::bigint as count FROM filtered_items
+        `;
+        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:432',message:'Multiple item aggregation query executed',data:{buildType,patch,startPos,endPos,filteredCount:Number(filteredCountResult[0]?.count || 0),roleFilter:roleFilter||'ALL'},timestamp:Date.now(),runId:'debug1',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
       }
     };
 
@@ -577,6 +683,11 @@ export class BuildAggregationService {
     
     this.logger.log(`Item builds aggregated for patch ${patch}:`, summary);
     this.logger.log(`Item builds aggregated for patch ${patch} (all build types)`);
+    // #region agent log
+    const itemBuildDuration = Date.now() - itemBuildStartTime;
+    const summaryData = summary.map(s => ({ buildType: s.build_type, role: s.role, count: Number(s.count) }));
+    fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:578',message:'Item build aggregation complete',data:{patch,summary:summaryData,durationMs:itemBuildDuration},timestamp:Date.now(),runId:'debug1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
   }
 
   /**

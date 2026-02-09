@@ -9,7 +9,9 @@ import {
   getRuneImageUrl, 
   getRuneName,
   getRuneDescription,
-  getRuneStyleImageUrl
+  getRuneStyleImageUrl,
+  getStatShardImageUrl,
+  getStatShardName
 } from '@/utils/runeData';
 import { getLatestDataDragonVersion } from '@/utils/championData';
 import { preloadItemData, getItemData } from '@/utils/itemData';
@@ -110,6 +112,8 @@ export default function ChampionBuildPage() {
   const [runeNames, setRuneNames] = useState<Map<number, string>>(new Map());
   const [runeDescriptions, setRuneDescriptions] = useState<Map<number, string>>(new Map());
   const [runeStyleImages, setRuneStyleImages] = useState<Map<number, string>>(new Map());
+  const [statShardImages, setStatShardImages] = useState<Map<number, string>>(new Map());
+  const [statShardNames, setStatShardNames] = useState<Map<number, string>>(new Map());
   const [itemData, setItemData] = useState<Map<number, { name: string; description: string }>>(new Map());
   const [spellData, setSpellData] = useState<Map<number, { name: string; description: string }>>(new Map());
   const [ddVersion, setDdVersion] = useState<string>('14.1.1');
@@ -263,10 +267,27 @@ export default function ChampionBuildPage() {
             const runeNameMap = new Map<number, string>();
             const runeDescMap = new Map<number, string>();
             const styleImgMap = new Map<number, string>();
+            const statShardImgMap = new Map<number, string>();
+            const statShardNameMap = new Map<number, string>();
             const itemDataMap = new Map<number, { name: string; description: string }>();
             const spellDataMap = new Map<number, { name: string; description: string }>();
             
             for (const buildArchetype of data.builds) {
+              // Load stat shard images and names
+              if (buildArchetype.runes.statShards && Array.isArray(buildArchetype.runes.statShards)) {
+                for (const shardId of buildArchetype.runes.statShards) {
+                  if (!statShardImgMap.has(shardId)) {
+                    try {
+                      const shardImgUrl = await getStatShardImageUrl(shardId);
+                      const shardName = await getStatShardName(shardId);
+                      statShardImgMap.set(shardId, shardImgUrl);
+                      statShardNameMap.set(shardId, shardName);
+                    } catch (err) {
+                      console.error(`[loadRuneImages] Failed to load stat shard ${shardId}:`, err);
+                    }
+                  }
+                }
+              }
               // Load rune style images
               if (!styleImgMap.has(buildArchetype.runes.primaryStyleId)) {
                 try {
@@ -399,6 +420,8 @@ export default function ChampionBuildPage() {
             setRuneNames(runeNameMap);
             setRuneDescriptions(runeDescMap);
             setRuneStyleImages(styleImgMap);
+            setStatShardImages(statShardImgMap);
+            setStatShardNames(statShardNameMap);
             setItemData(itemDataMap);
             setSpellData(spellDataMap);
             setRuneDataLoaded(true);
@@ -679,12 +702,12 @@ export default function ChampionBuildPage() {
                             <span className="text-xs text-[#94A3B8] group-hover:text-blue-400 transition-colors">{perkIdNum}</span>
                           )}
                           {runeDesc ? (
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#0F172A] border border-[#334155] rounded-lg text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-pre-line max-w-xs z-50 shadow-xl">
-                              <div className="font-semibold text-blue-400 mb-1">{runeName}</div>
-                              <div className="text-[#94A3B8]">{runeDesc}</div>
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-4 py-3 bg-[#0F172A] border border-[#334155] rounded-lg text-sm text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-pre-line max-w-sm z-50 shadow-xl">
+                              <div className="font-bold text-base text-blue-400 mb-2">{runeName}</div>
+                              <div className="text-[#94A3B8] leading-relaxed">{runeDesc}</div>
                             </div>
                           ) : (
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-[#0F172A] border border-[#334155] rounded text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20">
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#0F172A] border border-[#334155] rounded text-sm text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20 font-semibold">
                               {runeName}
                             </div>
                           )}
@@ -692,6 +715,42 @@ export default function ChampionBuildPage() {
                       );
                     })}
                   </div>
+                  {/* Stat Shards */}
+                  {selectedBuild.runes.statShards && selectedBuild.runes.statShards.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-[#334155]">
+                      <div className="text-xs text-[#64748B] mb-2 font-semibold uppercase tracking-wider">Stat Shards</div>
+                      <div className="flex gap-2">
+                        {selectedBuild.runes.statShards.map((shardId, idx) => {
+                          const shardIdNum = Number(shardId);
+                          const shardImg = statShardImages.get(shardIdNum);
+                          const shardName = statShardNames.get(shardIdNum) || `Shard ${shardIdNum}`;
+                          return (
+                            <div
+                              key={`shard-${shardIdNum}-${idx}`}
+                              className="w-8 h-8 rounded-lg bg-[#0F172A] border border-[#334155] hover:border-blue-500/50 transition-colors flex items-center justify-center group relative overflow-visible"
+                            >
+                              {shardImg ? (
+                                <img
+                                  src={shardImg}
+                                  alt={shardName}
+                                  className="w-full h-full object-cover rounded-lg"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                    (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-[10px] text-[#94A3B8]">${shardIdNum}</span>`;
+                                  }}
+                                />
+                              ) : (
+                                <span className="text-[10px] text-[#94A3B8]">{shardIdNum}</span>
+                              )}
+                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-[#0F172A] border border-[#334155] rounded text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20">
+                                {shardName}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -749,39 +808,49 @@ export default function ChampionBuildPage() {
                           className="w-10 h-10 rounded-lg bg-[#0F172A] border-2 border-[#334155] hover:border-purple-500/50 transition-colors flex items-center justify-center group relative overflow-visible"
                         >
                           {runeImg ? (
-                            <img
-                              src={runeImg}
-                              alt={runeName}
-                              className="w-full h-full object-cover rounded-lg"
-                              onError={async (e) => {
-                                console.error(`[RuneImage] Failed to load rune image for perk ${perkIdNum}: ${runeImg}`);
-                                // Try to reload the rune image
-                                try {
-                                  const { getRuneImageUrl } = await import('@/utils/runeData');
-                                  const newUrl = await getRuneImageUrl(perkIdNum);
-                                  if (newUrl && newUrl !== runeImg) {
-                                    (e.target as HTMLImageElement).src = newUrl;
-                                  } else {
-                                    (e.target as HTMLImageElement).style.display = 'none';
-                                    (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${perkIdNum}</span>`;
+                            <>
+                              <img
+                                key={`rune-img-${perkIdNum}-${idx}`}
+                                src={runeImg}
+                                alt={runeName}
+                                className="w-full h-full object-cover rounded-lg"
+                                style={{ display: 'block' }}
+                                onError={async (e) => {
+                                  const img = e.target as HTMLImageElement;
+                                  console.error(`[RuneImage] Failed to load rune image for perk ${perkIdNum}: ${runeImg}`);
+                                  // Try alternative CDN (canisback) as fallback
+                                  try {
+                                    const iconPathMatch = runeImg.match(/\/img\/(.+)$/);
+                                    if (iconPathMatch) {
+                                      const iconPath = iconPathMatch[1];
+                                      const altUrl = `https://ddragon.canisback.com/img/${iconPath}`;
+                                      console.log(`[RuneImage] Trying alternative CDN for perk ${perkIdNum}: ${altUrl}`);
+                                      img.src = altUrl;
+                                    } else {
+                                      throw new Error('Could not extract icon path from URL');
+                                    }
+                                  } catch (err) {
+                                    console.error(`[RuneImage] Error reloading rune ${perkIdNum}:`, err);
+                                    img.style.display = 'none';
+                                    const parent = img.parentElement;
+                                    if (parent) {
+                                      parent.innerHTML = `<span class="text-xs text-[#94A3B8]">${perkIdNum}</span>`;
+                                    }
                                   }
-                                } catch (err) {
-                                  console.error(`[RuneImage] Error reloading rune ${perkIdNum}:`, err);
-                                  (e.target as HTMLImageElement).style.display = 'none';
-                                  (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${perkIdNum}</span>`;
-                                }
-                              }}
-                            />
+                                }}
+                              />
+                              <span className="text-xs text-[#94A3B8] group-hover:text-purple-400 transition-colors" style={{ display: 'none' }}>{perkIdNum}</span>
+                            </>
                           ) : (
                             <span className="text-xs text-[#94A3B8] group-hover:text-purple-400 transition-colors">{perkIdNum}</span>
                           )}
                           {runeDesc ? (
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#0F172A] border border-[#334155] rounded-lg text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-pre-line max-w-xs z-50 shadow-xl">
-                              <div className="font-semibold text-purple-400 mb-1">{runeName}</div>
-                              <div className="text-[#94A3B8]">{runeDesc}</div>
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-4 py-3 bg-[#0F172A] border border-[#334155] rounded-lg text-sm text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-pre-line max-w-sm z-50 shadow-xl">
+                              <div className="font-bold text-base text-purple-400 mb-2">{runeName}</div>
+                              <div className="text-[#94A3B8] leading-relaxed">{runeDesc}</div>
                             </div>
                           ) : (
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-[#0F172A] border border-[#334155] rounded text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20">
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#0F172A] border border-[#334155] rounded text-sm text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20 font-semibold">
                               {runeName}
                             </div>
                           )}
@@ -968,23 +1037,31 @@ export default function ChampionBuildPage() {
                         return (
                           <div key={optIdx} className="mb-3">
                             <div className="flex gap-2 mb-1">
-                              {buildOption.items.filter(itemId => itemId > 0).map((itemId, idx) => (
-                                <div
-                                  key={idx}
-                                  className="w-10 h-10 rounded-lg bg-[#1E293B] border-2 border-[#334155] hover:border-amber-500/50 transition-all hover:scale-110 flex items-center justify-center group relative overflow-hidden"
-                                  title={`Item ${itemId}`}
-                                >
-                                  <img
-                                    src={getItemImageUrl(itemId, ddVersion)}
-                                    alt={`Item ${itemId}`}
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      (e.target as HTMLImageElement).style.display = 'none';
-                                      (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${itemId}</span>`;
-                                    }}
-                                  />
-                                </div>
-                              ))}
+                              {buildOption.items.filter(itemId => itemId > 0).map((itemId, idx) => {
+                                const itemInfo = itemData.get(itemId);
+                                return (
+                                  <div
+                                    key={idx}
+                                    className="w-10 h-10 rounded-lg bg-[#1E293B] border-2 border-[#334155] hover:border-amber-500/50 transition-all hover:scale-110 flex items-center justify-center group relative overflow-visible"
+                                  >
+                                    <img
+                                      src={getItemImageUrl(itemId, ddVersion)}
+                                      alt={itemInfo?.name || `Item ${itemId}`}
+                                      className="w-full h-full object-cover rounded-lg"
+                                      onError={(e) => {
+                                        (e.target as HTMLImageElement).style.display = 'none';
+                                        (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${itemId}</span>`;
+                                      }}
+                                    />
+                                    {itemInfo && (
+                                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#0F172A] border border-[#334155] rounded-lg text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-pre-line max-w-xs z-50 shadow-xl">
+                                        <div className="font-semibold text-amber-400 mb-1">{itemInfo.name}</div>
+                                        <div className="text-[#94A3B8]">{itemInfo.description}</div>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
                             <div className="text-xs text-[#64748B]">
                               <span className="text-emerald-400">{buildOption.winRate.toFixed(2)}%</span> WR •{' '}
@@ -1003,23 +1080,31 @@ export default function ChampionBuildPage() {
                       {build.itemBuilds.fifth.slice(0, 3).map((buildOption, optIdx) => (
                         <div key={optIdx} className="mb-3">
                           <div className="flex gap-2 mb-1">
-                            {buildOption.items.filter(itemId => itemId > 0).map((itemId, idx) => (
-                              <div
-                                key={idx}
-                                className="w-10 h-10 rounded-lg bg-[#1E293B] border-2 border-[#334155] hover:border-amber-500/50 transition-all hover:scale-110 flex items-center justify-center group relative overflow-hidden"
-                                title={`Item ${itemId}`}
-                              >
-                                <img
-                                  src={getItemImageUrl(itemId, ddVersion)}
-                                  alt={`Item ${itemId}`}
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).style.display = 'none';
-                                    (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${itemId}</span>`;
-                                  }}
-                                />
-                              </div>
-                            ))}
+                            {buildOption.items.filter(itemId => itemId > 0).map((itemId, idx) => {
+                              const itemInfo = itemData.get(itemId);
+                              return (
+                                <div
+                                  key={idx}
+                                  className="w-10 h-10 rounded-lg bg-[#1E293B] border-2 border-[#334155] hover:border-amber-500/50 transition-all hover:scale-110 flex items-center justify-center group relative overflow-visible"
+                                >
+                                  <img
+                                    src={getItemImageUrl(itemId, ddVersion)}
+                                    alt={itemInfo?.name || `Item ${itemId}`}
+                                    className="w-full h-full object-cover rounded-lg"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).style.display = 'none';
+                                      (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${itemId}</span>`;
+                                    }}
+                                  />
+                                  {itemInfo && (
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#0F172A] border border-[#334155] rounded-lg text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-pre-line max-w-xs z-50 shadow-xl">
+                                      <div className="font-semibold text-amber-400 mb-1">{itemInfo.name}</div>
+                                      <div className="text-[#94A3B8]">{itemInfo.description}</div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
                           <div className="text-xs text-[#64748B]">
                             <span className="text-emerald-400">{buildOption.winRate.toFixed(2)}%</span> WR •{' '}
@@ -1037,23 +1122,31 @@ export default function ChampionBuildPage() {
                       {build.itemBuilds.sixth.slice(0, 3).map((buildOption, optIdx) => (
                         <div key={optIdx} className="mb-3">
                           <div className="flex gap-2 mb-1">
-                            {buildOption.items.filter(itemId => itemId > 0).map((itemId, idx) => (
-                              <div
-                                key={idx}
-                                className="w-10 h-10 rounded-lg bg-[#1E293B] border-2 border-[#334155] hover:border-amber-500/50 transition-all hover:scale-110 flex items-center justify-center group relative overflow-hidden"
-                                title={`Item ${itemId}`}
-                              >
-                                <img
-                                  src={getItemImageUrl(itemId, ddVersion)}
-                                  alt={`Item ${itemId}`}
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).style.display = 'none';
-                                    (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${itemId}</span>`;
-                                  }}
-                                />
-                              </div>
-                            ))}
+                            {buildOption.items.filter(itemId => itemId > 0).map((itemId, idx) => {
+                              const itemInfo = itemData.get(itemId);
+                              return (
+                                <div
+                                  key={idx}
+                                  className="w-10 h-10 rounded-lg bg-[#1E293B] border-2 border-[#334155] hover:border-amber-500/50 transition-all hover:scale-110 flex items-center justify-center group relative overflow-visible"
+                                >
+                                  <img
+                                    src={getItemImageUrl(itemId, ddVersion)}
+                                    alt={itemInfo?.name || `Item ${itemId}`}
+                                    className="w-full h-full object-cover rounded-lg"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).style.display = 'none';
+                                      (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${itemId}</span>`;
+                                    }}
+                                  />
+                                  {itemInfo && (
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#0F172A] border border-[#334155] rounded-lg text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-pre-line max-w-xs z-50 shadow-xl">
+                                      <div className="font-semibold text-amber-400 mb-1">{itemInfo.name}</div>
+                                      <div className="text-[#94A3B8]">{itemInfo.description}</div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
                           <div className="text-xs text-[#64748B]">
                             <span className="text-emerald-400">{buildOption.winRate.toFixed(2)}%</span> WR •{' '}
