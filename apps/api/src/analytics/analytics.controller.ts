@@ -754,30 +754,41 @@ export class AnalyticsController {
             games: Number(ib.games),
           })),
         },
-        builds: buildArchetypes.map(archetype => ({
-          archetype: archetype.archetype,
-          runes: {
-            primaryStyleId: Number(archetype.runes.primaryStyleId),
-            subStyleId: Number(archetype.runes.subStyleId),
-            perkIds: archetype.runes.perkIds.map(id => Number(id)),
-            statShards: archetype.runes.statShards.map(id => Number(id)),
-            winRate: Number(archetype.runes.winRate) * 100,
-            games: Number(archetype.runes.games),
-          },
-          spells: {
-            spell1Id: Number(archetype.spells.spell1Id),
-            spell2Id: Number(archetype.spells.spell2Id),
-            winRate: Number(archetype.spells.winRate) * 100,
-            games: Number(archetype.spells.games),
-          },
-          items: {
-            items: archetype.items.items.map(id => Number(id)),
-            winRate: Number(archetype.items.winRate) * 100,
-            games: Number(archetype.items.games),
-          },
-          totalGames: Number(archetype.totalGames),
-          overallWinRate: Number(archetype.overallWinRate) * 100,
-        })),
+        builds: buildArchetypes.map(archetype => {
+          // Safely convert all values, handling BigInt explicitly
+          const safeNumber = (value: any): number => {
+            if (value === null || value === undefined) return 0;
+            if (typeof value === 'bigint') return Number(value);
+            if (typeof value === 'number') return value;
+            const num = Number(value);
+            return isNaN(num) ? 0 : num;
+          };
+          
+          return {
+            archetype: String(archetype.archetype || ''),
+            runes: {
+              primaryStyleId: safeNumber(archetype.runes?.primaryStyleId),
+              subStyleId: safeNumber(archetype.runes?.subStyleId),
+              perkIds: Array.isArray(archetype.runes?.perkIds) ? archetype.runes.perkIds.map(id => safeNumber(id)) : [],
+              statShards: Array.isArray(archetype.runes?.statShards) ? archetype.runes.statShards.map(id => safeNumber(id)) : [],
+              winRate: safeNumber(archetype.runes?.winRate) * 100,
+              games: safeNumber(archetype.runes?.games),
+            },
+            spells: {
+              spell1Id: safeNumber(archetype.spells?.spell1Id),
+              spell2Id: safeNumber(archetype.spells?.spell2Id),
+              winRate: safeNumber(archetype.spells?.winRate) * 100,
+              games: safeNumber(archetype.spells?.games),
+            },
+            items: {
+              items: Array.isArray(archetype.items?.items) ? archetype.items.items.map(id => safeNumber(id)) : [],
+              winRate: safeNumber(archetype.items?.winRate) * 100,
+              games: safeNumber(archetype.items?.games),
+            },
+            totalGames: safeNumber(archetype.totalGames),
+            overallWinRate: safeNumber(archetype.overallWinRate) * 100,
+          };
+        }),
       };
       
       // #region agent log
