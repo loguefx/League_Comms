@@ -62,13 +62,39 @@ async function bootstrap() {
     await new Promise(resolve => setTimeout(resolve, 3000));
     console.log(`✅ Wait complete`);
     
-    // Get Fastify instance BEFORE calling listen
+    // We need to ensure NestJS has registered routes with Fastify
+    // Try calling app.init() with a short timeout - if it works, great; if not, continue anyway
+    console.log(`⏳ Attempting to initialize NestJS (with 5 second timeout)...`);
+    try {
+      await Promise.race([
+        app.init(),
+        new Promise<void>((_, reject) => {
+          setTimeout(() => reject(new Error('timeout')), 5000);
+        }),
+      ]);
+      console.log(`✅ NestJS initialization completed`);
+    } catch (error: any) {
+      if (error.message === 'timeout') {
+        console.warn(`⚠️  NestJS init() timed out, but continuing anyway (routes may already be registered)`);
+      } else {
+        console.warn(`⚠️  NestJS init() failed: ${error.message}, but continuing anyway`);
+      }
+    }
+    
+    // Get Fastify instance
     console.log(`⏳ Getting Fastify instance...`);
     const fastifyInstance = app.getHttpAdapter().getInstance();
     console.log(`✅ Got Fastify instance`);
     
+    // Check if routes are registered
+    console.log(`⏳ Checking if routes are registered...`);
+    const routes = fastifyInstance.printRoutes();
+    console.log(`✅ Fastify routes:`, routes ? 'Registered' : 'Not registered');
+    if (routes) {
+      console.log(`   Route count: ${routes.split('\n').filter(line => line.trim()).length} routes`);
+    }
+    
     // Start the server using Fastify's listen directly
-    // This bypasses NestJS's app.listen() which seems to be hanging
     console.log(`⏳ Starting Fastify server directly on port ${port}...`);
     
     await new Promise<void>((resolve, reject) => {
