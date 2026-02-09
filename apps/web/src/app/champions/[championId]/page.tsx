@@ -7,10 +7,14 @@ import { getChampionNameSync, getChampionImageUrl, preloadChampionData } from '@
 import { 
   preloadRuneData, 
   getRuneImageUrl, 
-  getRuneName, 
+  getRuneName,
+  getRuneDescription,
   getRuneStyleImageUrl
 } from '@/utils/runeData';
 import { getLatestDataDragonVersion } from '@/utils/championData';
+import { preloadItemData, getItemData } from '@/utils/itemData';
+import { preloadSpellData, getSpellData } from '@/utils/spellData';
+import { preloadSpellData, getSpellData } from '@/utils/spellData';
 
 interface BuildArchetype {
   archetype: string;
@@ -105,7 +109,10 @@ export default function ChampionBuildPage() {
   const [selectedBuildIndex, setSelectedBuildIndex] = useState(0);
   const [runeImages, setRuneImages] = useState<Map<number, string>>(new Map());
   const [runeNames, setRuneNames] = useState<Map<number, string>>(new Map());
+  const [runeDescriptions, setRuneDescriptions] = useState<Map<number, string>>(new Map());
   const [runeStyleImages, setRuneStyleImages] = useState<Map<number, string>>(new Map());
+  const [itemData, setItemData] = useState<Map<number, { name: string; description: string }>>(new Map());
+  const [spellData, setSpellData] = useState<Map<number, { name: string; description: string }>>(new Map());
   const [ddVersion, setDdVersion] = useState<string>('14.1.1');
 
   const rank = searchParams.get('rank') || 'ALL_RANKS';
@@ -223,6 +230,8 @@ export default function ChampionBuildPage() {
           const loadRuneImages = async () => {
             // Ensure rune data is loaded
             await preloadRuneData();
+            await preloadItemData();
+            await preloadSpellData();
             
             // Get Data Dragon version for spell/item images
             try {
@@ -239,7 +248,10 @@ export default function ChampionBuildPage() {
             
             const runeImgMap = new Map<number, string>();
             const runeNameMap = new Map<number, string>();
+            const runeDescMap = new Map<number, string>();
             const styleImgMap = new Map<number, string>();
+            const itemDataMap = new Map<number, { name: string; description: string }>();
+            const spellDataMap = new Map<number, { name: string; description: string }>();
             
             for (const buildArchetype of data.builds) {
               // Load rune style images
@@ -264,22 +276,67 @@ export default function ChampionBuildPage() {
                 }
               }
               
-              // Load rune images
+              // Load rune images and descriptions
               for (const perkId of buildArchetype.runes.perkIds) {
                 if (!runeImgMap.has(perkId)) {
                   try {
                     console.log(`[loadRuneImages] Loading rune perk ${perkId}`);
                     const imgUrl = await getRuneImageUrl(perkId);
                     const name = await getRuneName(perkId);
+                    const desc = await getRuneDescription(perkId);
                     if (imgUrl && name && !imgUrl.includes('StatModsEmpty')) {
                       console.log(`[loadRuneImages] Rune perk ${perkId} loaded: ${imgUrl} (${name})`);
                       runeImgMap.set(perkId, imgUrl);
                       runeNameMap.set(perkId, name);
+                      runeDescMap.set(perkId, desc);
                     } else {
                       console.warn(`[loadRuneImages] Rune perk ${perkId} returned empty/invalid URL or name:`, { imgUrl, name });
                     }
                   } catch (err) {
                     console.error(`[loadRuneImages] Failed to load rune for perk ${perkId}:`, err);
+                  }
+                }
+              }
+              
+              // Load spell data
+              if (buildArchetype.spells) {
+                if (!spellDataMap.has(buildArchetype.spells.spell1Id)) {
+                  try {
+                    const spell1Data = await getSpellData(buildArchetype.spells.spell1Id);
+                    spellDataMap.set(buildArchetype.spells.spell1Id, spell1Data);
+                  } catch (err) {
+                    console.error(`[loadRuneImages] Failed to load spell data for ${buildArchetype.spells.spell1Id}:`, err);
+                  }
+                }
+                if (!spellDataMap.has(buildArchetype.spells.spell2Id)) {
+                  try {
+                    const spell2Data = await getSpellData(buildArchetype.spells.spell2Id);
+                    spellDataMap.set(buildArchetype.spells.spell2Id, spell2Data);
+                  } catch (err) {
+                    console.error(`[loadRuneImages] Failed to load spell data for ${buildArchetype.spells.spell2Id}:`, err);
+                  }
+                }
+              }
+            }
+            
+            // Load item data for all item builds
+            if (data.itemBuilds) {
+              const allItemIds = new Set<number>();
+              [...(data.itemBuilds.starting || []), ...(data.itemBuilds.core || []), 
+               ...(data.itemBuilds.fourth || []), ...(data.itemBuilds.fifth || []), 
+               ...(data.itemBuilds.sixth || [])].forEach(build => {
+                build.items?.forEach(itemId => {
+                  if (itemId > 0) allItemIds.add(itemId);
+                });
+              });
+              
+              for (const itemId of allItemIds) {
+                if (!itemDataMap.has(itemId)) {
+                  try {
+                    const itemInfo = await getItemData(itemId);
+                    itemDataMap.set(itemId, itemInfo);
+                  } catch (err) {
+                    console.error(`[loadRuneImages] Failed to load item data for ${itemId}:`, err);
                   }
                 }
               }
@@ -306,7 +363,10 @@ export default function ChampionBuildPage() {
             
             setRuneImages(runeImgMap);
             setRuneNames(runeNameMap);
+            setRuneDescriptions(runeDescMap);
             setRuneStyleImages(styleImgMap);
+            setItemData(itemDataMap);
+            setSpellData(spellDataMap);
             setRuneDataLoaded(true);
           };
           
@@ -620,18 +680,18 @@ export default function ChampionBuildPage() {
                     {selectedBuild.runes.perkIds.slice(4, 6).map((perkId, idx) => {
                       const runeImg = runeImages.get(perkId);
                       const runeName = runeNames.get(perkId) || `Perk ${perkId}`;
+                      const runeDesc = runeDescriptions.get(perkId) || '';
                       console.log(`[RuneRender] Rendering secondary rune ${perkId}:`, { runeImg, runeName, hasImage: !!runeImg });
                       return (
                         <div
                           key={`${perkId}-${idx}`}
-                          className="w-10 h-10 rounded-lg bg-[#0F172A] border-2 border-[#334155] hover:border-purple-500/50 transition-colors flex items-center justify-center group relative overflow-hidden"
-                          title={runeName}
+                          className="w-10 h-10 rounded-lg bg-[#0F172A] border-2 border-[#334155] hover:border-purple-500/50 transition-colors flex items-center justify-center group relative overflow-visible"
                         >
                           {runeImg ? (
                             <img
                               src={runeImg}
                               alt={runeName}
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-cover rounded-lg"
                               onError={async (e) => {
                                 console.error(`[RuneImage] Failed to load rune image for perk ${perkId}: ${runeImg}`);
                                 // Try to reload the rune image
@@ -654,9 +714,16 @@ export default function ChampionBuildPage() {
                           ) : (
                             <span className="text-xs text-[#94A3B8] group-hover:text-purple-400 transition-colors">{perkId}</span>
                           )}
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-[#0F172A] border border-[#334155] rounded text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20">
-                            {runeName}
-                          </div>
+                          {runeDesc ? (
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#0F172A] border border-[#334155] rounded-lg text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-pre-line max-w-xs z-50 shadow-xl">
+                              <div className="font-semibold text-purple-400 mb-1">{runeName}</div>
+                              <div className="text-[#94A3B8]">{runeDesc}</div>
+                            </div>
+                          ) : (
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-[#0F172A] border border-[#334155] rounded text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20">
+                              {runeName}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -748,23 +815,31 @@ export default function ChampionBuildPage() {
                       {build.itemBuilds.starting.slice(0, 1).map((buildOption, optIdx) => (
                         <div key={optIdx} className="mb-4">
                           <div className="flex flex-wrap gap-2 mb-2">
-                            {buildOption.items.filter(itemId => itemId > 0).map((itemId, idx) => (
-                              <div
-                                key={idx}
-                                className="w-12 h-12 rounded-lg bg-[#1E293B] border-2 border-[#334155] hover:border-amber-500/50 transition-all hover:scale-110 flex items-center justify-center group relative overflow-hidden"
-                                title={`Item ${itemId}`}
-                              >
-                                <img
-                                  src={getItemImageUrl(itemId, ddVersion)}
-                                  alt={`Item ${itemId}`}
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).style.display = 'none';
-                                    (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${itemId}</span>`;
-                                  }}
-                                />
-                              </div>
-                            ))}
+                            {buildOption.items.filter(itemId => itemId > 0).map((itemId, idx) => {
+                              const itemInfo = itemData.get(itemId);
+                              return (
+                                <div
+                                  key={idx}
+                                  className="w-12 h-12 rounded-lg bg-[#1E293B] border-2 border-[#334155] hover:border-amber-500/50 transition-all hover:scale-110 flex items-center justify-center group relative overflow-visible"
+                                >
+                                  <img
+                                    src={getItemImageUrl(itemId, ddVersion)}
+                                    alt={itemInfo?.name || `Item ${itemId}`}
+                                    className="w-full h-full object-cover rounded-lg"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).style.display = 'none';
+                                      (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${itemId}</span>`;
+                                    }}
+                                  />
+                                  {itemInfo && (
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#0F172A] border border-[#334155] rounded-lg text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-pre-line max-w-xs z-50 shadow-xl">
+                                      <div className="font-semibold text-amber-400 mb-1">{itemInfo.name}</div>
+                                      <div className="text-[#94A3B8]">{itemInfo.description}</div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
                           <div className="text-xs text-[#64748B]">
                             <span className="text-emerald-400">{buildOption.winRate.toFixed(2)}%</span> WR •{' '}
@@ -782,23 +857,31 @@ export default function ChampionBuildPage() {
                       {build.itemBuilds.core.slice(0, 1).map((buildOption, optIdx) => (
                         <div key={optIdx} className="mb-4">
                           <div className="flex flex-wrap gap-2 mb-2">
-                            {buildOption.items.filter(itemId => itemId > 0).map((itemId, idx) => (
-                              <div
-                                key={idx}
-                                className="w-12 h-12 rounded-lg bg-[#1E293B] border-2 border-[#334155] hover:border-amber-500/50 transition-all hover:scale-110 flex items-center justify-center group relative overflow-hidden"
-                                title={`Item ${itemId}`}
-                              >
-                                <img
-                                  src={getItemImageUrl(itemId, ddVersion)}
-                                  alt={`Item ${itemId}`}
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).style.display = 'none';
-                                    (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${itemId}</span>`;
-                                  }}
-                                />
-                              </div>
-                            ))}
+                            {buildOption.items.filter(itemId => itemId > 0).map((itemId, idx) => {
+                              const itemInfo = itemData.get(itemId);
+                              return (
+                                <div
+                                  key={idx}
+                                  className="w-12 h-12 rounded-lg bg-[#1E293B] border-2 border-[#334155] hover:border-amber-500/50 transition-all hover:scale-110 flex items-center justify-center group relative overflow-visible"
+                                >
+                                  <img
+                                    src={getItemImageUrl(itemId, ddVersion)}
+                                    alt={itemInfo?.name || `Item ${itemId}`}
+                                    className="w-full h-full object-cover rounded-lg"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).style.display = 'none';
+                                      (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${itemId}</span>`;
+                                    }}
+                                  />
+                                  {itemInfo && (
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#0F172A] border border-[#334155] rounded-lg text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-pre-line max-w-xs z-50 shadow-xl">
+                                      <div className="font-semibold text-amber-400 mb-1">{itemInfo.name}</div>
+                                      <div className="text-[#94A3B8]">{itemInfo.description}</div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
                           <div className="text-xs text-[#64748B]">
                             <span className="text-emerald-400">{buildOption.winRate.toFixed(2)}%</span> WR •{' '}

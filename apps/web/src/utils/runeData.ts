@@ -54,7 +54,7 @@ interface RuneTree {
 let runeDataCache: {
   version: string;
   runeTree: RuneTree[];
-  perkIdToRune: Map<number, { icon: string; name: string; styleId: number }>;
+  perkIdToRune: Map<number, { icon: string; name: string; styleId: number; shortDesc?: string; longDesc?: string }>;
   statShardMap: Map<number, { icon: string; name: string }>;
 } | null = null;
 
@@ -125,6 +125,8 @@ async function fetchRuneData(): Promise<void> {
             icon: rune.icon,
             name: rune.name,
             styleId: style.id,
+            shortDesc: rune.shortDesc,
+            longDesc: rune.longDesc,
           });
           totalRunes++;
         });
@@ -329,6 +331,26 @@ export async function getStatShardName(shardId: number): Promise<string> {
 
   const shard = runeDataCache.statShardMap.get(shardId);
   return shard?.name || `Shard ${shardId}`;
+}
+
+/**
+ * Get rune description by perk ID
+ */
+export async function getRuneDescription(perkId: number): Promise<string> {
+  await fetchRuneData();
+  
+  if (!runeDataCache) {
+    return `No description available for perk ${perkId}`;
+  }
+
+  const rune = runeDataCache.perkIdToRune.get(perkId);
+  if (!rune) {
+    return `No description available for perk ${perkId}`;
+  }
+  
+  // Use shortDesc if available, otherwise use longDesc, strip HTML tags
+  const desc = rune.shortDesc || rune.longDesc || '';
+  return desc.replace(/<[^>]*>/g, '').substring(0, 200);
 }
 
 /**
