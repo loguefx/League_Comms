@@ -422,6 +422,10 @@ export class AnalyticsService {
   /**
    * Get counter picks for a champion
    * Counter picks are champions that have high win rate AGAINST this champion
+   * 
+   * Adaptive threshold based on available data:
+   * - With lots of data: require 5+ matchups for reliability
+   * - With limited data: require 1+ matchup (show what we have)
    */
   private async getCounterPicks(
     championId: number,
@@ -436,9 +440,28 @@ export class AnalyticsService {
       const isAllRanks = rankBracket === 'all_ranks';
       const isWorld = !region;
 
-      // Lower threshold for counter picks - with limited data, we need to be more lenient
-      // Require at least 3 matchups instead of 10
-      const minMatchups = 3;
+      // Adaptive threshold: check how much data we have first
+      // If we have lots of matches, use higher threshold; if limited, use lower
+      const totalMatches = await this.prisma.match.count({
+        where: {
+          patch,
+          queueId: 420,
+          ...(isWorld ? {} : { region }),
+          ...(isAllRanks ? {} : { rankBracket }),
+        },
+      });
+
+      // Dynamic threshold based on data volume
+      // More data = higher threshold for reliability, less data = lower threshold to show something
+      let minMatchups = 1; // Default: show any matchup we have
+      if (totalMatches > 10000) {
+        minMatchups = 5; // Lots of data - require 5+ matchups
+      } else if (totalMatches > 1000) {
+        minMatchups = 3; // Moderate data - require 3+ matchups
+      } else if (totalMatches > 100) {
+        minMatchups = 2; // Limited data - require 2+ matchups
+      }
+      // else: minMatchups = 1 (very limited data - show any matchup)
       
       let counterPicks;
       if (isAllRanks && isWorld) {
@@ -528,7 +551,108 @@ export class AnalyticsService {
       }
 
       const counterPickIds = counterPicks.map((cp) => Number(cp.champion_id));
-      this.logger.debug(`[getCounterPicks] Found ${counterPickIds.length} counter picks for champion ${championId}`);
+      
+      // If we didn't find enough with the threshold, try with lower threshold (1 matchup)
+      // This ensures we show something even with very limited data
+      if (counterPickIds.length < 3 && minMatchups > 1) {
+        this.logger.debug(`[getCounterPicks] Only found ${counterPickIds.length} counter picks with threshold ${minMatchups}, trying with threshold 1...`);
+        
+        // Re-run query with threshold of 1
+        let fallbackPicks;
+        if (isAllRanks && isWorld) {
+          fallbackPicks = await this.prisma.$queryRaw<Array<{ champion_id: number; win_rate: number }>>`
+            SELECT 
+              enemy.champion_id,
+              (SUM(CASE WHEN enemy.win = true THEN 1 ELSE 0 END)::numeric / COUNT(*)::numeric) AS win_rate
+            FROM match_participants main
+            JOIN matches m ON m.match_id = main.match_id
+            JOIN match_participants enemy 
+              ON enemy.match_id = main.match_id 
+              AND enemy.team_id != main.team_id
+              AND enemy.role = main.role
+            WHERE main.champion_id = ${championId}
+              AND main.win = false
+              AND m.patch = ${patch}
+              AND main.role = ${role}
+            GROUP BY enemy.champion_id
+            HAVING COUNT(*) >= 1
+            ORDER BY win_rate DESC, COUNT(*) DESC
+            LIMIT 6
+          `;
+        } else if (isAllRanks) {
+          fallbackPicks = await this.prisma.$queryRaw<Array<{ champion_id: number; win_rate: number }>>`
+            SELECT 
+              enemy.champion_id,
+              (SUM(CASE WHEN enemy.win = true THEN 1 ELSE 0 END)::numeric / COUNT(*)::numeric) AS win_rate
+            FROM match_participants main
+            JOIN matches m ON m.match_id = main.match_id
+            JOIN match_participants enemy 
+              ON enemy.match_id = main.match_id 
+              AND enemy.team_id != main.team_id
+              AND enemy.role = main.role
+            WHERE main.champion_id = ${championId}
+              AND main.win = false
+              AND m.patch = ${patch}
+              AND m.region = ${region}
+              AND main.role = ${role}
+            GROUP BY enemy.champion_id
+            HAVING COUNT(*) >= 1
+            ORDER BY win_rate DESC, COUNT(*) DESC
+            LIMIT 6
+          `;
+        } else if (isWorld) {
+          fallbackPicks = await this.prisma.$queryRaw<Array<{ champion_id: number; win_rate: number }>>`
+            SELECT 
+              enemy.champion_id,
+              (SUM(CASE WHEN enemy.win = true THEN 1 ELSE 0 END)::numeric / COUNT(*)::numeric) AS win_rate
+            FROM match_participants main
+            JOIN matches m ON m.match_id = main.match_id
+            JOIN match_participants enemy 
+              ON enemy.match_id = main.match_id 
+              AND enemy.team_id != main.team_id
+              AND enemy.role = main.role
+            WHERE main.champion_id = ${championId}
+              AND main.win = false
+              AND m.patch = ${patch}
+              AND m.rank_bracket = ${rankBracket}
+              AND main.role = ${role}
+            GROUP BY enemy.champion_id
+            HAVING COUNT(*) >= 1
+            ORDER BY win_rate DESC, COUNT(*) DESC
+            LIMIT 6
+          `;
+        } else {
+          fallbackPicks = await this.prisma.$queryRaw<Array<{ champion_id: number; win_rate: number }>>`
+            SELECT 
+              enemy.champion_id,
+              (SUM(CASE WHEN enemy.win = true THEN 1 ELSE 0 END)::numeric / COUNT(*)::numeric) AS win_rate
+            FROM match_participants main
+            JOIN matches m ON m.match_id = main.match_id
+            JOIN match_participants enemy 
+              ON enemy.match_id = main.match_id 
+              AND enemy.team_id != main.team_id
+              AND enemy.role = main.role
+            WHERE main.champion_id = ${championId}
+              AND main.win = false
+              AND m.patch = ${patch}
+              AND m.rank_bracket = ${rankBracket}
+              AND m.region = ${region}
+              AND main.role = ${role}
+            GROUP BY enemy.champion_id
+            HAVING COUNT(*) >= 1
+            ORDER BY win_rate DESC, COUNT(*) DESC
+            LIMIT 6
+          `;
+        }
+        
+        const fallbackIds = fallbackPicks.map((cp) => Number(cp.champion_id));
+        if (fallbackIds.length > counterPickIds.length) {
+          this.logger.debug(`[getCounterPicks] Found ${fallbackIds.length} counter picks with fallback threshold`);
+          return fallbackIds;
+        }
+      }
+      
+      this.logger.debug(`[getCounterPicks] Found ${counterPickIds.length} counter picks for champion ${championId} (threshold: ${minMatchups}, total matches: ${totalMatches})`);
       return counterPickIds;
     } catch (error) {
       this.logger.warn(`Failed to get counter picks for champion ${championId}:`, error);

@@ -174,11 +174,32 @@ export class AggregationService implements OnModuleInit {
    * Step C: Compute ban stats (banned_matches per champion per bucket)
    * Ban stats are the same for all roles (a champion is banned regardless of role)
    * So we update ALL role entries with the same ban count
+   * 
+   * Works with both small and large datasets:
+   * - With limited data: shows ban rates even if only a few matches have bans
+   * - With lots of data: aggregates ban counts accurately
    */
   private async computeBanStats() {
     this.logger.log('Computing ban stats...');
 
-    // First, compute ban counts per champion per bucket
+    // First, check if we have any bans at all
+    const totalBans = await this.prisma.matchBan.count();
+    this.logger.log(`Total bans in match_bans table: ${totalBans}`);
+
+    if (totalBans === 0) {
+      this.logger.warn('No bans found in database - ban stats will be 0%');
+      // Set all banned_matches to 0 explicitly
+      await this.prisma.$executeRaw`
+        UPDATE champion_stats
+        SET banned_matches = 0,
+            updated_at = now()
+        WHERE banned_matches IS NULL OR banned_matches != 0
+      `;
+      return;
+    }
+
+    // Compute ban counts per champion per bucket
+    // This works with both small and large datasets
     await this.prisma.$executeRaw`
       WITH banned AS (
         SELECT
@@ -191,7 +212,7 @@ export class AggregationService implements OnModuleInit {
         GROUP BY m.patch, m.region, m.queue_id, m.rank_bracket, b.champion_id
       )
       UPDATE champion_stats cs
-      SET banned_matches = b.banned_matches,
+      SET banned_matches = COALESCE(b.banned_matches, 0),
           updated_at = now()
       FROM banned b
       WHERE cs.patch = b.patch
@@ -201,12 +222,29 @@ export class AggregationService implements OnModuleInit {
         AND cs.champion_id = b.champion_id
     `;
 
-    // Log how many bans were found
-    const banCount = await this.prisma.$queryRaw<Array<{ count: bigint }>>`
-      SELECT COUNT(*)::bigint AS count
+    // Also set banned_matches to 0 for champions that have stats but no bans
+    // This ensures ban_rate calculation works correctly (0 / total_matches = 0%)
+    await this.prisma.$executeRaw`
+      UPDATE champion_stats cs
+      SET banned_matches = 0,
+          updated_at = now()
+      WHERE cs.banned_matches IS NULL
+    `;
+
+    // Log statistics
+    const banStats = await this.prisma.$queryRaw<Array<{ total_bans: bigint; champions_with_bans: bigint }>>`
+      SELECT 
+        COUNT(*)::bigint AS total_bans,
+        COUNT(DISTINCT champion_id)::bigint AS champions_with_bans
       FROM match_bans
     `;
-    this.logger.log(`Ban stats computed. Total bans in database: ${banCount[0]?.count || 0}`);
+    const championsWithBans = await this.prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(DISTINCT champion_id)::bigint AS count
+      FROM champion_stats
+      WHERE banned_matches > 0
+    `;
+    
+    this.logger.log(`Ban stats computed. Total bans: ${banStats[0]?.total_bans || 0}, Unique champions banned: ${banStats[0]?.champions_with_bans || 0}, Champion stats with bans: ${championsWithBans[0]?.count || 0}`);
   }
 
   /**
