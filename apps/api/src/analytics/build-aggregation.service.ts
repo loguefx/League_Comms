@@ -1046,7 +1046,17 @@ export class BuildAggregationService {
 
       this.logger.log(`[getAllItemBuilds] Found ${itemBuilds.length} ${buildType} builds for champion ${championId}`);
       if (itemBuilds.length > 0) {
-        this.logger.log(`[getAllItemBuilds] Sample ${buildType} build:`, JSON.stringify(itemBuilds[0], null, 2));
+        // Safely log the sample build - convert BigInt values first
+        try {
+          const safeSample = {
+            items: itemBuilds[0].items,
+            games: Number(itemBuilds[0].games),
+            wins: Number(itemBuilds[0].wins),
+          };
+          this.logger.log(`[getAllItemBuilds] Sample ${buildType} build:`, JSON.stringify(safeSample, null, 2));
+        } catch (logError) {
+          this.logger.warn(`[getAllItemBuilds] Failed to log sample ${buildType} build:`, logError);
+        }
       } else {
         // Check if any data exists at all for this build type
         const checkQuery = await this.prisma.$queryRaw<Array<{ count: bigint }>>`
