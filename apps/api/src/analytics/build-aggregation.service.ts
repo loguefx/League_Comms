@@ -382,6 +382,21 @@ export class BuildAggregationService {
                 ORDER BY frequency DESC
               ) AS rn
             FROM item_at_position
+          ),
+          top_item_per_champion AS (
+            SELECT DISTINCT ON (patch, region, queue_id, rank_bracket, role, champion_id)
+              patch,
+              region,
+              queue_id,
+              rank_bracket,
+              role,
+              champion_id,
+              ARRAY[item_id] AS items,
+              frequency AS games,
+              wins
+            FROM ranked_items
+            WHERE rn = 1
+            ORDER BY patch, region, queue_id, rank_bracket, role, champion_id, frequency DESC
           )
           INSERT INTO champion_item_builds (
             patch, region, queue_id, rank_bracket, role, champion_id,
@@ -395,12 +410,11 @@ export class BuildAggregationService {
             role,
             champion_id,
             ${buildType} AS build_type,
-            ARRAY[item_id] AS items,
-            frequency AS games,
+            items,
+            games,
             wins,
             NOW() AS updated_at
-          FROM ranked_items
-          WHERE rn = 1
+          FROM top_item_per_champion
           ON CONFLICT (
             patch, region, queue_id, rank_bracket, role, champion_id, build_type
           )
@@ -448,32 +462,46 @@ export class BuildAggregationService {
               patch, region, queue_id, rank_bracket,
               role, champion_id, item_slice
           ),
-          ranked_combinations AS (
-            SELECT *,
-              ROW_NUMBER() OVER (
-                PARTITION BY patch, region, queue_id, rank_bracket, role, champion_id 
-                ORDER BY frequency DESC
-              ) AS rn
-            FROM item_combinations
-          )
-          INSERT INTO champion_item_builds (
-            patch, region, queue_id, rank_bracket, role, champion_id,
-            build_type, items, games, wins, updated_at
-          )
-          SELECT
-            patch,
-            region,
-            queue_id,
-            rank_bracket,
-            role,
-            champion_id,
-            ${buildType} AS build_type,
-            item_slice AS items,
-            frequency AS games,
-            wins,
-            NOW() AS updated_at
-          FROM ranked_combinations
-          WHERE rn = 1
+           ranked_combinations AS (
+             SELECT *,
+               ROW_NUMBER() OVER (
+                 PARTITION BY patch, region, queue_id, rank_bracket, role, champion_id 
+                 ORDER BY frequency DESC, item_slice ASC
+               ) AS rn
+             FROM item_combinations
+           ),
+           deduplicated_combinations AS (
+             SELECT DISTINCT ON (patch, region, queue_id, rank_bracket, role, champion_id)
+               patch,
+               region,
+               queue_id,
+               rank_bracket,
+               role,
+               champion_id,
+               item_slice,
+               frequency,
+               wins
+             FROM ranked_combinations
+             WHERE rn = 1
+             ORDER BY patch, region, queue_id, rank_bracket, role, champion_id, frequency DESC, item_slice ASC
+           )
+           INSERT INTO champion_item_builds (
+             patch, region, queue_id, rank_bracket, role, champion_id,
+             build_type, items, games, wins, updated_at
+           )
+           SELECT
+             patch,
+             region,
+             queue_id,
+             rank_bracket,
+             role,
+             champion_id,
+             ${buildType} AS build_type,
+             item_slice AS items,
+             frequency AS games,
+             wins,
+             NOW() AS updated_at
+           FROM deduplicated_combinations
           ON CONFLICT (
             patch, region, queue_id, rank_bracket, role, champion_id, build_type
           )
@@ -1576,5 +1604,104 @@ export class BuildAggregationService {
     if (primaryStyleId === 8200) return 'Sorcery'; // Sorcery tree (often AP)
     
     return 'Alternative';
+  }
+}
+
+    if (hasADItems && items.some(id => [3031, 3036].includes(id))) return 'Crit'; // Infinity Edge, etc.
+    if (hasADItems) return 'AD';
+    
+    // Fallback: determine by primary rune style
+    if (primaryStyleId === 8000) return 'Precision'; // Precision tree
+    if (primaryStyleId === 8100) return 'Domination'; // Domination tree
+    if (primaryStyleId === 8300) return 'Inspiration'; // Inspiration tree
+    if (primaryStyleId === 8400) return 'Resolve'; // Resolve tree (often tank)
+    if (primaryStyleId === 8200) return 'Sorcery'; // Sorcery tree (often AP)
+    
+    return 'Alternative';
+  }
+}
+
+  }
+}
+
+  }
+}
+
+    const tankItemIds = [3068, 3075, 3083, 3084, 3109, 3110, 3111, 3193, 3194]; // Thornmail, Randuin's, etc.
+    const apItemIds = [3089, 3157, 3165, 3285, 4636, 4637, 4638]; // Rabadon's, Void Staff, etc.
+    const adItemIds = [3031, 3036, 3072, 3074, 3508]; // Infinity Edge, Bloodthirster, etc.
+    const lethalityItemIds = [6691, 6692, 6693, 6694, 6695, 6696]; // Lethality items
+    
+    const hasTankItems = items.some(id => tankItemIds.includes(id));
+    const hasAPItems = items.some(id => apItemIds.includes(id));
+    const hasADItems = items.some(id => adItemIds.includes(id));
+    const hasLethalityItems = items.some(id => lethalityItemIds.includes(id));
+
+    // Determine based on items
+    if (hasTankItems && !hasAPItems && !hasADItems) return 'Tank';
+    if (hasAPItems && !hasTankItems) return 'AP';
+    if (hasLethalityItems) return 'Lethality';
+    if (hasADItems && items.some(id => [3031, 3036].includes(id))) return 'Crit'; // Infinity Edge, etc.
+    if (hasADItems) return 'AD';
+    
+    // Fallback: determine by primary rune style
+    if (primaryStyleId === 8000) return 'Precision'; // Precision tree
+    if (primaryStyleId === 8100) return 'Domination'; // Domination tree
+    if (primaryStyleId === 8300) return 'Inspiration'; // Inspiration tree
+    if (primaryStyleId === 8400) return 'Resolve'; // Resolve tree (often tank)
+    if (primaryStyleId === 8200) return 'Sorcery'; // Sorcery tree (often AP)
+    
+    return 'Alternative';
+  }
+}
+
+    if (hasADItems && items.some(id => [3031, 3036].includes(id))) return 'Crit'; // Infinity Edge, etc.
+    if (hasADItems) return 'AD';
+    
+    // Fallback: determine by primary rune style
+    if (primaryStyleId === 8000) return 'Precision'; // Precision tree
+    if (primaryStyleId === 8100) return 'Domination'; // Domination tree
+    if (primaryStyleId === 8300) return 'Inspiration'; // Inspiration tree
+    if (primaryStyleId === 8400) return 'Resolve'; // Resolve tree (often tank)
+    if (primaryStyleId === 8200) return 'Sorcery'; // Sorcery tree (often AP)
+    
+    return 'Alternative';
+  }
+}
+
+  }
+}
+
+    if (hasTankItems && !hasAPItems && !hasADItems) return 'Tank';
+    if (hasAPItems && !hasTankItems) return 'AP';
+    if (hasLethalityItems) return 'Lethality';
+    if (hasADItems && items.some(id => [3031, 3036].includes(id))) return 'Crit'; // Infinity Edge, etc.
+    if (hasADItems) return 'AD';
+    
+    // Fallback: determine by primary rune style
+    if (primaryStyleId === 8000) return 'Precision'; // Precision tree
+    if (primaryStyleId === 8100) return 'Domination'; // Domination tree
+    if (primaryStyleId === 8300) return 'Inspiration'; // Inspiration tree
+    if (primaryStyleId === 8400) return 'Resolve'; // Resolve tree (often tank)
+    if (primaryStyleId === 8200) return 'Sorcery'; // Sorcery tree (often AP)
+    
+    return 'Alternative';
+  }
+}
+
+    if (hasADItems && items.some(id => [3031, 3036].includes(id))) return 'Crit'; // Infinity Edge, etc.
+    if (hasADItems) return 'AD';
+    
+    // Fallback: determine by primary rune style
+    if (primaryStyleId === 8000) return 'Precision'; // Precision tree
+    if (primaryStyleId === 8100) return 'Domination'; // Domination tree
+    if (primaryStyleId === 8300) return 'Inspiration'; // Inspiration tree
+    if (primaryStyleId === 8400) return 'Resolve'; // Resolve tree (often tank)
+    if (primaryStyleId === 8200) return 'Sorcery'; // Sorcery tree (often AP)
+    
+    return 'Alternative';
+  }
+}
+
   }
 }
