@@ -272,14 +272,8 @@ export async function getRuneStyleImageUrl(styleId: number): Promise<string> {
         console.log(`[getRuneStyleImageUrl] Using correct path for style ${styleId} (${style.name}): ${imageUrl}`);
         return imageUrl;
       } else {
-        // Fallback to Data Dragon's icon if we don't have a mapping
-        if (style.icon) {
-          const imageUrl = `https://ddragon.leagueoflegends.com/cdn/${runeDataCache.version}/img/${style.icon}`;
-          console.warn(`[getRuneStyleImageUrl] No mapping for style ${styleId}, using Data Dragon icon: ${imageUrl}`);
-          return imageUrl;
-        } else {
-          console.warn(`[getRuneStyleImageUrl] Style ${styleId} found but has no icon property:`, style);
-        }
+        // Should never happen - we have mappings for all 5 styles
+        console.warn(`[getRuneStyleImageUrl] No mapping for style ${styleId}, falling back to final fallback`);
       }
     } else {
       console.warn(`[getRuneStyleImageUrl] Style ${styleId} not found in rune tree. Available styles:`, runeDataCache.runeTree.map(s => ({ id: s.id, name: s.name })));
@@ -288,19 +282,19 @@ export async function getRuneStyleImageUrl(styleId: number): Promise<string> {
     console.warn(`[getRuneStyleImageUrl] Rune tree is empty for style ID: ${styleId}`);
   }
   
-  // Fallback: use direct CDN path
+  // Final fallback: use direct CDN path (should rarely be reached)
   const styleMap: Record<number, string> = {
-    8000: 'perk-images/Styles/7201_Precision/7201_Precision.png',
-    8100: 'perk-images/Styles/7200_Domination/7200_Domination.png',
-    8200: 'perk-images/Styles/7202_Sorcery/7202_Sorcery.png',
-    8300: 'perk-images/Styles/7204_Inspiration/7204_Inspiration.png',
-    8400: 'perk-images/Styles/7203_Whimsy/7203_Whimsy.png',
+    8000: 'perk-images/Styles/7201_Precision.png',
+    8100: 'perk-images/Styles/7200_Domination.png',
+    8200: 'perk-images/Styles/7202_Sorcery.png',
+    8300: 'perk-images/Styles/7204_Inspiration.png',
+    8400: 'perk-images/Styles/7203_Whimsy.png',
   };
   
-  const stylePath = styleMap[styleId] || 'perk-images/Styles/7200_Domination/7200_Domination.png';
-  const version = runeDataCache.version || (typeof window !== 'undefined' && (window as any).__DD_VERSION__) || '14.1.1';
+  const stylePath = styleMap[styleId] || 'perk-images/Styles/7200_Domination.png';
+  const version = runeDataCache?.version || (typeof window !== 'undefined' && (window as any).__DD_VERSION__) || '14.1.1';
   const fallbackUrl = `https://ddragon.leagueoflegends.com/cdn/${version}/img/${stylePath}`;
-  console.log(`[getRuneStyleImageUrl] Using fallback for style ${styleId}: ${fallbackUrl}`);
+  console.log(`[getRuneStyleImageUrl] Using final fallback for style ${styleId}: ${fallbackUrl}`);
   return fallbackUrl;
 }
 
