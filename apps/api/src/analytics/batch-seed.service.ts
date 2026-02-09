@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { IngestionService } from './ingestion.service';
 import { AggregationService } from './aggregation.service';
 import { RateLimiterService } from './rate-limiter.service';
+import { tierToRankBracket as convertTierToRankBracket } from './rank-bracket.util';
 import type { Region } from '@league-voice/shared';
 
 export interface SeedProgress {
