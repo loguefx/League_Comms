@@ -193,17 +193,27 @@ export async function getRuneName(perkId: number): Promise<string> {
  * Get rune style image URL by style ID
  */
 export function getRuneStyleImageUrl(styleId: number): string {
+  // Data Dragon rune style images are in the rune tree data
+  // If we have cached data, use the icon from there, otherwise use fallback
+  if (runeDataCache && runeDataCache.runeTree.length > 0) {
+    const style = runeDataCache.runeTree.find(s => s.id === styleId);
+    if (style && style.icon) {
+      return `https://ddragon.leagueoflegends.com/cdn/${runeDataCache.version}/img/${style.icon}`;
+    }
+  }
+  
+  // Fallback: use direct CDN path (these might not work, but worth trying)
   const styleMap: Record<number, string> = {
-    8000: '7201_Precision.png',
-    8100: '7200_Domination.png',
-    8200: '7202_Sorcery.png',
-    8300: '7204_Inspiration.png',
-    8400: '7203_Whimsy.png',
+    8000: 'perk-images/Styles/7201_Precision/7201_Precision.png',
+    8100: 'perk-images/Styles/7200_Domination/7200_Domination.png',
+    8200: 'perk-images/Styles/7202_Sorcery/7202_Sorcery.png',
+    8300: 'perk-images/Styles/7204_Inspiration/7204_Inspiration.png',
+    8400: 'perk-images/Styles/7203_Whimsy/7203_Whimsy.png',
   };
   
-  const styleName = styleMap[styleId] || '7200_Domination.png';
-  const version = runeDataCache?.version || '14.1.1';
-  return `https://ddragon.leagueoflegends.com/cdn/${version}/img/${styleName}`;
+  const stylePath = styleMap[styleId] || 'perk-images/Styles/7200_Domination/7200_Domination.png';
+  const version = runeDataCache?.version || (typeof window !== 'undefined' && (window as any).__DD_VERSION__) || '14.1.1';
+  return `https://ddragon.leagueoflegends.com/cdn/${version}/img/${stylePath}`;
 }
 
 /**

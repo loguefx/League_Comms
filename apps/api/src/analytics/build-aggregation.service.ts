@@ -313,15 +313,19 @@ export class BuildAggregationService {
 
   /**
    * Aggregate item builds into recommendations
-   * MVP: Compute "core items" from final items (top 3 most common completed items)
+   * Computes starting items (item0-item1), core items (item2-item4), and later items (item5-item6)
+   * Note: Without timeline data, we approximate by position in the final items array
    */
   private async aggregateItemBuilds(patch: string): Promise<void> {
     this.logger.log(`Aggregating item builds for patch ${patch}...`);
 
-    // For MVP, we'll compute "core items" as the top 3 most frequent items from winning games
-    // This is a simplified version - U.GG uses timeline data for more accurate ordering
+    // Starting items: typically item0 and item1 (first two items)
+    // Core items: typically item2, item3, item4 (next 3 items)
+    // Fourth item: item5 (if exists)
+    // Fifth item: item6 (if exists)
+    // Sixth item: item7 (if exists, though rare)
     
-    // Core items: top 3 items by frequency in winning games
+    // Starting items: first 2 items
     await this.prisma.$executeRaw`
       WITH item_frequency AS (
         SELECT
@@ -879,6 +883,144 @@ export class BuildAggregationService {
         games,
       };
     });
+  }
+
+  /**
+   * Get all item build types for a champion (starting, core, fourth, fifth, sixth)
+   * Returns a structured object with all build types
+   */
+  async getAllItemBuilds(
+    championId: number,
+    patch: string,
+    rankBracket: string,
+    role: string,
+    region: string | null
+  ): Promise<{
+    starting: Array<{ items: number[]; winRate: number; games: number }>;
+    core: Array<{ items: number[]; winRate: number; games: number }>;
+    fourth: Array<{ items: number[]; winRate: number; games: number }>;
+    fifth: Array<{ items: number[]; winRate: number; games: number }>;
+    sixth: Array<{ items: number[]; winRate: number; games: number }>;
+  }> {
+    const normalizedRole = role === 'ALL' || !role ? 'ALL' : role;
+    const isAllRanks = rankBracket === 'all_ranks';
+    const isWorld = !region;
+
+    const buildTypes = ['starting', 'core', 'fourth', 'fifth', 'sixth'] as const;
+    const result: {
+      starting: Array<{ items: number[]; winRate: number; games: number }>;
+      core: Array<{ items: number[]; winRate: number; games: number }>;
+      fourth: Array<{ items: number[]; winRate: number; games: number }>;
+      fifth: Array<{ items: number[]; winRate: number; games: number }>;
+      sixth: Array<{ items: number[]; winRate: number; games: number }>;
+    } = {
+      starting: [],
+      core: [],
+      fourth: [],
+      fifth: [],
+      sixth: [],
+    };
+
+    for (const buildType of buildTypes) {
+      let itemBuilds;
+      if (isAllRanks && isWorld) {
+        itemBuilds = await this.prisma.$queryRaw<Array<{
+          items: number[];
+          games: bigint;
+          wins: bigint;
+        }>>`
+          SELECT
+            items,
+            SUM(games)::bigint AS games,
+            SUM(wins)::bigint AS wins
+          FROM champion_item_builds
+          WHERE patch = ${patch}
+            AND queue_id = 420
+            AND role = ${normalizedRole}
+            AND champion_id = ${championId}
+            AND build_type = ${buildType}
+          GROUP BY items
+          ORDER BY SUM(games) DESC
+          LIMIT 5
+        `;
+      } else if (isAllRanks) {
+        itemBuilds = await this.prisma.$queryRaw<Array<{
+          items: number[];
+          games: bigint;
+          wins: bigint;
+        }>>`
+          SELECT
+            items,
+            SUM(games)::bigint AS games,
+            SUM(wins)::bigint AS wins
+          FROM champion_item_builds
+          WHERE patch = ${patch}
+            AND region = ${region}
+            AND queue_id = 420
+            AND role = ${normalizedRole}
+            AND champion_id = ${championId}
+            AND build_type = ${buildType}
+          GROUP BY items
+          ORDER BY SUM(games) DESC
+          LIMIT 5
+        `;
+      } else if (isWorld) {
+        itemBuilds = await this.prisma.$queryRaw<Array<{
+          items: number[];
+          games: bigint;
+          wins: bigint;
+        }>>`
+          SELECT
+            items,
+            SUM(games)::bigint AS games,
+            SUM(wins)::bigint AS wins
+          FROM champion_item_builds
+          WHERE patch = ${patch}
+            AND queue_id = 420
+            AND rank_bracket = ${rankBracket}
+            AND role = ${normalizedRole}
+            AND champion_id = ${championId}
+            AND build_type = ${buildType}
+          GROUP BY items
+          ORDER BY SUM(games) DESC
+          LIMIT 5
+        `;
+      } else {
+        itemBuilds = await this.prisma.$queryRaw<Array<{
+          items: number[];
+          games: bigint;
+          wins: bigint;
+        }>>`
+          SELECT
+            items,
+            games,
+            wins
+          FROM champion_item_builds
+          WHERE patch = ${patch}
+            AND region = ${region}
+            AND queue_id = 420
+            AND rank_bracket = ${rankBracket}
+            AND role = ${normalizedRole}
+            AND champion_id = ${championId}
+            AND build_type = ${buildType}
+          ORDER BY games DESC
+          LIMIT 5
+        `;
+      }
+
+      result[buildType] = itemBuilds.map((ib) => {
+        const games = Number(ib.games);
+        const wins = Number(ib.wins);
+        const smoothedWinRate = (wins + this.SMOOTHING_K * 0.5) / (games + this.SMOOTHING_K);
+        return {
+          items: ib.items,
+          winRate: smoothedWinRate,
+          games,
+        };
+      });
+    }
+
+    return result;
   }
 
   /**

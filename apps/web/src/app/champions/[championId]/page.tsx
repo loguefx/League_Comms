@@ -8,9 +8,7 @@ import {
   preloadRuneData, 
   getRuneImageUrl, 
   getRuneName, 
-  getRuneStyleImageUrl,
-  getStatShardImageUrl,
-  getStatShardName
+  getRuneStyleImageUrl
 } from '@/utils/runeData';
 
 interface BuildArchetype {
@@ -38,6 +36,12 @@ interface BuildArchetype {
   overallWinRate: number;
 }
 
+interface ItemBuildType {
+  items: number[];
+  winRate: number;
+  games: number;
+}
+
 interface ChampionBuild {
   championId: number;
   patch: string;
@@ -52,6 +56,13 @@ interface ChampionBuild {
     pickRate: number;
     banRate: number;
   } | null;
+  itemBuilds?: {
+    starting: ItemBuildType[];
+    core: ItemBuildType[];
+    fourth: ItemBuildType[];
+    fifth: ItemBuildType[];
+    sixth: ItemBuildType[];
+  };
   builds: BuildArchetype[];
 }
 
@@ -87,8 +98,6 @@ export default function ChampionBuildPage() {
   const [selectedBuildIndex, setSelectedBuildIndex] = useState(0);
   const [runeImages, setRuneImages] = useState<Map<number, string>>(new Map());
   const [runeNames, setRuneNames] = useState<Map<number, string>>(new Map());
-  const [statShardImages, setStatShardImages] = useState<Map<number, string>>(new Map());
-  const [statShardNames, setStatShardNames] = useState<Map<number, string>>(new Map());
 
   const rank = searchParams.get('rank') || 'ALL_RANKS';
   const role = searchParams.get('role') || 'ALL';
@@ -135,6 +144,29 @@ export default function ChampionBuildPage() {
         setBuild(data);
         if (data.builds && data.builds.length > 0) {
           setSelectedBuildIndex(0);
+          
+          // Load rune and stat shard images
+          const loadRuneImages = async () => {
+            const runeImgMap = new Map<number, string>();
+            const runeNameMap = new Map<number, string>();
+            
+            for (const buildArchetype of data.builds) {
+              // Load rune images
+              for (const perkId of buildArchetype.runes.perkIds) {
+                if (!runeImgMap.has(perkId)) {
+                  const imgUrl = await getRuneImageUrl(perkId);
+                  const name = await getRuneName(perkId);
+                  runeImgMap.set(perkId, imgUrl);
+                  runeNameMap.set(perkId, name);
+                }
+              }
+            }
+            
+            setRuneImages(runeImgMap);
+            setRuneNames(runeNameMap);
+          };
+          
+          loadRuneImages();
         }
       } catch (err: any) {
         console.error('Error loading champion build:', err);
@@ -409,40 +441,6 @@ export default function ChampionBuildPage() {
               </div>
             </div>
 
-            {/* Stat Shards */}
-            <div className="mt-4 pt-4 border-t border-[#334155]">
-              <div className="text-xs text-[#64748B] mb-3 font-semibold uppercase tracking-wider">Stat Shards</div>
-              <div className="flex gap-3">
-                {selectedBuild.runes.statShards.map((shardId, idx) => {
-                  const shardImg = statShardImages.get(shardId);
-                  const shardName = statShardNames.get(shardId) || `Shard ${shardId}`;
-                  return (
-                    <div
-                      key={idx}
-                      className="w-10 h-10 rounded-lg bg-[#1E293B] border-2 border-[#334155] hover:border-cyan-500/50 transition-colors flex items-center justify-center group relative overflow-hidden"
-                      title={shardName}
-                    >
-                      {shardImg ? (
-                        <img
-                          src={shardImg}
-                          alt={shardName}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                            (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${shardId}</span>`;
-                          }}
-                        />
-                      ) : (
-                        <span className="text-xs text-[#94A3B8] group-hover:text-cyan-400 transition-colors">{shardId}</span>
-                      )}
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-[#0F172A] border border-[#334155] rounded text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20">
-                        {shardName}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
           </div>
 
           {/* Spells & Items Row */}
@@ -490,38 +488,183 @@ export default function ChampionBuildPage() {
               </div>
             )}
 
-            {/* Items */}
-            <div className="bg-[#0F172A]/80 backdrop-blur-sm border border-[#1E293B] rounded-2xl p-6 shadow-xl">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-white">Items</h2>
-                <div className="text-sm text-[#94A3B8]">
-                  <span className="text-emerald-400 font-semibold">{selectedBuild.items.winRate.toFixed(1)}%</span> win rate •{' '}
-                  <span className="text-white">{selectedBuild.items.games.toLocaleString()}</span> games
+            {/* Items - U.GG Style Layout */}
+            {build.itemBuilds && (
+              <div className="bg-[#0F172A]/80 backdrop-blur-sm border border-[#1E293B] rounded-2xl p-6 shadow-xl">
+                <h2 className="text-2xl font-bold text-white mb-6">Item Build</h2>
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+                  {/* Starting Items */}
+                  {build.itemBuilds.starting.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-semibold text-[#94A3B8] mb-3 uppercase tracking-wider">Starting Items</h3>
+                      {build.itemBuilds.starting.slice(0, 1).map((buildOption, optIdx) => (
+                        <div key={optIdx} className="mb-4">
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            {buildOption.items.filter(itemId => itemId > 0).map((itemId, idx) => (
+                              <div
+                                key={idx}
+                                className="w-12 h-12 rounded-lg bg-[#1E293B] border-2 border-[#334155] hover:border-amber-500/50 transition-all hover:scale-110 flex items-center justify-center group relative overflow-hidden"
+                                title={`Item ${itemId}`}
+                              >
+                                <img
+                                  src={getItemImageUrl(itemId)}
+                                  alt={`Item ${itemId}`}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                    (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${itemId}</span>`;
+                                  }}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                          <div className="text-xs text-[#64748B]">
+                            <span className="text-emerald-400">{buildOption.winRate.toFixed(2)}%</span> WR •{' '}
+                            <span className="text-white">{buildOption.games.toLocaleString()}</span> Matches
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Core Items */}
+                  {build.itemBuilds.core.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-semibold text-[#94A3B8] mb-3 uppercase tracking-wider">Core Items</h3>
+                      {build.itemBuilds.core.slice(0, 1).map((buildOption, optIdx) => (
+                        <div key={optIdx} className="mb-4">
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            {buildOption.items.filter(itemId => itemId > 0).map((itemId, idx) => (
+                              <div
+                                key={idx}
+                                className="w-12 h-12 rounded-lg bg-[#1E293B] border-2 border-[#334155] hover:border-amber-500/50 transition-all hover:scale-110 flex items-center justify-center group relative overflow-hidden"
+                                title={`Item ${itemId}`}
+                              >
+                                <img
+                                  src={getItemImageUrl(itemId)}
+                                  alt={`Item ${itemId}`}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                    (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${itemId}</span>`;
+                                  }}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                          <div className="text-xs text-[#64748B]">
+                            <span className="text-emerald-400">{buildOption.winRate.toFixed(2)}%</span> WR •{' '}
+                            <span className="text-white">{buildOption.games.toLocaleString()}</span> Matches
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Fourth Item Options */}
+                  {build.itemBuilds.fourth.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-semibold text-[#94A3B8] mb-3 uppercase tracking-wider">Fourth Item</h3>
+                      {build.itemBuilds.fourth.slice(0, 3).map((buildOption, optIdx) => (
+                        <div key={optIdx} className="mb-3">
+                          <div className="flex gap-2 mb-1">
+                            {buildOption.items.filter(itemId => itemId > 0).map((itemId, idx) => (
+                              <div
+                                key={idx}
+                                className="w-10 h-10 rounded-lg bg-[#1E293B] border-2 border-[#334155] hover:border-amber-500/50 transition-all hover:scale-110 flex items-center justify-center group relative overflow-hidden"
+                                title={`Item ${itemId}`}
+                              >
+                                <img
+                                  src={getItemImageUrl(itemId)}
+                                  alt={`Item ${itemId}`}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                    (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${itemId}</span>`;
+                                  }}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                          <div className="text-xs text-[#64748B]">
+                            <span className="text-emerald-400">{buildOption.winRate.toFixed(2)}%</span> WR •{' '}
+                            <span className="text-white">{buildOption.games.toLocaleString()}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Fifth Item Options */}
+                  {build.itemBuilds.fifth.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-semibold text-[#94A3B8] mb-3 uppercase tracking-wider">Fifth Item</h3>
+                      {build.itemBuilds.fifth.slice(0, 3).map((buildOption, optIdx) => (
+                        <div key={optIdx} className="mb-3">
+                          <div className="flex gap-2 mb-1">
+                            {buildOption.items.filter(itemId => itemId > 0).map((itemId, idx) => (
+                              <div
+                                key={idx}
+                                className="w-10 h-10 rounded-lg bg-[#1E293B] border-2 border-[#334155] hover:border-amber-500/50 transition-all hover:scale-110 flex items-center justify-center group relative overflow-hidden"
+                                title={`Item ${itemId}`}
+                              >
+                                <img
+                                  src={getItemImageUrl(itemId)}
+                                  alt={`Item ${itemId}`}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                    (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${itemId}</span>`;
+                                  }}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                          <div className="text-xs text-[#64748B]">
+                            <span className="text-emerald-400">{buildOption.winRate.toFixed(2)}%</span> WR •{' '}
+                            <span className="text-white">{buildOption.games.toLocaleString()}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Sixth Item Options */}
+                  {build.itemBuilds.sixth.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-semibold text-[#94A3B8] mb-3 uppercase tracking-wider">Sixth Item</h3>
+                      {build.itemBuilds.sixth.slice(0, 3).map((buildOption, optIdx) => (
+                        <div key={optIdx} className="mb-3">
+                          <div className="flex gap-2 mb-1">
+                            {buildOption.items.filter(itemId => itemId > 0).map((itemId, idx) => (
+                              <div
+                                key={idx}
+                                className="w-10 h-10 rounded-lg bg-[#1E293B] border-2 border-[#334155] hover:border-amber-500/50 transition-all hover:scale-110 flex items-center justify-center group relative overflow-hidden"
+                                title={`Item ${itemId}`}
+                              >
+                                <img
+                                  src={getItemImageUrl(itemId)}
+                                  alt={`Item ${itemId}`}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                    (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${itemId}</span>`;
+                                  }}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                          <div className="text-xs text-[#64748B]">
+                            <span className="text-emerald-400">{buildOption.winRate.toFixed(2)}%</span> WR •{' '}
+                            <span className="text-white">{buildOption.games.toLocaleString()}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
-              <div className="flex flex-wrap gap-3">
-                {selectedBuild.items.items.filter(itemId => itemId > 0).map((itemId, idx) => (
-                  <div
-                    key={idx}
-                    className="w-16 h-16 rounded-xl bg-[#1E293B] border-2 border-[#334155] hover:border-amber-500/50 transition-all hover:scale-110 flex items-center justify-center group relative overflow-hidden"
-                    title={`Item ${itemId}`}
-                  >
-                    <img
-                      src={getItemImageUrl(itemId)}
-                      alt={`Item ${itemId}`}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                        (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8] group-hover:text-amber-400 transition-colors font-semibold">${itemId}</span>`;
-                      }}
-                    />
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-[#0F172A] border border-[#334155] rounded text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-                      Item {itemId}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

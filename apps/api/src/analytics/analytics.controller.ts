@@ -477,6 +477,15 @@ export class AnalyticsController {
       });
       const championStats = tierStats.find((s: any) => s.championId === champId);
 
+      // Get all item builds (starting, core, fourth, fifth, sixth)
+      const allItemBuilds = await this.buildAggregationService.getAllItemBuilds(
+        champId,
+        actualPatch,
+        rankBracket,
+        normalizedRole,
+        normalizedRegion
+      );
+
       // Get build archetypes (correlated runes + items + spells)
       const buildArchetypes = await this.buildAggregationService.getBuildArchetypes(
         champId,
@@ -523,6 +532,33 @@ export class AnalyticsController {
           role: normalizedRole,
           region: normalizedRegion || 'world',
           tierStats: championStats || null,
+          itemBuilds: {
+            starting: allItemBuilds.starting.map(ib => ({
+              items: ib.items,
+              winRate: ib.winRate * 100,
+              games: ib.games,
+            })),
+            core: allItemBuilds.core.map(ib => ({
+              items: ib.items,
+              winRate: ib.winRate * 100,
+              games: ib.games,
+            })),
+            fourth: allItemBuilds.fourth.map(ib => ({
+              items: ib.items,
+              winRate: ib.winRate * 100,
+              games: ib.games,
+            })),
+            fifth: allItemBuilds.fifth.map(ib => ({
+              items: ib.items,
+              winRate: ib.winRate * 100,
+              games: ib.games,
+            })),
+            sixth: allItemBuilds.sixth.map(ib => ({
+              items: ib.items,
+              winRate: ib.winRate * 100,
+              games: ib.games,
+            })),
+          },
           builds: runes.length > 0 && items.length > 0 ? [{
             archetype: 'Recommended',
             runes: {
@@ -557,6 +593,33 @@ export class AnalyticsController {
         role: normalizedRole,
         region: normalizedRegion || 'world',
         tierStats: championStats || null,
+        itemBuilds: {
+          starting: allItemBuilds.starting.map(ib => ({
+            items: ib.items,
+            winRate: ib.winRate * 100,
+            games: ib.games,
+          })),
+          core: allItemBuilds.core.map(ib => ({
+            items: ib.items,
+            winRate: ib.winRate * 100,
+            games: ib.games,
+          })),
+          fourth: allItemBuilds.fourth.map(ib => ({
+            items: ib.items,
+            winRate: ib.winRate * 100,
+            games: ib.games,
+          })),
+          fifth: allItemBuilds.fifth.map(ib => ({
+            items: ib.items,
+            winRate: ib.winRate * 100,
+            games: ib.games,
+          })),
+          sixth: allItemBuilds.sixth.map(ib => ({
+            items: ib.items,
+            winRate: ib.winRate * 100,
+            games: ib.games,
+          })),
+        },
         builds: buildArchetypes.map(archetype => ({
           archetype: archetype.archetype,
           runes: {
