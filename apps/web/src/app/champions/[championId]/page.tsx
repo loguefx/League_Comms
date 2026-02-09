@@ -552,18 +552,6 @@ export default function ChampionBuildPage() {
                 <div className="text-xs text-[#64748B] mb-3 font-semibold uppercase tracking-wider">Primary</div>
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-12 h-12 rounded-lg bg-[#0F172A] border border-[#334155] flex items-center justify-center overflow-hidden">
-                    {(() => {
-                      // #region agent log
-                      const primaryStyleId = selectedBuild.runes.primaryStyleId;
-                      const hasStyleImage = runeStyleImages.has(primaryStyleId);
-                      const styleImageUrl = runeStyleImages.get(primaryStyleId);
-                      const styleImagesSize = runeStyleImages.size;
-                      const allStyleIds = Array.from(runeStyleImages.keys());
-                      console.log(`[RuneStyleRender] Primary style ${primaryStyleId}:`, { hasStyleImage, styleImageUrl, styleImagesSize, allStyleIds });
-                      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:486',message:'Primary rune style render check',data:{primaryStyleId,hasStyleImage,styleImageUrl,styleImagesSize,allStyleIds},timestamp:Date.now(),runId:'debug1',hypothesisId:'A'})}).catch(()=>{});
-                      // #endregion
-                      return null;
-                    })()}
                     {runeStyleImages.get(selectedBuild.runes.primaryStyleId) ? (
                       <img
                         src={runeStyleImages.get(selectedBuild.runes.primaryStyleId)!}
