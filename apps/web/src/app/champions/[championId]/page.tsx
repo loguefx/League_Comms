@@ -623,8 +623,15 @@ export default function ChampionBuildPage() {
                       const runeName = runeNames.get(perkIdNum) || `Perk ${perkIdNum}`;
                       const runeDesc = runeDescriptions.get(perkIdNum) || '';
                       console.log(`[RuneRender] Rendering primary rune ${perkId} (as ${perkIdNum}):`, { runeImg, runeName, hasImage: !!runeImg, runeImagesSize: runeImages.size, runeImagesKeys: Array.from(runeImages.keys()) });
+                      console.log(`[RuneRender] runeImages map check:`, { 
+                        perkIdNum, 
+                        hasKey: runeImages.has(perkIdNum), 
+                        getResult: runeImages.get(perkIdNum),
+                        allKeys: Array.from(runeImages.keys()),
+                        allEntries: Array.from(runeImages.entries()).slice(0, 5)
+                      });
                       // #region agent log
-                      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:620',message:'Rendering primary rune',data:{perkId,perkIdNum,runeImg,hasImage:!!runeImg,runeImagesSize:runeImages.size,runeImagesKeys:Array.from(runeImages.keys())},timestamp:Date.now(),runId:'debug1',hypothesisId:'K'})}).catch(()=>{});
+                      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:620',message:'Rendering primary rune',data:{perkId,perkIdNum,runeImg,hasImage:!!runeImg,runeImagesSize:runeImages.size,runeImagesKeys:Array.from(runeImages.keys()),hasKey:runeImages.has(perkIdNum),getResult:runeImages.get(perkIdNum)},timestamp:Date.now(),runId:'debug2',hypothesisId:'M'})}).catch(()=>{});
                       // #endregion
                       return (
                         <div
