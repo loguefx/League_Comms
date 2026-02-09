@@ -90,17 +90,59 @@ export class BigIntSerializerInterceptor implements NestInterceptor {
           try {
             this.logger.log(`[BigIntSerializerInterceptor] 🔄 Attempting retry conversion...`);
             converted = this.convertBigIntRecursive(data);
+            
+            // Create a completely new safe object
+            const createCompletelySafeObject = (obj: any, depth: number = 0): any => {
+              if (depth > 100) return null; // Prevent infinite recursion
+              if (obj === null || obj === undefined) return obj;
+              if (typeof obj === 'bigint') {
+                this.logger.warn(`[BigIntSerializerInterceptor] Found BigInt at depth ${depth} during retry, converting`);
+                return Number(obj);
+              }
+              if (typeof obj === 'number' && (obj === Infinity || obj === -Infinity || isNaN(obj))) {
+                return null;
+              }
+              if (Array.isArray(obj)) {
+                return obj.map((item, idx) => {
+                  try {
+                    return createCompletelySafeObject(item, depth + 1);
+                  } catch (e) {
+                    return null;
+                  }
+                });
+              }
+              if (typeof obj === 'object') {
+                const safe: any = {};
+                for (const key in obj) {
+                  if (obj.hasOwnProperty(key)) {
+                    try {
+                      safe[key] = createCompletelySafeObject(obj[key], depth + 1);
+                    } catch (e) {
+                      safe[key] = null; // Skip problematic keys
+                    }
+                  }
+                }
+                return safe;
+              }
+              return obj;
+            };
+            
+            const completelySafe = createCompletelySafeObject(converted);
+            
             // Use a custom serializer that handles BigInt
-            const safeString = JSON.stringify(converted, (key, value) => {
+            const safeString = JSON.stringify(completelySafe, (key, value) => {
               if (typeof value === 'bigint') {
-                this.logger.warn(`[BigIntSerializerInterceptor] ⚠️ Found BigInt at path: ${key} during retry, converting to number`);
+                this.logger.warn(`[BigIntSerializerInterceptor] ⚠️ Found BigInt at path: ${key} during retry stringify, converting to number`);
                 return Number(value);
+              }
+              if (typeof value === 'number' && (value === Infinity || value === -Infinity || isNaN(value))) {
+                return null;
               }
               return value;
             });
             JSON.parse(safeString); // Verify it can be parsed back
             this.logger.warn(`[BigIntSerializerInterceptor] ✅ Retry conversion succeeded for ${request.method} ${request.url}`);
-            return converted;
+            return completelySafe;
           } catch (retryError: any) {
             this.logger.error(`[BigIntSerializerInterceptor] ❌ Retry conversion also failed`);
             this.logger.error(`[BigIntSerializerInterceptor] Retry error message: ${retryError.message}`);
