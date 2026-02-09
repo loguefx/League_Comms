@@ -5,6 +5,8 @@ import { AggregationService } from './aggregation.service';
 import { BuildAggregationService } from './build-aggregation.service';
 import { PublicChampionSeedService } from './public-champion-seed.service';
 import { BatchSeedService } from './batch-seed.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 
 @Controller('champions')
 export class AnalyticsController {
@@ -14,7 +16,8 @@ export class AnalyticsController {
     private aggregationService: AggregationService,
     private buildAggregationService: BuildAggregationService,
     private seedService: PublicChampionSeedService,
-    private batchSeedService: BatchSeedService
+    private batchSeedService: BatchSeedService,
+    private prisma: PrismaService
   ) {}
 
   @Get()
@@ -171,6 +174,103 @@ export class AnalyticsController {
   async getSeedProgress() {
     const progress = this.batchSeedService.getProgress();
     return progress || { status: 'not_running', message: 'No seed operation in progress' };
+  }
+
+  /**
+   * Get list of champions that have build data available
+   * Useful for testing and finding which champions to view
+   */
+  @Get('with-builds')
+  async getChampionsWithBuilds(
+    @Query('patch') patch?: string,
+    @Query('rank') rank?: string,
+    @Query('role') role?: string,
+    @Query('region') region?: string
+  ) {
+    try {
+      let actualPatch = patch;
+      if (!actualPatch || actualPatch === 'latest') {
+        const patches = await this.analyticsService.getAvailablePatches();
+        actualPatch = patches.latest || null;
+        if (!actualPatch) {
+          return {
+            champions: [],
+            message: 'No patch data available',
+          };
+        }
+      }
+
+      const rankBracket = rank || 'all_ranks';
+      const normalizedRole = role === 'ALL' || !role ? 'ALL' : role;
+      const normalizedRegion = region === 'world' || !region ? null : region;
+
+      // Query champions that have rune pages (indicating build data exists)
+      const championsWithRunes = await this.prisma.$queryRaw<Array<{
+        champion_id: number;
+        rune_pages: bigint;
+        item_builds: bigint;
+        spell_sets: bigint;
+      }>>`
+        SELECT 
+          crp.champion_id,
+          COUNT(DISTINCT crp.primary_style_id || '-' || crp.sub_style_id)::bigint as rune_pages,
+          COALESCE(MAX(cib_count.item_builds), 0)::bigint as item_builds,
+          COALESCE(MAX(css_count.spell_sets), 0)::bigint as spell_sets
+        FROM champion_rune_pages crp
+        LEFT JOIN (
+          SELECT 
+            champion_id,
+            COUNT(DISTINCT build_type)::bigint as item_builds
+          FROM champion_item_builds
+          WHERE patch = ${actualPatch}
+            AND queue_id = 420
+            AND role = ${normalizedRole}
+            ${normalizedRegion ? Prisma.sql`AND region = ${normalizedRegion}` : Prisma.empty}
+            AND rank_bracket = ${rankBracket}
+          GROUP BY champion_id
+        ) cib_count ON cib_count.champion_id = crp.champion_id
+        LEFT JOIN (
+          SELECT 
+            champion_id,
+            COUNT(DISTINCT spell1_id || '-' || spell2_id)::bigint as spell_sets
+          FROM champion_spell_sets
+          WHERE patch = ${actualPatch}
+            AND queue_id = 420
+            AND role = ${normalizedRole}
+            ${normalizedRegion ? Prisma.sql`AND region = ${normalizedRegion}` : Prisma.empty}
+            AND rank_bracket = ${rankBracket}
+          GROUP BY champion_id
+        ) css_count ON css_count.champion_id = crp.champion_id
+        WHERE crp.patch = ${actualPatch}
+          AND crp.queue_id = 420
+          AND crp.role = ${normalizedRole}
+          ${normalizedRegion ? Prisma.sql`AND crp.region = ${normalizedRegion}` : Prisma.empty}
+          AND crp.rank_bracket = ${rankBracket}
+        GROUP BY crp.champion_id
+        HAVING COUNT(DISTINCT crp.primary_style_id || '-' || crp.sub_style_id) > 0
+        ORDER BY rune_pages DESC, item_builds DESC
+        LIMIT 50
+      `;
+
+      return {
+        champions: championsWithRunes.map((c) => ({
+          championId: Number(c.champion_id),
+          runePages: Number(c.rune_pages),
+          itemBuilds: Number(c.item_builds),
+          spellSets: Number(c.spell_sets),
+        })),
+        patch: actualPatch,
+        rank: rankBracket,
+        role: normalizedRole,
+        region: normalizedRegion || 'world',
+      };
+    } catch (error) {
+      console.error('[AnalyticsController] Error getting champions with builds:', error);
+      return {
+        champions: [],
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
   }
 
   /**
