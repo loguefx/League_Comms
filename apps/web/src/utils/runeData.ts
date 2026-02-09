@@ -236,13 +236,13 @@ export async function getRuneStyleImageUrl(styleId: number): Promise<string> {
     console.error(`[getRuneStyleImageUrl] Rune data cache is null for style ID: ${styleId}`);
     const version = (typeof window !== 'undefined' && (window as any).__DD_VERSION__) || '14.1.1';
     const styleMap: Record<number, string> = {
-      8000: 'perk-images/Styles/7201_Precision/7201_Precision.png',
-      8100: 'perk-images/Styles/7200_Domination/7200_Domination.png',
-      8200: 'perk-images/Styles/7202_Sorcery/7202_Sorcery.png',
-      8300: 'perk-images/Styles/7204_Inspiration/7204_Inspiration.png',
-      8400: 'perk-images/Styles/7203_Whimsy/7203_Whimsy.png',
+      8000: 'perk-images/Styles/7201_Precision.png',
+      8100: 'perk-images/Styles/7200_Domination.png',
+      8200: 'perk-images/Styles/7202_Sorcery.png',
+      8300: 'perk-images/Styles/7204_Inspiration.png',
+      8400: 'perk-images/Styles/7203_Whimsy.png',
     };
-    const stylePath = styleMap[styleId] || 'perk-images/Styles/7200_Domination/7200_Domination.png';
+    const stylePath = styleMap[styleId] || 'perk-images/Styles/7200_Domination.png';
     return `https://ddragon.leagueoflegends.com/cdn/${version}/img/${stylePath}`;
   }
   
@@ -257,11 +257,11 @@ export async function getRuneStyleImageUrl(styleId: number): Promise<string> {
       // Check if style has icon property
       // Data Dragon sometimes returns incorrect icon paths, so we always use our known-good mapping
       const styleMap: Record<number, string> = {
-        8000: 'perk-images/Styles/7201_Precision/7201_Precision.png',
-        8100: 'perk-images/Styles/7200_Domination/7200_Domination.png',
-        8200: 'perk-images/Styles/7202_Sorcery/7202_Sorcery.png',
-        8300: 'perk-images/Styles/7204_Inspiration/7204_Inspiration.png',
-        8400: 'perk-images/Styles/7203_Whimsy/7203_Whimsy.png',
+        8000: 'perk-images/Styles/7201_Precision.png',
+        8100: 'perk-images/Styles/7200_Domination.png',
+        8200: 'perk-images/Styles/7202_Sorcery.png',
+        8300: 'perk-images/Styles/7204_Inspiration.png',
+        8400: 'perk-images/Styles/7203_Whimsy.png',
       };
       
       // Always use our known-good mapping instead of Data Dragon's icon field

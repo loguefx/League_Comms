@@ -959,6 +959,9 @@ export class BuildAggregationService {
     for (const buildType of buildTypes) {
       this.logger.log(`[getAllItemBuilds] Querying for build type: ${buildType}, champion: ${championId}, patch: ${patch}, rank: ${rankBracket}, role: ${normalizedRole}, region: ${region || 'world'}`);
       let itemBuilds;
+      // When role is 'ALL', we need to aggregate across all roles (don't filter by role)
+      const roleFilter = normalizedRole === 'ALL' ? Prisma.empty : Prisma.sql`AND role = ${normalizedRole}`;
+      
       if (isAllRanks && isWorld) {
         itemBuilds = await this.prisma.$queryRaw<Array<{
           items: number[];
@@ -972,7 +975,7 @@ export class BuildAggregationService {
           FROM champion_item_builds
           WHERE patch = ${patch}
             AND queue_id = 420
-            AND role = ${normalizedRole}
+            ${roleFilter}
             AND champion_id = ${championId}
             AND build_type = ${buildType}
           GROUP BY items
@@ -993,7 +996,7 @@ export class BuildAggregationService {
           WHERE patch = ${patch}
             AND region = ${region}
             AND queue_id = 420
-            AND role = ${normalizedRole}
+            ${roleFilter}
             AND champion_id = ${championId}
             AND build_type = ${buildType}
           GROUP BY items
@@ -1014,7 +1017,7 @@ export class BuildAggregationService {
           WHERE patch = ${patch}
             AND queue_id = 420
             AND rank_bracket = ${rankBracket}
-            AND role = ${normalizedRole}
+            ${roleFilter}
             AND champion_id = ${championId}
             AND build_type = ${buildType}
           GROUP BY items
@@ -1029,17 +1032,18 @@ export class BuildAggregationService {
         }>>`
           SELECT
             items,
-            games,
-            wins
+            SUM(games)::bigint AS games,
+            SUM(wins)::bigint AS wins
           FROM champion_item_builds
           WHERE patch = ${patch}
             AND region = ${region}
             AND queue_id = 420
             AND rank_bracket = ${rankBracket}
-            AND role = ${normalizedRole}
+            ${roleFilter}
             AND champion_id = ${championId}
             AND build_type = ${buildType}
-          ORDER BY games DESC
+          GROUP BY items
+          ORDER BY SUM(games) DESC
           LIMIT 5
         `;
       }
