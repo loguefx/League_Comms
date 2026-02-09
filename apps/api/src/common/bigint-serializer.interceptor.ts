@@ -20,14 +20,33 @@ export class BigIntSerializerInterceptor implements NestInterceptor {
       map((data: any) => {
         try {
           const converted = this.convertBigInt(data);
-          // Test serialization to catch any remaining BigInt values
-          JSON.stringify(converted);
+          // Test serialization with replacer to catch any remaining BigInt values
+          JSON.stringify(converted, (key, value) => {
+            if (typeof value === 'bigint') {
+              this.logger.warn(`Found BigInt at path: ${key}, converting to number`);
+              return Number(value);
+            }
+            return value;
+          });
           return converted;
         } catch (error: any) {
           this.logger.error(`Failed to serialize response for ${request.method} ${request.url}:`, error.message);
           this.logger.error(`Response data type:`, typeof data);
           this.logger.error(`Response data keys:`, data && typeof data === 'object' ? Object.keys(data) : 'N/A');
-          throw error;
+          // Try one more time with aggressive conversion
+          try {
+            const aggressivelyConverted = this.convertBigIntRecursive(data);
+            JSON.stringify(aggressivelyConverted);
+            this.logger.warn(`Retry conversion succeeded for ${request.method} ${request.url}`);
+            return aggressivelyConverted;
+          } catch (retryError: any) {
+            this.logger.error(`Retry conversion also failed:`, retryError.message);
+            // Return a safe error response instead of throwing
+            return {
+              error: 'Failed to serialize response data',
+              message: 'Internal server error during data serialization',
+            };
+          }
         }
       })
     );
