@@ -38,21 +38,37 @@ export class AggregationService implements OnModuleInit {
    * - Manually via POST /champions/aggregate
    */
   async aggregateChampionStats() {
+    this.logger.log('═══════════════════════════════════════════════════════════');
     this.logger.log('Starting champion stats aggregation');
+    this.logger.log('═══════════════════════════════════════════════════════════');
 
     try {
+      // Step 1: Compute bucket totals (denominators for pick/ban rates)
+      this.logger.log('[1/4] Computing bucket totals...');
       await this.computeBucketTotals();
-      await this.computeChampionStats();
-      await this.computeBanStats();
-      
-      // Also aggregate build data (runes, spells, items)
-      // This runs less frequently as it's more expensive
-      this.logger.log('Starting build data aggregation...');
-      await this.buildAggregation.aggregateBuilds();
+      this.logger.log('✓ Bucket totals computed');
 
-    this.logger.log('Champion stats aggregation complete');
+      // Step 2: Compute champion stats (win rates, pick rates)
+      this.logger.log('[2/4] Computing champion stats...');
+      await this.computeChampionStats();
+      this.logger.log('✓ Champion stats computed');
+
+      // Step 3: Compute ban stats
+      this.logger.log('[3/4] Computing ban stats...');
+      await this.computeBanStats();
+      this.logger.log('✓ Ban stats computed');
+      
+      // Step 4: Aggregate build data (runes, spells, items)
+      // This runs less frequently as it's more expensive
+      this.logger.log('[4/4] Starting build data aggregation...');
+      await this.buildAggregation.aggregateBuilds();
+      this.logger.log('✓ Build data aggregated');
+
+      this.logger.log('═══════════════════════════════════════════════════════════');
+      this.logger.log('✓ Champion stats aggregation complete');
+      this.logger.log('═══════════════════════════════════════════════════════════');
     } catch (error) {
-      this.logger.error('Aggregation failed:', error);
+      this.logger.error('✗ Aggregation failed:', error);
       throw error;
     }
   }
@@ -63,8 +79,14 @@ export class AggregationService implements OnModuleInit {
    */
   @Cron('*/2 * * * *') // Every 2 minutes using cron syntax
   async scheduledAggregation() {
-    await this.aggregateChampionStats();
+    this.logger.log('⏰ Scheduled aggregation triggered (every 2 minutes)');
+    try {
+      await this.aggregateChampionStats();
+    } catch (error) {
+      this.logger.error('Scheduled aggregation failed (will retry in 2 minutes):', error);
+      // Don't throw - allow scheduled job to continue
     }
+  }
 
   /**
    * Step A: Compute bucket totals (denominators for pick/ban rates)

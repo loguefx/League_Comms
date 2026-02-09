@@ -8,6 +8,17 @@ import { BatchSeedService } from './batch-seed.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 
+/**
+ * Champions Analytics Controller
+ * 
+ * All endpoints respect frontend filters (patch, rank, role, region):
+ * - patch: Specific patch (e.g., '16.3') or 'latest' for most recent
+ * - rank: Rank bracket (e.g., 'EMERALD_PLUS', 'ALL_RANKS')
+ * - role: Role (e.g., 'TOP', 'MIDDLE', 'ALL')
+ * - region: Region (e.g., 'na1', 'euw1') or 'world' for all regions
+ * 
+ * No hardcoded defaults - all values come from frontend filters.
+ */
 @Controller('champions')
 export class AnalyticsController {
   constructor(
@@ -192,6 +203,7 @@ export class AnalyticsController {
       if (!actualPatch || actualPatch === 'latest') {
         const patches = await this.analyticsService.getAvailablePatches();
         actualPatch = patches.latest || null;
+        console.log(`[AnalyticsController] getChampionsWithBuilds - Resolved "latest" to patch: ${actualPatch}`);
         if (!actualPatch) {
           return {
             champions: [],
@@ -199,58 +211,113 @@ export class AnalyticsController {
           };
         }
       }
+      console.log(`[AnalyticsController] getChampionsWithBuilds - Using patch: ${actualPatch}`);
 
-      const rankBracket = rank || 'all_ranks';
+      // Normalize rank bracket (handle ALL_RANKS -> all_ranks)
+      const rankInput = rank || 'ALL_RANKS';
+      const normalizedRank = !rankInput || rankInput === 'ALL_RANKS' 
+        ? 'all_ranks' 
+        : rankInput.toLowerCase().trim().replace(/_plus$/, '');
+      const isAllRanks = normalizedRank === 'all_ranks';
       const normalizedRole = role === 'ALL' || !role ? 'ALL' : role;
       const normalizedRegion = region === 'world' || !region ? null : region;
 
+      console.log(`[AnalyticsController] getChampionsWithBuilds - patch=${actualPatch}, rank=${rank} -> ${normalizedRank}, role=${role} -> ${normalizedRole}, region=${region} -> ${normalizedRegion}, isAllRanks=${isAllRanks}`);
+
       // Query champions that have rune pages (indicating build data exists)
-      const championsWithRunes = await this.prisma.$queryRaw<Array<{
-        champion_id: number;
-        rune_pages: bigint;
-        item_builds: bigint;
-        spell_sets: bigint;
-      }>>`
-        SELECT 
-          crp.champion_id,
-          COUNT(DISTINCT crp.primary_style_id || '-' || crp.sub_style_id)::bigint as rune_pages,
-          COALESCE(MAX(cib_count.item_builds), 0)::bigint as item_builds,
-          COALESCE(MAX(css_count.spell_sets), 0)::bigint as spell_sets
-        FROM champion_rune_pages crp
-        LEFT JOIN (
-          SELECT 
-            champion_id,
-            COUNT(DISTINCT build_type)::bigint as item_builds
-          FROM champion_item_builds
-          WHERE patch = ${actualPatch}
-            AND queue_id = 420
-            AND role = ${normalizedRole}
-            ${normalizedRegion ? Prisma.sql`AND region = ${normalizedRegion}` : Prisma.empty}
-            AND rank_bracket = ${rankBracket}
-          GROUP BY champion_id
-        ) cib_count ON cib_count.champion_id = crp.champion_id
-        LEFT JOIN (
-          SELECT 
-            champion_id,
-            COUNT(DISTINCT spell1_id || '-' || spell2_id)::bigint as spell_sets
-          FROM champion_spell_sets
-          WHERE patch = ${actualPatch}
-            AND queue_id = 420
-            AND role = ${normalizedRole}
-            ${normalizedRegion ? Prisma.sql`AND region = ${normalizedRegion}` : Prisma.empty}
-            AND rank_bracket = ${rankBracket}
-          GROUP BY champion_id
-        ) css_count ON css_count.champion_id = crp.champion_id
-        WHERE crp.patch = ${actualPatch}
-          AND crp.queue_id = 420
-          AND crp.role = ${normalizedRole}
-          ${normalizedRegion ? Prisma.sql`AND crp.region = ${normalizedRegion}` : Prisma.empty}
-          AND crp.rank_bracket = ${rankBracket}
-        GROUP BY crp.champion_id
-        HAVING COUNT(DISTINCT crp.primary_style_id || '-' || crp.sub_style_id) > 0
-        ORDER BY rune_pages DESC, item_builds DESC
-        LIMIT 50
-      `;
+      // Handle "all_ranks" by aggregating across all rank brackets
+      const championsWithRunes = isAllRanks
+        ? await this.prisma.$queryRaw<Array<{
+            champion_id: number;
+            rune_pages: bigint;
+            item_builds: bigint;
+            spell_sets: bigint;
+          }>>`
+            SELECT 
+              crp.champion_id,
+              COUNT(DISTINCT crp.primary_style_id || '-' || crp.sub_style_id)::bigint as rune_pages,
+              COALESCE(MAX(cib_count.item_builds), 0)::bigint as item_builds,
+              COALESCE(MAX(css_count.spell_sets), 0)::bigint as spell_sets
+            FROM champion_rune_pages crp
+            LEFT JOIN (
+              SELECT 
+                champion_id,
+                COUNT(DISTINCT build_type)::bigint as item_builds
+              FROM champion_item_builds
+              WHERE patch = ${actualPatch}
+                AND queue_id = 420
+                AND role = ${normalizedRole}
+                ${normalizedRegion ? Prisma.sql`AND region = ${normalizedRegion}` : Prisma.empty}
+              GROUP BY champion_id
+            ) cib_count ON cib_count.champion_id = crp.champion_id
+            LEFT JOIN (
+              SELECT 
+                champion_id,
+                COUNT(DISTINCT spell1_id || '-' || spell2_id)::bigint as spell_sets
+              FROM champion_spell_sets
+              WHERE patch = ${actualPatch}
+                AND queue_id = 420
+                AND role = ${normalizedRole}
+                ${normalizedRegion ? Prisma.sql`AND region = ${normalizedRegion}` : Prisma.empty}
+              GROUP BY champion_id
+            ) css_count ON css_count.champion_id = crp.champion_id
+            WHERE crp.patch = ${actualPatch}
+              AND crp.queue_id = 420
+              AND crp.role = ${normalizedRole}
+              ${normalizedRegion ? Prisma.sql`AND crp.region = ${normalizedRegion}` : Prisma.empty}
+            GROUP BY crp.champion_id
+            HAVING COUNT(DISTINCT crp.primary_style_id || '-' || crp.sub_style_id) > 0
+            ORDER BY rune_pages DESC, item_builds DESC
+            LIMIT 50
+          `
+        : await this.prisma.$queryRaw<Array<{
+            champion_id: number;
+            rune_pages: bigint;
+            item_builds: bigint;
+            spell_sets: bigint;
+          }>>`
+            SELECT 
+              crp.champion_id,
+              COUNT(DISTINCT crp.primary_style_id || '-' || crp.sub_style_id)::bigint as rune_pages,
+              COALESCE(MAX(cib_count.item_builds), 0)::bigint as item_builds,
+              COALESCE(MAX(css_count.spell_sets), 0)::bigint as spell_sets
+            FROM champion_rune_pages crp
+            LEFT JOIN (
+              SELECT 
+                champion_id,
+                COUNT(DISTINCT build_type)::bigint as item_builds
+              FROM champion_item_builds
+              WHERE patch = ${actualPatch}
+                AND queue_id = 420
+                AND role = ${normalizedRole}
+                ${normalizedRegion ? Prisma.sql`AND region = ${normalizedRegion}` : Prisma.empty}
+                AND rank_bracket = ${normalizedRank}
+              GROUP BY champion_id
+            ) cib_count ON cib_count.champion_id = crp.champion_id
+            LEFT JOIN (
+              SELECT 
+                champion_id,
+                COUNT(DISTINCT spell1_id || '-' || spell2_id)::bigint as spell_sets
+              FROM champion_spell_sets
+              WHERE patch = ${actualPatch}
+                AND queue_id = 420
+                AND role = ${normalizedRole}
+                ${normalizedRegion ? Prisma.sql`AND region = ${normalizedRegion}` : Prisma.empty}
+                AND rank_bracket = ${normalizedRank}
+              GROUP BY champion_id
+            ) css_count ON css_count.champion_id = crp.champion_id
+            WHERE crp.patch = ${actualPatch}
+              AND crp.queue_id = 420
+              AND crp.role = ${normalizedRole}
+              ${normalizedRegion ? Prisma.sql`AND crp.region = ${normalizedRegion}` : Prisma.empty}
+              AND crp.rank_bracket = ${normalizedRank}
+            GROUP BY crp.champion_id
+            HAVING COUNT(DISTINCT crp.primary_style_id || '-' || crp.sub_style_id) > 0
+            ORDER BY rune_pages DESC, item_builds DESC
+            LIMIT 50
+          `;
+
+      console.log(`[AnalyticsController] Found ${championsWithRunes.length} champions with build data`);
 
       // Fetch champion names from Data Dragon
       let championNameMap: Record<number, string> = {};
@@ -284,7 +351,7 @@ export class AnalyticsController {
           spellSets: Number(c.spell_sets),
         })),
         patch: actualPatch,
-        rank: rankBracket,
+        rank: normalizedRank,
         role: normalizedRole,
         region: normalizedRegion || 'world',
       };
@@ -379,20 +446,25 @@ export class AnalyticsController {
         };
       }
 
-      // Get latest patch if 'latest' or not provided
-      let actualPatch = patch;
-      if (!actualPatch || actualPatch === 'latest') {
+      // Get latest patch if 'latest' or not provided - use provided values, no hardcoded defaults
+      let actualPatch: string | null = null;
+      if (!patch || patch === 'latest') {
         const patches = await this.analyticsService.getAvailablePatches();
         actualPatch = patches.latest || null;
         if (!actualPatch) {
           return {
-            error: 'No patch data available',
+            error: 'No patch data available. Please ensure matches have been ingested and aggregated.',
           };
         }
+      } else {
+        actualPatch = patch;
       }
 
-      // Normalize rank bracket
-      const rankBracket = rank || 'all_ranks';
+      // Normalize rank bracket - use provided value or default to ALL_RANKS (which becomes 'all_ranks')
+      const rankInput = rank || 'ALL_RANKS';
+      const rankBracket = !rankInput || rankInput === 'ALL_RANKS' 
+        ? 'all_ranks' 
+        : rankInput.toLowerCase().trim().replace(/_plus$/, '');
       const normalizedRole = role || 'ALL';
       const normalizedRegion = region === 'world' || !region ? null : region;
 

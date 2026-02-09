@@ -94,8 +94,12 @@ export class MatchPullService implements OnModuleInit {
         
         // Small delay between regions to respect rate limits
         await this.rateLimiter.waitForBatch();
-      } catch (error) {
-        this.logger.error(`Failed to pull matches from ${region}:`, error);
+      } catch (error: any) {
+        // Log error but continue with next region
+        // pullMatchesFromRegion already handles most errors gracefully
+        if (error?.code !== 'ENOTFOUND' && error?.code !== 'ECONNREFUSED') {
+          this.logger.error(`Failed to pull matches from ${region}:`, error?.message || error);
+        }
         // Continue with next region even if one fails
       }
     }
@@ -180,11 +184,23 @@ export class MatchPullService implements OnModuleInit {
 
       this.logger.log(`Ingested ${totalMatchesIngested} new matches from ${region}`);
     } catch (error: any) {
-      // Handle 404 (no challenger league in some regions) gracefully
+      // Handle various error cases gracefully
+      // 404: No challenger league in some regions (this is OK)
       if (error?.response?.status === 404 || error?.status === 404) {
         this.logger.debug(`No challenger league in ${region} (this is OK)`);
         return;
       }
+      
+      // DNS/Network errors: Some regions may not have League-V4 API support
+      // (e.g., ph2, sg2, th2, tw2, vn2 are valid for Match-V5 but not League-V4)
+      if (error?.code === 'ENOTFOUND' || error?.code === 'ECONNREFUSED' || error?.message?.includes('getaddrinfo')) {
+        this.logger.warn(`Region ${region} not supported by League-V4 API (DNS/Network error). Skipping...`);
+        this.logger.debug(`Error details: ${error.message}`);
+        return; // Skip this region, continue with others
+      }
+      
+      // Other errors: log and rethrow to be caught by outer handler
+      this.logger.error(`Unexpected error pulling matches from ${region}:`, error);
       throw error;
     }
   }

@@ -31,14 +31,40 @@ export class BuildAggregationService {
             WHERE patch IS NOT NULL
           `.then((results) => results.map((r) => r.patch));
 
-      for (const p of patches) {
-        this.logger.log(`Aggregating builds for patch ${p}...`);
-        await this.aggregateRunePages(p);
-        await this.aggregateSpellSets(p);
-        await this.aggregateItemBuilds(p);
+      if (patches.length === 0) {
+        this.logger.warn('No patches found in database for build aggregation');
+        return;
       }
 
-      this.logger.log('Build aggregation complete');
+      this.logger.log(`Processing ${patches.length} patch(es) for build aggregation: ${patches.join(', ')}`);
+
+      for (const p of patches) {
+        this.logger.log(`Aggregating builds for patch ${p}...`);
+        try {
+          await this.aggregateRunePages(p);
+          await this.aggregateSpellSets(p);
+          await this.aggregateItemBuilds(p);
+          this.logger.log(`✓ Build aggregation complete for patch ${p}`);
+        } catch (error) {
+          this.logger.error(`✗ Build aggregation failed for patch ${p}:`, error);
+          // Continue with next patch even if one fails
+        }
+      }
+
+      // Log summary of aggregated build data
+      const [runePageCount, itemBuildCount, spellSetCount] = await Promise.all([
+        this.prisma.$queryRaw<Array<{ count: bigint }>>`
+          SELECT COUNT(*)::bigint as count FROM champion_rune_pages
+        `,
+        this.prisma.$queryRaw<Array<{ count: bigint }>>`
+          SELECT COUNT(*)::bigint as count FROM champion_item_builds
+        `,
+        this.prisma.$queryRaw<Array<{ count: bigint }>>`
+          SELECT COUNT(*)::bigint as count FROM champion_spell_sets
+        `,
+      ]);
+
+      this.logger.log(`Build aggregation complete. Total aggregated: ${Number(runePageCount[0]?.count || 0)} rune pages, ${Number(itemBuildCount[0]?.count || 0)} item builds, ${Number(spellSetCount[0]?.count || 0)} spell sets`);
     } catch (error) {
       this.logger.error('Build aggregation failed:', error);
       throw error;

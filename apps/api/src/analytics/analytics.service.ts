@@ -17,10 +17,24 @@ export class AnalyticsService {
     patch?: string;
     region?: string;
   }) {
-    // Normalize inputs
-    const patch = options.patch === 'latest' || !options.patch 
-      ? await this.getLatestPatch() 
-      : options.patch;
+    // Normalize inputs - use provided values, no hardcoded defaults
+    // All filters (patch, rank, role, region) are customizable from frontend
+    let patch: string | null = null;
+    if (options.patch === 'latest' || !options.patch) {
+      patch = await this.getLatestPatch();
+      if (!patch) {
+        this.logger.warn(`[getChampionStats] No patch data available in database`);
+        return [];
+      }
+    } else {
+      patch = options.patch;
+    }
+    
+    // Ensure patch is a valid string before proceeding
+    if (!patch || typeof patch !== 'string') {
+      this.logger.warn(`[getChampionStats] Invalid patch value: ${patch}`);
+      return [];
+    }
     
     // Handle region: 'world' means aggregate across all regions, otherwise filter by specific region
     const isWorld = options.region === 'world' || !options.region;
@@ -362,13 +376,13 @@ export class AnalyticsService {
   /**
    * Get latest patch from matches
    */
-  private async getLatestPatch(): Promise<string> {
+  private async getLatestPatch(): Promise<string | null> {
     const latest = await this.prisma.match.findFirst({
       orderBy: { patch: 'desc' },
       select: { patch: true },
     });
 
-    return latest?.patch || '16.1';
+    return latest?.patch || null;
   }
 
   /**
