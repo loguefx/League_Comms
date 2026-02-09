@@ -30,13 +30,35 @@ export class IngestionService {
     // #endregion
     
     // Check if already ingested
+    // #region agent log
+    const dbCheckStartTime = Date.now();
+    const dbCountBeforeCheck = await this.prisma.match.count();
+    console.log(`[ingestMatch] Checking if match ${matchId} exists (DB count before check: ${dbCountBeforeCheck})`);
+    fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ingestion.service.ts:33',message:'Checking match existence',data:{matchId,dbCountBeforeCheck},timestamp:Date.now(),runId:'debug2',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    
     const existing = await this.prisma.match.findUnique({
       where: { matchId },
     });
 
+    // #region agent log
+    const dbCheckDuration = Date.now() - dbCheckStartTime;
+    console.log(`[ingestMatch] Database check complete for ${matchId}: exists=${!!existing}, took ${dbCheckDuration}ms`);
+    fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ingestion.service.ts:40',message:'Database check result',data:{matchId,exists:!!existing,dbCheckDurationMs:dbCheckDuration},timestamp:Date.now(),runId:'debug2',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+
     if (existing) {
       // #region agent log
-      console.log(`[ingestMatch] Match ${matchId} already exists, skipping`);
+      const totalMatches = await this.prisma.match.count();
+      const existingMatchDetails = {
+        matchId: existing.matchId,
+        region: existing.region,
+        patch: existing.patch,
+        createdAt: existing.createdAt?.toISOString(),
+      };
+      console.log(`[ingestMatch] Match ${matchId} already exists, skipping (total matches in DB: ${totalMatches})`);
+      console.log(`[ingestMatch] Existing match details:`, existingMatchDetails);
+      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ingestion.service.ts:48',message:'Match already exists',data:{matchId,totalMatchesInDb:totalMatches,existingMatchDetails},timestamp:Date.now(),runId:'debug2',hypothesisId:'B'})}).catch(()=>{});
       // #endregion
       return; // Already ingested
     }

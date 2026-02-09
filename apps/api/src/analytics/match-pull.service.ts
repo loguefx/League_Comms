@@ -207,6 +207,12 @@ export class MatchPullService implements OnModuleInit {
 
       let totalMatchesIngested = 0;
       const processedMatchIds = new Set<string>();
+      
+      // #region agent log
+      const dbCountAtStart = await this.prisma.match.count();
+      console.log(`[pullMatchesFromRegion] Starting match pull for ${region}, DB count at start: ${dbCountAtStart}`);
+      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'match-pull.service.ts:210',message:'Starting region match pull',data:{region,dbCountAtStart},timestamp:Date.now(),runId:'debug2',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
 
       for (const player of players) {
         try {
@@ -232,9 +238,22 @@ export class MatchPullService implements OnModuleInit {
             type: 'ranked',
           });
 
+          // #region agent log
+          console.log(`[pullMatchesFromRegion] Player ${player.summonerName || puuid}: Got ${matchIds.length} match IDs`);
+          const duplicateCount = matchIds.filter(id => processedMatchIds.has(id)).length;
+          if (duplicateCount > 0) {
+            console.log(`[pullMatchesFromRegion] Player ${player.summonerName || puuid}: ${duplicateCount} match IDs already in processedMatchIds Set`);
+          }
+          fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'match-pull.service.ts:234',message:'Got match IDs from player',data:{region,playerName:player.summonerName,puuid,matchIdsCount:matchIds.length,duplicateCount,processedMatchIdsSize:processedMatchIds.size},timestamp:Date.now(),runId:'debug2',hypothesisId:'C'})}).catch(()=>{});
+          // #endregion
+
           // Ingest each match (dedupe by match ID)
           for (const matchId of matchIds) {
             if (processedMatchIds.has(matchId)) {
+              // #region agent log
+              console.log(`[pullMatchesFromRegion] Match ${matchId} already in processedMatchIds Set, skipping`);
+              fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'match-pull.service.ts:240',message:'Match already in processedMatchIds Set',data:{matchId,region},timestamp:Date.now(),runId:'debug2',hypothesisId:'C'})}).catch(()=>{});
+              // #endregion
               continue; // Skip already processed matches
             }
 
@@ -242,8 +261,20 @@ export class MatchPullService implements OnModuleInit {
               await this.ingestionService.ingestMatch(region, matchId, 'master_plus');
               processedMatchIds.add(matchId);
               totalMatchesIngested++;
+              
+              // #region agent log
+              if (totalMatchesIngested % 10 === 0) {
+                const currentDbCount = await this.prisma.match.count();
+                console.log(`[pullMatchesFromRegion] Progress: ${totalMatchesIngested} matches ingested from ${region}, DB count: ${currentDbCount}`);
+                fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'match-pull.service.ts:252',message:'Match ingestion progress',data:{region,totalMatchesIngested,currentDbCount},timestamp:Date.now(),runId:'debug2',hypothesisId:'A'})}).catch(()=>{});
+              }
+              // #endregion
             } catch (error) {
               this.logger.debug(`Failed to ingest match ${matchId}: ${error}`);
+              // #region agent log
+              console.error(`[pullMatchesFromRegion] Failed to ingest match ${matchId}:`, error);
+              fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'match-pull.service.ts:258',message:'Match ingestion failed',data:{matchId,region,errorMessage:error instanceof Error ? error.message : String(error)},timestamp:Date.now(),runId:'debug2',hypothesisId:'A'})}).catch(()=>{});
+              // #endregion
             }
           }
 
