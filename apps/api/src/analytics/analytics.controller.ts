@@ -612,13 +612,26 @@ export class AnalyticsController {
         };
       }
 
+      // Ensure championStats is properly sanitized (convert any BigInt values)
+      const sanitizedTierStats = championStats ? {
+        championId: Number(championStats.championId) || 0,
+        games: Number(championStats.games) || 0,
+        wins: Number(championStats.wins) || 0,
+        winRate: Number(championStats.winRate) || 0,
+        pickRate: Number(championStats.pickRate) || 0,
+        banRate: Number(championStats.banRate) || 0,
+        counterPicks: Array.isArray(championStats.counterPicks)
+          ? championStats.counterPicks.map((id: any) => Number(id) || 0).filter((id: number) => id > 0)
+          : [],
+      } : null;
+
       return {
         championId: champId,
         patch: actualPatch,
         rank: rankBracket,
         role: normalizedRole,
         region: normalizedRegion || 'world',
-        tierStats: championStats || null,
+        tierStats: sanitizedTierStats,
           itemBuilds: {
             starting: allItemBuilds.starting.map(ib => ({
               items: ib.items.map(id => Number(id)),
