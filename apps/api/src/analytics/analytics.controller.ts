@@ -505,13 +505,27 @@ export class AnalyticsController {
       } : null;
 
       // Get all item builds (starting, core, fourth, fifth, sixth)
-      const allItemBuilds = await this.buildAggregationService.getAllItemBuilds(
-        champId,
-        actualPatch,
-        rankBracket,
-        normalizedRole,
-        normalizedRegion
-      );
+      // #region agent log
+      console.log('[DEBUG] Before calling getAllItemBuilds');
+      // #endregion
+      let allItemBuilds;
+      try {
+        allItemBuilds = await this.buildAggregationService.getAllItemBuilds(
+          champId,
+          actualPatch,
+          rankBracket,
+          normalizedRole,
+          normalizedRegion
+        );
+        // #region agent log
+        console.log('[DEBUG] After getAllItemBuilds', { allItemBuildsKeys: Object.keys(allItemBuilds) });
+        // #endregion
+      } catch (error: any) {
+        // #region agent log
+        console.log('[DEBUG] Error in getAllItemBuilds', { errorMessage: error.message, errorStack: error.stack?.substring(0, 500) });
+        // #endregion
+        throw error;
+      }
       
       // Log item build counts for debugging (sanitize BigInt before logging)
       console.log(`[getChampionBuild] ========== ITEM BUILDS DEBUG ==========`);
