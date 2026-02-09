@@ -69,15 +69,29 @@ export class BigIntSerializerInterceptor implements NestInterceptor {
           this.logger.log(`[BigIntSerializerInterceptor] ✅ Successfully serialized response for ${request.method} ${request.url}`);
           return converted;
         } catch (error: any) {
+          // Safely extract error info without serializing error object
+          const safeErrorInfo = {
+            message: String(error?.message || 'Unknown error'),
+            name: String(error?.name || 'Error'),
+            stack: String(error?.stack || '').substring(0, 500),
+          };
+          
           // #region agent log
-          console.log('[DEBUG] Interceptor JSON.stringify failed', { errorMessage: error.message, errorName: error.name, errorStack: error.stack?.substring(0, 500) });
-          fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'bigint-serializer.interceptor.ts:41',message:'Interceptor JSON.stringify failed',data:{errorMessage:error.message,errorName:error.name},timestamp:Date.now(),runId:'debug1',hypothesisId:'C'})}).catch(()=>{});
+          console.log('[DEBUG] Interceptor JSON.stringify failed', safeErrorInfo);
+          fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'bigint-serializer.interceptor.ts:41',message:'Interceptor JSON.stringify failed',data:safeErrorInfo,timestamp:Date.now(),runId:'debug1',hypothesisId:'C'})}).catch(()=>{});
           // #endregion
           this.logger.error(`[BigIntSerializerInterceptor] ❌ Failed to serialize response for ${request.method} ${request.url}`);
-          this.logger.error(`[BigIntSerializerInterceptor] Error message: ${error.message}`);
-          this.logger.error(`[BigIntSerializerInterceptor] Error stack:`, error.stack);
+          this.logger.error(`[BigIntSerializerInterceptor] Error message: ${safeErrorInfo.message}`);
+          this.logger.error(`[BigIntSerializerInterceptor] Error name: ${safeErrorInfo.name}`);
           this.logger.error(`[BigIntSerializerInterceptor] Response data type: ${typeof data}`);
-          this.logger.error(`[BigIntSerializerInterceptor] Response data keys:`, data && typeof data === 'object' ? Object.keys(data) : 'N/A');
+          
+          // Safely get keys without serializing
+          try {
+            const keys = data && typeof data === 'object' ? Object.keys(data) : 'N/A';
+            this.logger.error(`[BigIntSerializerInterceptor] Response data keys:`, Array.isArray(keys) ? keys.join(', ') : keys);
+          } catch (e) {
+            this.logger.error(`[BigIntSerializerInterceptor] Could not get response data keys`);
+          }
           
           // Log a sample of the data to help debug (safely)
           try {
