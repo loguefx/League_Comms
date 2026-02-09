@@ -98,21 +98,40 @@ async function fetchRuneData(): Promise<void> {
     if (!Array.isArray(runeTree)) {
       throw new Error('Invalid rune tree data format');
     }
+    
+    console.log(`[fetchRuneData] Loaded ${runeTree.length} rune styles from Data Dragon version ${version}`);
+    
     const perkIdToRune = new Map<number, { icon: string; name: string; styleId: number }>();
     const statShardMap = new Map<number, { icon: string; name: string }>();
 
     // Map all runes from all styles
+    let totalRunes = 0;
     runeTree.forEach((style) => {
+      if (!style.slots || !Array.isArray(style.slots)) {
+        console.warn(`[fetchRuneData] Style ${style.id} has invalid slots:`, style);
+        return;
+      }
       style.slots.forEach((slot, slotIndex) => {
+        if (!slot.runes || !Array.isArray(slot.runes)) {
+          console.warn(`[fetchRuneData] Style ${style.id} slot ${slotIndex} has invalid runes:`, slot);
+          return;
+        }
         slot.runes.forEach((rune) => {
+          if (!rune.id || !rune.icon || !rune.name) {
+            console.warn(`[fetchRuneData] Invalid rune data:`, rune);
+            return;
+          }
           perkIdToRune.set(rune.id, {
             icon: rune.icon,
             name: rune.name,
             styleId: style.id,
           });
+          totalRunes++;
         });
       });
     });
+    
+    console.log(`[fetchRuneData] Mapped ${totalRunes} runes, ${perkIdToRune.size} unique perk IDs`);
 
     // Stat shards are fixed IDs
     // 5001: Adaptive Force, 5002: Armor, 5003: Magic Resist
@@ -165,14 +184,22 @@ export async function getRuneImageUrl(perkId: number): Promise<string> {
 
   const rune = runeDataCache.perkIdToRune.get(perkId);
   if (!rune) {
-    console.warn(`Rune not found for perk ID: ${perkId}`);
+    console.error(`[getRuneImageUrl] Rune not found for perk ID: ${perkId}. Available runes:`, Array.from(runeDataCache.perkIdToRune.keys()).slice(0, 10));
     return `https://ddragon.leagueoflegends.com/cdn/${runeDataCache.version}/img/perk-images/StatMods/StatModsEmpty.png`;
   }
 
   // Data Dragon rune icon path structure
   // Icon path is like: "perk-images/Styles/7200_Domination/7201_PressTheAttack/7201_PressTheAttack.png"
   // We need to construct the full URL
-  return `https://ddragon.leagueoflegends.com/cdn/${runeDataCache.version}/img/${rune.icon}`;
+  const imageUrl = `https://ddragon.leagueoflegends.com/cdn/${runeDataCache.version}/img/${rune.icon}`;
+  
+  // Validate the icon path
+  if (!rune.icon || rune.icon.trim() === '') {
+    console.error(`[getRuneImageUrl] Empty icon path for perk ID: ${perkId}`, rune);
+    return `https://ddragon.leagueoflegends.com/cdn/${runeDataCache.version}/img/perk-images/StatMods/StatModsEmpty.png`;
+  }
+  
+  return imageUrl;
 }
 
 /**
@@ -196,12 +223,37 @@ export async function getRuneStyleImageUrl(styleId: number): Promise<string> {
   // Ensure rune data is loaded first
   await fetchRuneData();
   
+  if (!runeDataCache) {
+    console.error(`[getRuneStyleImageUrl] Rune data cache is null for style ID: ${styleId}`);
+    const version = (typeof window !== 'undefined' && (window as any).__DD_VERSION__) || '14.1.1';
+    const styleMap: Record<number, string> = {
+      8000: 'perk-images/Styles/7201_Precision/7201_Precision.png',
+      8100: 'perk-images/Styles/7200_Domination/7200_Domination.png',
+      8200: 'perk-images/Styles/7202_Sorcery/7202_Sorcery.png',
+      8300: 'perk-images/Styles/7204_Inspiration/7204_Inspiration.png',
+      8400: 'perk-images/Styles/7203_Whimsy/7203_Whimsy.png',
+    };
+    const stylePath = styleMap[styleId] || 'perk-images/Styles/7200_Domination/7200_Domination.png';
+    return `https://ddragon.leagueoflegends.com/cdn/${version}/img/${stylePath}`;
+  }
+  
   // Data Dragon rune style images are in the rune tree data
-  if (runeDataCache && runeDataCache.runeTree.length > 0) {
+  if (runeDataCache.runeTree.length > 0) {
     const style = runeDataCache.runeTree.find(s => s.id === styleId);
-    if (style && style.icon) {
-      return `https://ddragon.leagueoflegends.com/cdn/${runeDataCache.version}/img/${style.icon}`;
+    if (style) {
+      // Check if style has icon property
+      if (style.icon) {
+        const imageUrl = `https://ddragon.leagueoflegends.com/cdn/${runeDataCache.version}/img/${style.icon}`;
+        console.log(`[getRuneStyleImageUrl] Found style ${styleId} with icon: ${style.icon} -> ${imageUrl}`);
+        return imageUrl;
+      } else {
+        console.warn(`[getRuneStyleImageUrl] Style ${styleId} found but has no icon property:`, style);
+      }
+    } else {
+      console.warn(`[getRuneStyleImageUrl] Style ${styleId} not found in rune tree. Available styles:`, runeDataCache.runeTree.map(s => s.id));
     }
+  } else {
+    console.warn(`[getRuneStyleImageUrl] Rune tree is empty for style ID: ${styleId}`);
   }
   
   // Fallback: use direct CDN path
@@ -214,8 +266,10 @@ export async function getRuneStyleImageUrl(styleId: number): Promise<string> {
   };
   
   const stylePath = styleMap[styleId] || 'perk-images/Styles/7200_Domination/7200_Domination.png';
-  const version = runeDataCache?.version || (typeof window !== 'undefined' && (window as any).__DD_VERSION__) || '14.1.1';
-  return `https://ddragon.leagueoflegends.com/cdn/${version}/img/${stylePath}`;
+  const version = runeDataCache.version || (typeof window !== 'undefined' && (window as any).__DD_VERSION__) || '14.1.1';
+  const fallbackUrl = `https://ddragon.leagueoflegends.com/cdn/${version}/img/${stylePath}`;
+  console.log(`[getRuneStyleImageUrl] Using fallback for style ${styleId}: ${fallbackUrl}`);
+  return fallbackUrl;
 }
 
 /**

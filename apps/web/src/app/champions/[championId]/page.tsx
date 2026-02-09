@@ -180,18 +180,22 @@ export default function ChampionBuildPage() {
               // Load rune style images
               if (!styleImgMap.has(buildArchetype.runes.primaryStyleId)) {
                 try {
+                  console.log(`[loadRuneImages] Loading primary style ${buildArchetype.runes.primaryStyleId}`);
                   const primaryStyleUrl = await getRuneStyleImageUrl(buildArchetype.runes.primaryStyleId);
+                  console.log(`[loadRuneImages] Primary style ${buildArchetype.runes.primaryStyleId} loaded: ${primaryStyleUrl}`);
                   styleImgMap.set(buildArchetype.runes.primaryStyleId, primaryStyleUrl);
                 } catch (err) {
-                  console.warn(`Failed to load primary style ${buildArchetype.runes.primaryStyleId}:`, err);
+                  console.error(`[loadRuneImages] Failed to load primary style ${buildArchetype.runes.primaryStyleId}:`, err);
                 }
               }
               if (!styleImgMap.has(buildArchetype.runes.subStyleId)) {
                 try {
+                  console.log(`[loadRuneImages] Loading sub style ${buildArchetype.runes.subStyleId}`);
                   const subStyleUrl = await getRuneStyleImageUrl(buildArchetype.runes.subStyleId);
+                  console.log(`[loadRuneImages] Sub style ${buildArchetype.runes.subStyleId} loaded: ${subStyleUrl}`);
                   styleImgMap.set(buildArchetype.runes.subStyleId, subStyleUrl);
                 } catch (err) {
-                  console.warn(`Failed to load sub style ${buildArchetype.runes.subStyleId}:`, err);
+                  console.error(`[loadRuneImages] Failed to load sub style ${buildArchetype.runes.subStyleId}:`, err);
                 }
               }
               
@@ -199,18 +203,24 @@ export default function ChampionBuildPage() {
               for (const perkId of buildArchetype.runes.perkIds) {
                 if (!runeImgMap.has(perkId)) {
                   try {
+                    console.log(`[loadRuneImages] Loading rune perk ${perkId}`);
                     const imgUrl = await getRuneImageUrl(perkId);
                     const name = await getRuneName(perkId);
-                    if (imgUrl && name) {
+                    if (imgUrl && name && !imgUrl.includes('StatModsEmpty')) {
+                      console.log(`[loadRuneImages] Rune perk ${perkId} loaded: ${imgUrl} (${name})`);
                       runeImgMap.set(perkId, imgUrl);
                       runeNameMap.set(perkId, name);
+                    } else {
+                      console.warn(`[loadRuneImages] Rune perk ${perkId} returned empty/invalid URL or name:`, { imgUrl, name });
                     }
                   } catch (err) {
-                    console.warn(`Failed to load rune for perk ${perkId}:`, err);
+                    console.error(`[loadRuneImages] Failed to load rune for perk ${perkId}:`, err);
                   }
                 }
               }
             }
+            
+            console.log(`[loadRuneImages] Loaded ${runeImgMap.size} rune images, ${runeNameMap.size} rune names, ${styleImgMap.size} style images`);
             
             setRuneImages(runeImgMap);
             setRuneNames(runeNameMap);
