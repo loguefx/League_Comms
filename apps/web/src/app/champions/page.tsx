@@ -319,87 +319,144 @@ export default function ChampionsPage() {
           <p className="text-[#94A3B8] text-sm">Real-time performance data and tier rankings</p>
         </div>
 
-        {/* Filters */}
-        <div className="bg-[#0F172A]/80 backdrop-blur-sm border border-[#1E293B] rounded-2xl shadow-2xl p-6 mb-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-sm font-semibold mb-2 text-[#CBD5E1]">Rank Tier</label>
-              <select
-                value={filters.rank}
-                onChange={(e) => setFilters({ ...filters, rank: e.target.value })}
-                className="w-full px-4 py-3 bg-[#1E293B] border border-[#334155] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
-              >
-                <option value="CHALLENGER">Challenger</option>
-                <option value="GRANDMASTER_PLUS">Grandmaster+</option>
-                <option value="MASTER_PLUS">Master+</option>
-                <option value="DIAMOND_PLUS">Diamond+</option>
-                <option value="EMERALD_PLUS">Emerald+</option>
-                <option value="PLATINUM_PLUS">Platinum+</option>
-                <option value="GOLD_PLUS">Gold+</option>
-                <option value="SILVER_PLUS">Silver+</option>
-                <option value="BRONZE_PLUS">Bronze+</option>
-                <option value="IRON_PLUS">Iron+</option>
-                <option value="ALL_RANKS">All Ranks</option>
-              </select>
+        {/* Filters - Unique Design */}
+        <div className="relative mb-8">
+          {/* Decorative background elements */}
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-purple-500/5 to-pink-500/5 rounded-3xl blur-xl"></div>
+          <div className="relative bg-gradient-to-br from-[#0F172A] via-[#1A1F3A] to-[#0F172A] border border-[#334155]/30 rounded-3xl shadow-2xl p-8 backdrop-blur-sm">
+            {/* Header */}
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-1 h-8 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full"></div>
+              <h2 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                Filter Champions
+              </h2>
             </div>
 
-            <div>
-              <label className="block text-sm font-semibold mb-2 text-[#CBD5E1]">Role</label>
-              <select
-                value={filters.role}
-                onChange={(e) => setFilters({ ...filters, role: e.target.value })}
-                className="w-full px-4 py-3 bg-[#1E293B] border border-[#334155] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
-              >
-                <option value="">All Roles</option>
-                <option value="TOP">Top Lane</option>
-                <option value="JUNGLE">Jungle</option>
-                <option value="MID">Mid Lane</option>
-                <option value="ADC">ADC / Bot Lane</option>
-                <option value="SUPPORT">Support</option>
-              </select>
-            </div>
+            {/* Filter Grid with Unique Layout */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {/* Rank Tier Filter */}
+              <div className="group relative">
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#94A3B8] mb-3 flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                  Rank Tier
+                </label>
+                <div className="relative">
+                  <select
+                    value={filters.rank}
+                    onChange={(e) => setFilters({ ...filters, rank: e.target.value })}
+                    className="w-full px-5 py-4 bg-gradient-to-br from-[#1E293B] to-[#0F172A] border-2 border-[#334155] rounded-xl text-white font-medium focus:outline-none focus:border-blue-500/60 focus:ring-4 focus:ring-blue-500/20 transition-all appearance-none cursor-pointer hover:border-[#475569] hover:bg-gradient-to-br hover:from-[#1E293B] hover:to-[#1A1F3A]"
+                  >
+                    <option value="CHALLENGER" className="bg-[#1E293B]">Challenger</option>
+                    <option value="GRANDMASTER_PLUS" className="bg-[#1E293B]">Grandmaster+</option>
+                    <option value="MASTER_PLUS" className="bg-[#1E293B]">Master+</option>
+                    <option value="DIAMOND_PLUS" className="bg-[#1E293B]">Diamond+</option>
+                    <option value="EMERALD_PLUS" className="bg-[#1E293B]">Emerald+</option>
+                    <option value="PLATINUM_PLUS" className="bg-[#1E293B]">Platinum+</option>
+                    <option value="GOLD_PLUS" className="bg-[#1E293B]">Gold+</option>
+                    <option value="SILVER_PLUS" className="bg-[#1E293B]">Silver+</option>
+                    <option value="BRONZE_PLUS" className="bg-[#1E293B]">Bronze+</option>
+                    <option value="IRON_PLUS" className="bg-[#1E293B]">Iron+</option>
+                    <option value="ALL_RANKS" className="bg-[#1E293B]">All Ranks</option>
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <svg className="w-5 h-5 text-[#94A3B8] group-hover:text-blue-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
 
-            <div>
-              <label className="block text-sm font-semibold mb-2 text-[#CBD5E1]">Patch</label>
-              <select
-                value={filters.patch}
-                onChange={(e) => setFilters({ ...filters, patch: e.target.value })}
-                className="w-full px-4 py-3 bg-[#1E293B] border border-[#334155] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
-              >
-                {patchesLoading ? (
-                  <option value="latest">Loading patches...</option>
-                ) : availablePatches.length > 0 ? (
-                  availablePatches.map((patch) => (
-                    <option key={patch} value={patch}>
-                      {patch}{patch === latestPatch ? ' (Latest)' : ''}
-                    </option>
-                  ))
-                ) : (
-                  <option value="latest">No patches available</option>
-                )}
-              </select>
-            </div>
+              {/* Role Filter */}
+              <div className="group relative">
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#94A3B8] mb-3 flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                  Role
+                </label>
+                <div className="relative">
+                  <select
+                    value={filters.role}
+                    onChange={(e) => setFilters({ ...filters, role: e.target.value })}
+                    className="w-full px-5 py-4 bg-gradient-to-br from-[#1E293B] to-[#0F172A] border-2 border-[#334155] rounded-xl text-white font-medium focus:outline-none focus:border-purple-500/60 focus:ring-4 focus:ring-purple-500/20 transition-all appearance-none cursor-pointer hover:border-[#475569] hover:bg-gradient-to-br hover:from-[#1E293B] hover:to-[#1A1F3A]"
+                  >
+                    <option value="" className="bg-[#1E293B]">All Roles</option>
+                    <option value="TOP" className="bg-[#1E293B]">Top Lane</option>
+                    <option value="JUNGLE" className="bg-[#1E293B]">Jungle</option>
+                    <option value="MID" className="bg-[#1E293B]">Mid Lane</option>
+                    <option value="ADC" className="bg-[#1E293B]">ADC / Bot Lane</option>
+                    <option value="SUPPORT" className="bg-[#1E293B]">Support</option>
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <svg className="w-5 h-5 text-[#94A3B8] group-hover:text-purple-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
 
-            <div>
-              <label className="block text-sm font-semibold mb-2 text-[#CBD5E1]">Region</label>
-              <select
-                value={filters.region}
-                onChange={(e) => setFilters({ ...filters, region: e.target.value })}
-                className="w-full px-4 py-3 bg-[#1E293B] border border-[#334155] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
-              >
-                <option value="world">World (All Regions)</option>
-                <option value="na1">North America</option>
-                <option value="euw1">Europe West</option>
-                <option value="eun1">Europe Nordic & East</option>
-                <option value="kr">Korea</option>
-                <option value="br1">Brazil</option>
-                <option value="la1">Latin America North</option>
-                <option value="la2">Latin America South</option>
-                <option value="oc1">Oceania</option>
-                <option value="ru">Russia</option>
-                <option value="tr1">Turkey</option>
-                <option value="jp1">Japan</option>
-              </select>
+              {/* Patch Filter */}
+              <div className="group relative">
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#94A3B8] mb-3 flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-pink-500"></span>
+                  Patch
+                </label>
+                <div className="relative">
+                  <select
+                    value={filters.patch}
+                    onChange={(e) => setFilters({ ...filters, patch: e.target.value })}
+                    className="w-full px-5 py-4 bg-gradient-to-br from-[#1E293B] to-[#0F172A] border-2 border-[#334155] rounded-xl text-white font-medium focus:outline-none focus:border-pink-500/60 focus:ring-4 focus:ring-pink-500/20 transition-all appearance-none cursor-pointer hover:border-[#475569] hover:bg-gradient-to-br hover:from-[#1E293B] hover:to-[#1A1F3A]"
+                  >
+                    {patchesLoading ? (
+                      <option value="latest" className="bg-[#1E293B]">Loading patches...</option>
+                    ) : availablePatches.length > 0 ? (
+                      availablePatches.map((patch) => (
+                        <option key={patch} value={patch} className="bg-[#1E293B]">
+                          {patch}{patch === latestPatch ? ' (Latest)' : ''}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="latest" className="bg-[#1E293B]">No patches available</option>
+                    )}
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <svg className="w-5 h-5 text-[#94A3B8] group-hover:text-pink-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              {/* Region Filter */}
+              <div className="group relative">
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#94A3B8] mb-3 flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-500"></span>
+                  Region
+                </label>
+                <div className="relative">
+                  <select
+                    value={filters.region}
+                    onChange={(e) => setFilters({ ...filters, region: e.target.value })}
+                    className="w-full px-5 py-4 bg-gradient-to-br from-[#1E293B] to-[#0F172A] border-2 border-[#334155] rounded-xl text-white font-medium focus:outline-none focus:border-cyan-500/60 focus:ring-4 focus:ring-cyan-500/20 transition-all appearance-none cursor-pointer hover:border-[#475569] hover:bg-gradient-to-br hover:from-[#1E293B] hover:to-[#1A1F3A]"
+                  >
+                    <option value="world" className="bg-[#1E293B]">World (All Regions)</option>
+                    <option value="na1" className="bg-[#1E293B]">North America</option>
+                    <option value="euw1" className="bg-[#1E293B]">Europe West</option>
+                    <option value="eun1" className="bg-[#1E293B]">Europe Nordic & East</option>
+                    <option value="kr" className="bg-[#1E293B]">Korea</option>
+                    <option value="br1" className="bg-[#1E293B]">Brazil</option>
+                    <option value="la1" className="bg-[#1E293B]">Latin America North</option>
+                    <option value="la2" className="bg-[#1E293B]">Latin America South</option>
+                    <option value="oc1" className="bg-[#1E293B]">Oceania</option>
+                    <option value="ru" className="bg-[#1E293B]">Russia</option>
+                    <option value="tr1" className="bg-[#1E293B]">Turkey</option>
+                    <option value="jp1" className="bg-[#1E293B]">Japan</option>
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <svg className="w-5 h-5 text-[#94A3B8] group-hover:text-cyan-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
