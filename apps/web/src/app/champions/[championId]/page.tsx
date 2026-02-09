@@ -157,6 +157,10 @@ export default function ChampionBuildPage() {
         }
         
         if (data.error) {
+          // Check if it's a serialization error and provide helpful message
+          if (data.error.includes('serialization') || data.error.includes('BigInt')) {
+            throw new Error('Server encountered a data processing error. The API server may need to be restarted. Please try again in a moment.');
+          }
           throw new Error(data.error);
         }
 
