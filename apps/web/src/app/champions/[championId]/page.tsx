@@ -161,15 +161,19 @@ export default function ChampionBuildPage() {
         try {
           // Try to parse JSON response
           const text = await response.text();
+          console.log('[loadBuild] Raw server response text (first 2000 chars):', text.substring(0, 2000));
           data = JSON.parse(text);
+          console.log('[loadBuild] Parsed response data:', data);
         } catch (parseError: any) {
           // If JSON parsing fails, it might be due to BigInt serialization
           console.error('[loadBuild] Failed to parse JSON response:', parseError);
+          console.error('[loadBuild] Response text that failed to parse:', text?.substring(0, 1000));
           throw new Error(`Failed to parse server response: ${parseError.message}`);
         }
         
         if (data.error) {
           // Check if it's a serialization error and provide helpful message
+          console.error('[loadBuild] Server returned error response:', data);
           if (data.error.includes('serialization') || data.error.includes('BigInt')) {
             throw new Error('Server encountered a data processing error. The API server may need to be restarted. Please try again in a moment.');
           }
