@@ -79,9 +79,34 @@ export class BigIntSerializerInterceptor implements NestInterceptor {
           this.logger.error(`[BigIntSerializerInterceptor] Response data type: ${typeof data}`);
           this.logger.error(`[BigIntSerializerInterceptor] Response data keys:`, data && typeof data === 'object' ? Object.keys(data) : 'N/A');
           
-          // Log a sample of the data to help debug
+          // Log a sample of the data to help debug (safely)
           try {
-            this.logger.error(`[BigIntSerializerInterceptor] Data sample (first 500 chars):`, JSON.stringify(data).substring(0, 500));
+            // Create a safe version for logging
+            const safeForLog = (obj: any, depth: number = 0): any => {
+              if (depth > 10) return '[Max depth]';
+              if (obj === null || obj === undefined) return obj;
+              if (typeof obj === 'bigint') return Number(obj);
+              if (typeof obj === 'number' && (obj === Infinity || obj === -Infinity || isNaN(obj))) return null;
+              if (Array.isArray(obj)) return obj.slice(0, 3).map(item => safeForLog(item, depth + 1)); // Only first 3 items
+              if (typeof obj === 'object') {
+                const safe: any = {};
+                let count = 0;
+                for (const key in obj) {
+                  if (count++ >= 5) break; // Only first 5 keys
+                  if (obj.hasOwnProperty(key)) {
+                    try {
+                      safe[key] = safeForLog(obj[key], depth + 1);
+                    } catch (e) {
+                      safe[key] = '[Error]';
+                    }
+                  }
+                }
+                return safe;
+              }
+              return obj;
+            };
+            const safeData = safeForLog(data);
+            this.logger.error(`[BigIntSerializerInterceptor] Data sample (first 500 chars):`, JSON.stringify(safeData).substring(0, 500));
           } catch (e) {
             this.logger.error(`[BigIntSerializerInterceptor] Could not stringify data sample`);
           }
