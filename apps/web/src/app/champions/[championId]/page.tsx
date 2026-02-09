@@ -710,12 +710,17 @@ export default function ChampionBuildPage() {
                           const styleUrl = runeStyleImages.get(selectedBuild.runes.subStyleId);
                           console.error(`[RuneStyleImage] Failed to load sub style ${selectedBuild.runes.subStyleId}: ${styleUrl}`);
                           // Try alternative CDN (canisback) as fallback
+                          // canisback CDN structure: https://ddragon.canisback.com/img/{icon_path}
                           try {
                             if (styleUrl) {
-                              const altUrl = styleUrl.replace('ddragon.leagueoflegends.com/cdn', 'ddragon.canisback.com');
-                              console.log(`[RuneStyleImage] Trying alternative CDN for style ${selectedBuild.runes.subStyleId}: ${altUrl}`);
-                              img.src = altUrl;
-                              setRuneStyleImages(prev => new Map(prev).set(selectedBuild.runes.subStyleId, altUrl));
+                              const iconPathMatch = styleUrl.match(/\/img\/(.+)$/);
+                              if (iconPathMatch) {
+                                const iconPath = iconPathMatch[1];
+                                const altUrl = `https://ddragon.canisback.com/img/${iconPath}`;
+                                console.log(`[RuneStyleImage] Trying alternative CDN for style ${selectedBuild.runes.subStyleId}: ${altUrl}`);
+                                img.src = altUrl;
+                                setRuneStyleImages(prev => new Map(prev).set(selectedBuild.runes.subStyleId, altUrl));
+                              }
                             }
                           } catch (err) {
                             console.error(`[RuneStyleImage] Error reloading style ${selectedBuild.runes.subStyleId}:`, err);
