@@ -600,6 +600,12 @@ export class BuildAggregationService {
     fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:594',message:'getRecommendedRunes entry',data:{championId,patch,rankBracket,role,region,limit,normalizedRole,isAllRanks,isWorld},timestamp:Date.now(),runId:'debug2',hypothesisId:'G'})}).catch(()=>{});
     // #endregion
 
+    // When role is 'ALL', we need to aggregate across all roles (don't filter by role)
+    const roleFilter = normalizedRole === 'ALL' ? Prisma.empty : Prisma.sql`AND role = ${normalizedRole}`;
+
+    // When role is 'ALL', we need to aggregate across all roles (don't filter by role)
+    const roleFilter = normalizedRole === 'ALL' ? Prisma.empty : Prisma.sql`AND role = ${normalizedRole}`;
+
     this.logger.log(`[getRecommendedRunes] Querying for championId=${championId}, patch=${patch}, rankBracket=${rankBracket}, role=${normalizedRole}, region=${region || 'world'}`);
 
     // First, check if any data exists at all for this champion
