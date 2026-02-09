@@ -435,10 +435,13 @@ export class AnalyticsService {
     region: string | null
   ): Promise<number[]> {
     try {
+      this.logger.debug(`[getCounterPicks] Finding counter picks for champId=${championId}, patch=${patch}, role=${role}, rank=${rankBracket}, region=${region || 'world'}`);
+      
       // Query matches where this champion lost
       // Find which enemy champions won most often against this champion
       const isAllRanks = rankBracket === 'all_ranks';
       const isWorld = !region;
+      const isAllRoles = role === 'ALL';
 
       // Adaptive threshold: check how much data we have first
       // If we have lots of matches, use higher threshold; if limited, use lower
@@ -450,6 +453,8 @@ export class AnalyticsService {
           ...(isAllRanks ? {} : { rankBracket }),
         },
       });
+
+      this.logger.debug(`[getCounterPicks] Total matches for filters: ${totalMatches}`);
 
       // Dynamic threshold based on data volume
       // More data = higher threshold for reliability, less data = lower threshold to show something
@@ -463,8 +468,12 @@ export class AnalyticsService {
       }
       // else: minMatchups = 1 (very limited data - show any matchup)
       
+      this.logger.debug(`[getCounterPicks] Using minMatchups threshold: ${minMatchups}`);
+      
       let counterPicks;
-      if (isAllRanks && isWorld) {
+      // When role is 'ALL', we need to look at all roles, not filter by role
+      if (isAllRanks && isWorld && isAllRoles) {
+        // All ranks, all regions, all roles - most general case
         counterPicks = await this.prisma.$queryRaw<Array<{ champion_id: number; win_rate: number }>>`
           SELECT 
             enemy.champion_id,
@@ -478,13 +487,58 @@ export class AnalyticsService {
           WHERE main.champion_id = ${championId}
             AND main.win = false
             AND m.patch = ${patch}
+            AND m.queue_id = 420
+          GROUP BY enemy.champion_id
+          HAVING COUNT(*) >= ${minMatchups}
+          ORDER BY win_rate DESC, COUNT(*) DESC
+          LIMIT 6
+        `;
+      } else if (isAllRanks && isWorld) {
+        // All ranks, all regions, specific role
+        counterPicks = await this.prisma.$queryRaw<Array<{ champion_id: number; win_rate: number }>>`
+          SELECT 
+            enemy.champion_id,
+            (SUM(CASE WHEN enemy.win = true THEN 1 ELSE 0 END)::numeric / COUNT(*)::numeric) AS win_rate
+          FROM match_participants main
+          JOIN matches m ON m.match_id = main.match_id
+          JOIN match_participants enemy 
+            ON enemy.match_id = main.match_id 
+            AND enemy.team_id != main.team_id
+            AND enemy.role = main.role
+          WHERE main.champion_id = ${championId}
+            AND main.win = false
+            AND m.patch = ${patch}
+            AND m.queue_id = 420
             AND main.role = ${role}
+          GROUP BY enemy.champion_id
+          HAVING COUNT(*) >= ${minMatchups}
+          ORDER BY win_rate DESC, COUNT(*) DESC
+          LIMIT 6
+        `;
+      } else if (isAllRanks && isAllRoles) {
+        // All ranks, specific region, all roles
+        counterPicks = await this.prisma.$queryRaw<Array<{ champion_id: number; win_rate: number }>>`
+          SELECT 
+            enemy.champion_id,
+            (SUM(CASE WHEN enemy.win = true THEN 1 ELSE 0 END)::numeric / COUNT(*)::numeric) AS win_rate
+          FROM match_participants main
+          JOIN matches m ON m.match_id = main.match_id
+          JOIN match_participants enemy 
+            ON enemy.match_id = main.match_id 
+            AND enemy.team_id != main.team_id
+            AND enemy.role = main.role
+          WHERE main.champion_id = ${championId}
+            AND main.win = false
+            AND m.patch = ${patch}
+            AND m.region = ${region}
+            AND m.queue_id = 420
           GROUP BY enemy.champion_id
           HAVING COUNT(*) >= ${minMatchups}
           ORDER BY win_rate DESC, COUNT(*) DESC
           LIMIT 6
         `;
       } else if (isAllRanks) {
+        // All ranks, specific region, specific role
         counterPicks = await this.prisma.$queryRaw<Array<{ champion_id: number; win_rate: number }>>`
           SELECT 
             enemy.champion_id,
@@ -499,13 +553,37 @@ export class AnalyticsService {
             AND main.win = false
             AND m.patch = ${patch}
             AND m.region = ${region}
+            AND m.queue_id = 420
             AND main.role = ${role}
+          GROUP BY enemy.champion_id
+          HAVING COUNT(*) >= ${minMatchups}
+          ORDER BY win_rate DESC, COUNT(*) DESC
+          LIMIT 6
+        `;
+      } else if (isWorld && isAllRoles) {
+        // Specific rank, all regions, all roles
+        counterPicks = await this.prisma.$queryRaw<Array<{ champion_id: number; win_rate: number }>>`
+          SELECT 
+            enemy.champion_id,
+            (SUM(CASE WHEN enemy.win = true THEN 1 ELSE 0 END)::numeric / COUNT(*)::numeric) AS win_rate
+          FROM match_participants main
+          JOIN matches m ON m.match_id = main.match_id
+          JOIN match_participants enemy 
+            ON enemy.match_id = main.match_id 
+            AND enemy.team_id != main.team_id
+            AND enemy.role = main.role
+          WHERE main.champion_id = ${championId}
+            AND main.win = false
+            AND m.patch = ${patch}
+            AND m.rank_bracket = ${rankBracket}
+            AND m.queue_id = 420
           GROUP BY enemy.champion_id
           HAVING COUNT(*) >= ${minMatchups}
           ORDER BY win_rate DESC, COUNT(*) DESC
           LIMIT 6
         `;
       } else if (isWorld) {
+        // Specific rank, all regions, specific role
         counterPicks = await this.prisma.$queryRaw<Array<{ champion_id: number; win_rate: number }>>`
           SELECT 
             enemy.champion_id,
@@ -520,13 +598,15 @@ export class AnalyticsService {
             AND main.win = false
             AND m.patch = ${patch}
             AND m.rank_bracket = ${rankBracket}
+            AND m.queue_id = 420
             AND main.role = ${role}
           GROUP BY enemy.champion_id
           HAVING COUNT(*) >= ${minMatchups}
           ORDER BY win_rate DESC, COUNT(*) DESC
           LIMIT 6
         `;
-      } else {
+      } else if (isAllRoles) {
+        // Specific rank, specific region, all roles
         counterPicks = await this.prisma.$queryRaw<Array<{ champion_id: number; win_rate: number }>>`
           SELECT 
             enemy.champion_id,
@@ -542,6 +622,30 @@ export class AnalyticsService {
             AND m.patch = ${patch}
             AND m.rank_bracket = ${rankBracket}
             AND m.region = ${region}
+            AND m.queue_id = 420
+          GROUP BY enemy.champion_id
+          HAVING COUNT(*) >= ${minMatchups}
+          ORDER BY win_rate DESC, COUNT(*) DESC
+          LIMIT 6
+        `;
+      } else {
+        // Specific rank, specific region, specific role
+        counterPicks = await this.prisma.$queryRaw<Array<{ champion_id: number; win_rate: number }>>`
+          SELECT 
+            enemy.champion_id,
+            (SUM(CASE WHEN enemy.win = true THEN 1 ELSE 0 END)::numeric / COUNT(*)::numeric) AS win_rate
+          FROM match_participants main
+          JOIN matches m ON m.match_id = main.match_id
+          JOIN match_participants enemy 
+            ON enemy.match_id = main.match_id 
+            AND enemy.team_id != main.team_id
+            AND enemy.role = main.role
+          WHERE main.champion_id = ${championId}
+            AND main.win = false
+            AND m.patch = ${patch}
+            AND m.rank_bracket = ${rankBracket}
+            AND m.region = ${region}
+            AND m.queue_id = 420
             AND main.role = ${role}
           GROUP BY enemy.champion_id
           HAVING COUNT(*) >= ${minMatchups}
@@ -550,7 +654,9 @@ export class AnalyticsService {
         `;
       }
 
+      this.logger.debug(`[getCounterPicks] Query returned ${counterPicks.length} counter picks`);
       const counterPickIds = counterPicks.map((cp) => Number(cp.champion_id));
+      this.logger.debug(`[getCounterPicks] Mapped to champion IDs:`, counterPickIds);
       
       // If we didn't find enough with the threshold, try with lower threshold (1 matchup)
       // This ensures we show something even with very limited data
@@ -559,7 +665,7 @@ export class AnalyticsService {
         
         // Re-run query with threshold of 1
         let fallbackPicks;
-        if (isAllRanks && isWorld) {
+        if (isAllRanks && isWorld && isAllRoles) {
           fallbackPicks = await this.prisma.$queryRaw<Array<{ champion_id: number; win_rate: number }>>`
             SELECT 
               enemy.champion_id,
@@ -573,7 +679,28 @@ export class AnalyticsService {
             WHERE main.champion_id = ${championId}
               AND main.win = false
               AND m.patch = ${patch}
-              AND main.role = ${role}
+              AND m.queue_id = 420
+            GROUP BY enemy.champion_id
+            HAVING COUNT(*) >= 1
+            ORDER BY win_rate DESC, COUNT(*) DESC
+            LIMIT 6
+          `;
+        } else if (isAllRanks && isAllRoles) {
+          fallbackPicks = await this.prisma.$queryRaw<Array<{ champion_id: number; win_rate: number }>>`
+            SELECT 
+              enemy.champion_id,
+              (SUM(CASE WHEN enemy.win = true THEN 1 ELSE 0 END)::numeric / COUNT(*)::numeric) AS win_rate
+            FROM match_participants main
+            JOIN matches m ON m.match_id = main.match_id
+            JOIN match_participants enemy 
+              ON enemy.match_id = main.match_id 
+              AND enemy.team_id != main.team_id
+              AND enemy.role = main.role
+            WHERE main.champion_id = ${championId}
+              AND main.win = false
+              AND m.patch = ${patch}
+              AND m.region = ${region}
+              AND m.queue_id = 420
             GROUP BY enemy.champion_id
             HAVING COUNT(*) >= 1
             ORDER BY win_rate DESC, COUNT(*) DESC
@@ -594,7 +721,29 @@ export class AnalyticsService {
               AND main.win = false
               AND m.patch = ${patch}
               AND m.region = ${region}
+              AND m.queue_id = 420
               AND main.role = ${role}
+            GROUP BY enemy.champion_id
+            HAVING COUNT(*) >= 1
+            ORDER BY win_rate DESC, COUNT(*) DESC
+            LIMIT 6
+          `;
+        } else if (isWorld && isAllRoles) {
+          fallbackPicks = await this.prisma.$queryRaw<Array<{ champion_id: number; win_rate: number }>>`
+            SELECT 
+              enemy.champion_id,
+              (SUM(CASE WHEN enemy.win = true THEN 1 ELSE 0 END)::numeric / COUNT(*)::numeric) AS win_rate
+            FROM match_participants main
+            JOIN matches m ON m.match_id = main.match_id
+            JOIN match_participants enemy 
+              ON enemy.match_id = main.match_id 
+              AND enemy.team_id != main.team_id
+              AND enemy.role = main.role
+            WHERE main.champion_id = ${championId}
+              AND main.win = false
+              AND m.patch = ${patch}
+              AND m.rank_bracket = ${rankBracket}
+              AND m.queue_id = 420
             GROUP BY enemy.champion_id
             HAVING COUNT(*) >= 1
             ORDER BY win_rate DESC, COUNT(*) DESC
@@ -615,7 +764,30 @@ export class AnalyticsService {
               AND main.win = false
               AND m.patch = ${patch}
               AND m.rank_bracket = ${rankBracket}
+              AND m.queue_id = 420
               AND main.role = ${role}
+            GROUP BY enemy.champion_id
+            HAVING COUNT(*) >= 1
+            ORDER BY win_rate DESC, COUNT(*) DESC
+            LIMIT 6
+          `;
+        } else if (isAllRoles) {
+          fallbackPicks = await this.prisma.$queryRaw<Array<{ champion_id: number; win_rate: number }>>`
+            SELECT 
+              enemy.champion_id,
+              (SUM(CASE WHEN enemy.win = true THEN 1 ELSE 0 END)::numeric / COUNT(*)::numeric) AS win_rate
+            FROM match_participants main
+            JOIN matches m ON m.match_id = main.match_id
+            JOIN match_participants enemy 
+              ON enemy.match_id = main.match_id 
+              AND enemy.team_id != main.team_id
+              AND enemy.role = main.role
+            WHERE main.champion_id = ${championId}
+              AND main.win = false
+              AND m.patch = ${patch}
+              AND m.rank_bracket = ${rankBracket}
+              AND m.region = ${region}
+              AND m.queue_id = 420
             GROUP BY enemy.champion_id
             HAVING COUNT(*) >= 1
             ORDER BY win_rate DESC, COUNT(*) DESC
@@ -637,6 +809,7 @@ export class AnalyticsService {
               AND m.patch = ${patch}
               AND m.rank_bracket = ${rankBracket}
               AND m.region = ${region}
+              AND m.queue_id = 420
               AND main.role = ${role}
             GROUP BY enemy.champion_id
             HAVING COUNT(*) >= 1
