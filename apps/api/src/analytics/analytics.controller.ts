@@ -475,7 +475,16 @@ export class AnalyticsController {
         patch: actualPatch,
         region: normalizedRegion,
       });
-      const championStats = tierStats.find((s: any) => s.championId === champId);
+      const foundStats = tierStats.find((s: any) => s.championId === champId);
+      // Sanitize championStats to ensure no BigInt values
+      const championStats = foundStats ? {
+        championId: Number(foundStats.championId),
+        games: Number(foundStats.games),
+        wins: Number(foundStats.wins),
+        winRate: Number(foundStats.winRate),
+        pickRate: Number(foundStats.pickRate),
+        banRate: Number(foundStats.banRate),
+      } : null;
 
       // Get all item builds (starting, core, fourth, fifth, sixth)
       const allItemBuilds = await this.buildAggregationService.getAllItemBuilds(
@@ -610,33 +619,33 @@ export class AnalyticsController {
         role: normalizedRole,
         region: normalizedRegion || 'world',
         tierStats: championStats || null,
-        itemBuilds: {
-          starting: allItemBuilds.starting.map(ib => ({
-            items: ib.items,
-            winRate: ib.winRate * 100,
-            games: ib.games,
-          })),
-          core: allItemBuilds.core.map(ib => ({
-            items: ib.items,
-            winRate: ib.winRate * 100,
-            games: ib.games,
-          })),
-          fourth: allItemBuilds.fourth.map(ib => ({
-            items: ib.items,
-            winRate: ib.winRate * 100,
-            games: ib.games,
-          })),
-          fifth: allItemBuilds.fifth.map(ib => ({
-            items: ib.items,
-            winRate: ib.winRate * 100,
-            games: ib.games,
-          })),
-          sixth: allItemBuilds.sixth.map(ib => ({
-            items: ib.items,
-            winRate: ib.winRate * 100,
-            games: ib.games,
-          })),
-        },
+          itemBuilds: {
+            starting: allItemBuilds.starting.map(ib => ({
+              items: ib.items.map(id => Number(id)),
+              winRate: Number(ib.winRate) * 100,
+              games: Number(ib.games),
+            })),
+            core: allItemBuilds.core.map(ib => ({
+              items: ib.items.map(id => Number(id)),
+              winRate: Number(ib.winRate) * 100,
+              games: Number(ib.games),
+            })),
+            fourth: allItemBuilds.fourth.map(ib => ({
+              items: ib.items.map(id => Number(id)),
+              winRate: Number(ib.winRate) * 100,
+              games: Number(ib.games),
+            })),
+            fifth: allItemBuilds.fifth.map(ib => ({
+              items: ib.items.map(id => Number(id)),
+              winRate: Number(ib.winRate) * 100,
+              games: Number(ib.games),
+            })),
+            sixth: allItemBuilds.sixth.map(ib => ({
+              items: ib.items.map(id => Number(id)),
+              winRate: Number(ib.winRate) * 100,
+              games: Number(ib.games),
+            })),
+          },
         builds: buildArchetypes.map(archetype => ({
           archetype: archetype.archetype,
           runes: {
