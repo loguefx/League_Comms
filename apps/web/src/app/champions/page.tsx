@@ -255,45 +255,54 @@ export default function ChampionsPage() {
 
             {/* Counter Picks */}
             {champ.counterPicks && champ.counterPicks.length > 0 ? (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-[#64748B] font-medium">Counters:</span>
-                <div className="flex -space-x-2">
-                  {champ.counterPicks.slice(0, 5).map((counterChampId) => {
-                    const counterName = getChampionNameSync(counterChampId);
-                    const counterImageUrl = getChampionImageUrl(counterChampId);
-                    return (
-                      <div
-                        key={counterChampId}
-                        className="relative group/counter"
-                        title={counterName}
-                      >
-                        <div className="w-8 h-8 rounded-full overflow-hidden ring-2 ring-[#1E293B] hover:ring-[#334155] transition-all hover:scale-110 z-10">
-                          <img
-                            src={counterImageUrl}
-                            alt={counterName}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/Unknown.png`;
-                            }}
-                          />
+              <div className="mb-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs text-[#64748B] font-medium">Counters:</span>
+                  <div className="flex -space-x-2">
+                    {champ.counterPicks.slice(0, 5).map((counterChampId) => {
+                      const counterName = getChampionNameSync(counterChampId);
+                      const counterImageUrl = getChampionImageUrl(counterChampId);
+                      return (
+                        <div
+                          key={counterChampId}
+                          className="relative group/counter"
+                          title={counterName}
+                        >
+                          <div className="w-8 h-8 rounded-full overflow-hidden ring-2 ring-[#1E293B] hover:ring-[#334155] transition-all hover:scale-110 z-10">
+                            <img
+                              src={counterImageUrl}
+                              alt={counterName}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/Unknown.png`;
+                              }}
+                            />
+                          </div>
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-[#0F172A] border border-[#334155] rounded text-xs text-white opacity-0 group-hover/counter:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20">
+                            {counterName}
+                          </div>
                         </div>
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-[#0F172A] border border-[#334155] rounded text-xs text-white opacity-0 group-hover/counter:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20">
-                          {counterName}
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
+                </div>
+                {/* Matches Count - More Visible */}
+                <div className="flex items-center gap-1.5 px-2 py-1 bg-[#1E293B]/50 border border-[#334155]/50 rounded-md">
+                  <span className="text-xs text-[#94A3B8] font-medium">Matches:</span>
+                  <span className="text-sm font-bold text-white">{champ.games?.toLocaleString() || 0}</span>
                 </div>
               </div>
             ) : (
-              <div className="text-xs text-[#475569] italic">No counter data</div>
+              <div className="mb-2">
+                <div className="text-xs text-[#475569] italic mb-2">No counter data</div>
+                {/* Matches Count - More Visible */}
+                <div className="flex items-center gap-1.5 px-2 py-1 bg-[#1E293B]/50 border border-[#334155]/50 rounded-md">
+                  <span className="text-xs text-[#94A3B8] font-medium">Matches:</span>
+                  <span className="text-sm font-bold text-white">{champ.games?.toLocaleString() || 0}</span>
+                </div>
+              </div>
             )}
           </div>
-        </div>
-
-        {/* Matches Badge */}
-        <div className="absolute bottom-3 right-3 text-xs text-[#64748B] font-medium">
-          {champ.games?.toLocaleString() || 0} matches
         </div>
       </div>
     );
