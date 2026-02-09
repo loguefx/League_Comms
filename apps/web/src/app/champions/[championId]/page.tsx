@@ -830,10 +830,13 @@ export default function ChampionBuildPage() {
                 fourth: build.itemBuilds?.fourth?.length || 0,
                 fifth: build.itemBuilds?.fifth?.length || 0,
                 sixth: build.itemBuilds?.sixth?.length || 0,
-                startingSample: build.itemBuilds?.starting?.[0] || null,
-                coreSample: build.itemBuilds?.core?.[0] || null,
-                fourthSample: build.itemBuilds?.fourth?.[0] || null,
+                startingSample: build.itemBuilds?.starting?.[0] ? { items: build.itemBuilds.starting[0].items, itemsLength: build.itemBuilds.starting[0].items.length, winRate: build.itemBuilds.starting[0].winRate, games: build.itemBuilds.starting[0].games } : null,
+                coreSample: build.itemBuilds?.core?.[0] ? { items: build.itemBuilds.core[0].items, itemsLength: build.itemBuilds.core[0].items.length, winRate: build.itemBuilds.core[0].winRate, games: build.itemBuilds.core[0].games } : null,
+                fourthSample: build.itemBuilds?.fourth?.[0] ? { items: build.itemBuilds.fourth[0].items, itemsLength: build.itemBuilds.fourth[0].items.length, winRate: build.itemBuilds.fourth[0].winRate, games: build.itemBuilds.fourth[0].games } : null,
+                fifthSample: build.itemBuilds?.fifth?.[0] ? { items: build.itemBuilds.fifth[0].items, itemsLength: build.itemBuilds.fifth[0].items.length, winRate: build.itemBuilds.fifth[0].winRate, games: build.itemBuilds.fifth[0].games } : null,
+                sixthSample: build.itemBuilds?.sixth?.[0] ? { items: build.itemBuilds.sixth[0].items, itemsLength: build.itemBuilds.sixth[0].items.length, winRate: build.itemBuilds.sixth[0].winRate, games: build.itemBuilds.sixth[0].games } : null,
               };
+              console.log('[ItemBuildRender] Detailed item builds data:', itemBuildsData);
               fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:697',message:'Item builds render check',data:itemBuildsData,timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
               // #endregion
               return null; // Debug logging only, don't render anything here
