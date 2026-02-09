@@ -68,4 +68,37 @@ export class BigIntSerializerInterceptor implements NestInterceptor {
     // Return primitives and other objects as-is
     return obj;
   }
+
+  /**
+   * More aggressive recursive conversion that handles edge cases
+   */
+  private convertBigIntRecursive(obj: any): any {
+    if (obj === null || obj === undefined) {
+      return obj;
+    }
+    
+    if (typeof obj === 'bigint') {
+      return Number(obj);
+    }
+    
+    if (Array.isArray(obj)) {
+      return obj.map(item => this.convertBigIntRecursive(item));
+    }
+    
+    if (typeof obj === 'object') {
+      // Handle all object types, including class instances
+      const converted: any = {};
+      for (const key in obj) {
+        try {
+          converted[key] = this.convertBigIntRecursive(obj[key]);
+        } catch (e) {
+          // Skip problematic keys
+          this.logger.warn(`Skipping key ${key} during BigInt conversion`);
+        }
+      }
+      return converted;
+    }
+    
+    return obj;
+  }
 }
