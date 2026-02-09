@@ -728,16 +728,45 @@ export class AnalyticsController {
         return obj;
       };
 
-      // Test serialization before returning
-      try {
-        JSON.stringify(responseData);
-        return sanitizeBigInt(responseData);
-      } catch (serializeError: any) {
-        console.error(`[getChampionBuild] Failed to serialize response data:`, serializeError.message);
-        console.error(`[getChampionBuild] Response data keys:`, Object.keys(responseData));
-        // Return sanitized version anyway - the interceptor will handle it
-        return sanitizeBigInt(responseData);
+      // Test serialization before returning with multiple passes
+      let finalResponse = sanitizeBigInt(responseData);
+      
+      // Try serialization multiple times to catch any remaining BigInt values
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          // Use a replacer function to catch BigInt during stringify
+          JSON.stringify(finalResponse, (key, value) => {
+            if (typeof value === 'bigint') {
+              console.warn(`[getChampionBuild] Found BigInt at path: ${key} during stringify attempt ${attempt + 1}, converting to number`);
+              return Number(value);
+            }
+            return value;
+          });
+          // If we get here, serialization succeeded
+          console.log(`[getChampionBuild] ✅ Successfully serialized response after ${attempt + 1} attempt(s)`);
+          return finalResponse;
+        } catch (serializeError: any) {
+          console.error(`[getChampionBuild] ❌ Serialization attempt ${attempt + 1} failed:`, serializeError.message);
+          if (serializeError.message && serializeError.message.includes('BigInt')) {
+            // Re-sanitize and try again
+            finalResponse = sanitizeBigInt(finalResponse);
+            if (attempt === 2) {
+              // Last attempt failed, log detailed info
+              console.error(`[getChampionBuild] ❌ All serialization attempts failed`);
+              console.error(`[getChampionBuild] Response data keys:`, Object.keys(finalResponse));
+              console.error(`[getChampionBuild] Response data sample:`, JSON.stringify(finalResponse).substring(0, 1000));
+            }
+          } else {
+            // Not a BigInt error, break out
+            break;
+          }
+        }
       }
+      
+      // If we get here, all attempts failed - return sanitized version anyway
+      // The interceptor will handle it, but log a warning
+      console.warn(`[getChampionBuild] ⚠️ Returning response after failed serialization attempts - interceptor will handle it`);
+      return finalResponse;
     } catch (error: any) {
       console.error('[AnalyticsController] Error getting champion build:', error);
       
