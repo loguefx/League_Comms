@@ -11,13 +11,13 @@ datasource db {
 
 // User and auth models (existing)
 model User {
-  id            String        @id @default(cuid())
-  email         String?       @unique
-  createdAt     DateTime      @default(now())
-  riotAccount   RiotAccount?
-  sessions      Session[]
-  settings      UserSettings?
-  roomMembers   RoomMember[]
+  id          String        @id @default(cuid())
+  email       String?       @unique
+  createdAt   DateTime      @default(now())
+  riotAccount RiotAccount?
+  sessions    Session[]
+  settings    UserSettings?
+  roomMembers RoomMember[]
 }
 
 model RiotAccount {
@@ -61,13 +61,13 @@ model VoiceRoom {
 }
 
 model RoomMember {
-  id        String    @id @default(cuid())
-  roomId    String
-  room      VoiceRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  joinedAt  DateTime  @default(now())
-  leftAt    DateTime?
+  id       String    @id @default(cuid())
+  roomId   String
+  room     VoiceRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt DateTime  @default(now())
+  leftAt   DateTime?
 
   @@index([roomId])
   @@index([userId])
@@ -85,15 +85,15 @@ model UserSettings {
 
 // U.GG-style match data models
 model Match {
-  matchId      String            @id @map("match_id") // "NA1_123..." - Riot match ID
+  matchId      String                 @id @map("match_id") // "NA1_123..." - Riot match ID
   region       String
-  queueId      Int               @map("queue_id") // ranked solo = 420
-  gameStartTs  DateTime          @map("game_start_ts")
-  durationS    Int               @map("duration_s")
+  queueId      Int                    @map("queue_id") // ranked solo = 420
+  gameStartTs  DateTime               @map("game_start_ts")
+  durationS    Int                    @map("duration_s")
   patch        String // "16.3"
-  gameVersion  String            @map("game_version") // "16.3.123.4567"
-  rankBracket  String            @default("unknown") @map("rank_bracket")
-  processedAt DateTime           @default(now()) @map("processed_at")
+  gameVersion  String                 @map("game_version") // "16.3.123.4567"
+  rankBracket  String                 @default("unknown") @map("rank_bracket")
+  processedAt  DateTime               @default(now()) @map("processed_at")
   participants MatchParticipant[]
   bans         MatchBan[]
   perks        ParticipantPerk[]
@@ -167,17 +167,17 @@ model ChampionStat {
 
 // Build data tables (runes, spells, items, skills)
 model ParticipantPerk {
-  matchId       String  @map("match_id")
-  match         Match   @relation(fields: [matchId], references: [matchId], onDelete: Cascade)
-  puuid         String
-  championId   Int     @map("champion_id")
-  role          String // TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY
-  win           Boolean
-  
+  matchId    String  @map("match_id")
+  match      Match   @relation(fields: [matchId], references: [matchId], onDelete: Cascade)
+  puuid      String
+  championId Int     @map("champion_id")
+  role       String // TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY
+  win        Boolean
+
   primaryStyleId Int   @map("primary_style_id") // e.g. 8000 (Precision)
-  subStyleId     Int   @map("sub_style_id")     // e.g. 8300 (Inspiration)
-  perkIds        Int[] @map("perk_ids")         // [keystone, slot1, slot2, slot3, sub1, sub2]
-  statShards     Int[] @map("stat_shards")      // [5008, 5008, 5002] (adaptive, adaptive, armor)
+  subStyleId     Int   @map("sub_style_id") // e.g. 8300 (Inspiration)
+  perkIds        Int[] @map("perk_ids") // [keystone, slot1, slot2, slot3, sub1, sub2]
+  statShards     Int[] @map("stat_shards") // [5008, 5008, 5002] (adaptive, adaptive, armor)
 
   @@id([matchId, puuid])
   @@index([championId, role], name: "idx_perks_dims")
@@ -186,15 +186,15 @@ model ParticipantPerk {
 }
 
 model ParticipantSpell {
-  matchId     String  @map("match_id")
-  match       Match   @relation(fields: [matchId], references: [matchId], onDelete: Cascade)
-  puuid       String
+  matchId    String  @map("match_id")
+  match      Match   @relation(fields: [matchId], references: [matchId], onDelete: Cascade)
+  puuid      String
   championId Int     @map("champion_id")
-  role        String // TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY
-  win         Boolean
-  
-  spell1Id    Int     @map("spell1_id") // e.g. 4 (Flash)
-  spell2Id    Int     @map("spell2_id") // e.g. 6 (Ghost)
+  role       String // TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY
+  win        Boolean
+
+  spell1Id Int @map("spell1_id") // e.g. 4 (Flash)
+  spell2Id Int @map("spell2_id") // e.g. 6 (Ghost)
 
   @@id([matchId, puuid])
   @@index([championId, role], name: "idx_spells_dims")
@@ -203,14 +203,14 @@ model ParticipantSpell {
 }
 
 model ParticipantFinalItem {
-  matchId     String  @map("match_id")
-  match       Match   @relation(fields: [matchId], references: [matchId], onDelete: Cascade)
-  puuid       String
+  matchId    String  @map("match_id")
+  match      Match   @relation(fields: [matchId], references: [matchId], onDelete: Cascade)
+  puuid      String
   championId Int     @map("champion_id")
-  role        String // TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY
-  win         Boolean
-  
-  items       Int[] // [item0, item1, item2, item3, item4, item5, item6] - final inventory
+  role       String // TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY
+  win        Boolean
+
+  items Int[] // [item0, item1, item2, item3, item4, item5, item6] - final inventory
 
   @@id([matchId, puuid])
   @@index([championId, role], name: "idx_final_items_dims")
@@ -220,20 +220,20 @@ model ParticipantFinalItem {
 
 // Aggregated build recommendations
 model ChampionRunePage {
-  patch         String
-  region        String
-  queueId       Int      @map("queue_id")
-  rankBracket   String   @map("rank_bracket")
-  role          String // TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY, ALL
-  championId    Int      @map("champion_id")
-  primaryStyleId Int     @map("primary_style_id")
-  subStyleId     Int     @map("sub_style_id")
-  perkIds        Int[]   @map("perk_ids")
-  statShards     Int[]   @map("stat_shards")
-  
-  games         BigInt
-  wins          BigInt
-  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+  patch          String
+  region         String
+  queueId        Int    @map("queue_id")
+  rankBracket    String @map("rank_bracket")
+  role           String // TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY, ALL
+  championId     Int    @map("champion_id")
+  primaryStyleId Int    @map("primary_style_id")
+  subStyleId     Int    @map("sub_style_id")
+  perkIds        Int[]  @map("perk_ids")
+  statShards     Int[]  @map("stat_shards")
+
+  games     BigInt
+  wins      BigInt
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
   @@id([patch, region, queueId, rankBracket, role, championId, primaryStyleId, subStyleId])
   @@index([patch, region, queueId, rankBracket, role, championId], name: "idx_rune_pages_dims")
@@ -241,18 +241,18 @@ model ChampionRunePage {
 }
 
 model ChampionSpellSet {
-  patch         String
-  region        String
-  queueId       Int      @map("queue_id")
-  rankBracket   String   @map("rank_bracket")
-  role          String // TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY, ALL
-  championId    Int      @map("champion_id")
-  spell1Id      Int      @map("spell1_id")
-  spell2Id      Int      @map("spell2_id")
-  
-  games         BigInt
-  wins          BigInt
-  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+  patch       String
+  region      String
+  queueId     Int    @map("queue_id")
+  rankBracket String @map("rank_bracket")
+  role        String // TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY, ALL
+  championId  Int    @map("champion_id")
+  spell1Id    Int    @map("spell1_id")
+  spell2Id    Int    @map("spell2_id")
+
+  games     BigInt
+  wins      BigInt
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
   @@id([patch, region, queueId, rankBracket, role, championId, spell1Id, spell2Id])
   @@index([patch, region, queueId, rankBracket, role, championId], name: "idx_spell_sets_dims")
@@ -260,20 +260,39 @@ model ChampionSpellSet {
 }
 
 model ChampionItemBuild {
-  patch         String
-  region        String
-  queueId       Int      @map("queue_id")
-  rankBracket   String   @map("rank_bracket")
-  role          String // TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY, ALL
-  championId    Int      @map("champion_id")
-  buildType     String   @map("build_type") // "starting", "core", "fourth", "fifth", "sixth"
-  items         Int[]    // Array of item IDs for this build type
-  
-  games         BigInt
-  wins          BigInt
-  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+  patch       String
+  region      String
+  queueId     Int    @map("queue_id")
+  rankBracket String @map("rank_bracket")
+  role        String // TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY, ALL
+  championId  Int    @map("champion_id")
+  buildType   String @map("build_type") // "starting", "core", "fourth", "fifth", "sixth"
+  items       Int[] // Array of item IDs for this build type
+
+  games     BigInt
+  wins      BigInt
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
   @@id([patch, region, queueId, rankBracket, role, championId, buildType])
   @@index([patch, region, queueId, rankBracket, role, championId], name: "idx_item_builds_dims")
   @@map("champion_item_builds")
+}
+
+// Matchups / Counters table (U.GG-style)
+model ChampionMatchup {
+  patch           String
+  region          String
+  queueId         Int      @map("queue_id")
+  rankBracket     String   @map("rank_bracket")
+  role            String // TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY, ALL
+  championId      Int      @map("champion_id")
+  enemyChampionId Int      @map("enemy_champion_id")
+  games           BigInt
+  wins            BigInt
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@id([patch, region, queueId, rankBracket, role, championId, enemyChampionId])
+  @@index([patch, region, queueId, rankBracket, role, championId], name: "idx_matchups_dims")
+  @@index([patch, region, queueId, rankBracket, role, enemyChampionId], name: "idx_matchups_enemy_dims")
+  @@map("champion_matchups")
 }

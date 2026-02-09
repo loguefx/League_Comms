@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
+import { expandCombinedBracket, isCombinedBracket } from './rank-bracket.util';
 
 /**
  * Service to aggregate build data (runes, spells, items) into recommendations
@@ -595,11 +596,13 @@ export class BuildAggregationService {
   }>> {
     const normalizedRole = role === 'ALL' || !role ? 'ALL' : role;
     const isAllRanks = rankBracket === 'all_ranks';
+    const isCombined = isCombinedBracket(rankBracket);
+    const expandedBrackets = isCombined ? expandCombinedBracket(rankBracket) : [rankBracket];
     const isWorld = !region;
 
     // #region agent log
-    console.log('[DEBUG] getRecommendedRunes entry', { championId, patch, rankBracket, role, region, limit, normalizedRole, isAllRanks, isWorld });
-    fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:594',message:'getRecommendedRunes entry',data:{championId,patch,rankBracket,role,region,limit,normalizedRole,isAllRanks,isWorld},timestamp:Date.now(),runId:'debug2',hypothesisId:'G'})}).catch(()=>{});
+    console.log('[DEBUG] getRecommendedRunes entry', { championId, patch, rankBracket, role, region, limit, normalizedRole, isAllRanks, isCombined, expandedBrackets, isWorld });
+    fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:594',message:'getRecommendedRunes entry',data:{championId,patch,rankBracket,role,region,limit,normalizedRole,isAllRanks,isCombined,expandedBrackets,isWorld},timestamp:Date.now(),runId:'debug2',hypothesisId:'G'})}).catch(()=>{});
     // #endregion
 
     // When role is 'ALL', we need to aggregate across all roles (don't filter by role)
@@ -1039,6 +1042,8 @@ export class BuildAggregationService {
   }> {
     const normalizedRole = role === 'ALL' || !role ? 'ALL' : role;
     const isAllRanks = rankBracket === 'all_ranks';
+    const isCombined = isCombinedBracket(rankBracket);
+    const expandedBrackets = isCombined ? expandCombinedBracket(rankBracket) : [rankBracket];
     const isWorld = !region;
 
     const buildTypes = ['starting', 'core', 'fourth', 'fifth', 'sixth'] as const;
@@ -1103,7 +1108,53 @@ export class BuildAggregationService {
           ORDER BY SUM(games) DESC
           LIMIT 5
         `;
+      } else if (isCombined && isWorld) {
+        // Combined bracket (emerald_plus, diamond_plus), aggregate across all regions
+        itemBuilds = await this.prisma.$queryRaw<Array<{
+          items: number[];
+          games: bigint;
+          wins: bigint;
+        }>>`
+          SELECT
+            items,
+            SUM(games)::bigint AS games,
+            SUM(wins)::bigint AS wins
+          FROM champion_item_builds
+          WHERE patch = ${patch}
+            AND queue_id = 420
+            AND rank_bracket = ANY(${expandedBrackets}::text[])
+            ${roleFilter}
+            AND champion_id = ${championId}
+            AND build_type = ${buildType}
+          GROUP BY items
+          ORDER BY SUM(games) DESC
+          LIMIT 5
+        `;
+      } else if (isCombined) {
+        // Combined bracket (emerald_plus, diamond_plus), specific region
+        itemBuilds = await this.prisma.$queryRaw<Array<{
+          items: number[];
+          games: bigint;
+          wins: bigint;
+        }>>`
+          SELECT
+            items,
+            SUM(games)::bigint AS games,
+            SUM(wins)::bigint AS wins
+          FROM champion_item_builds
+          WHERE patch = ${patch}
+            AND region = ${region}
+            AND queue_id = 420
+            AND rank_bracket = ANY(${expandedBrackets}::text[])
+            ${roleFilter}
+            AND champion_id = ${championId}
+            AND build_type = ${buildType}
+          GROUP BY items
+          ORDER BY SUM(games) DESC
+          LIMIT 5
+        `;
       } else if (isWorld) {
+        // Specific rank bracket, aggregate across all regions
         itemBuilds = await this.prisma.$queryRaw<Array<{
           items: number[];
           games: bigint;
@@ -1125,6 +1176,7 @@ export class BuildAggregationService {
           LIMIT 5
         `;
       } else {
+        // Specific rank bracket and region
         itemBuilds = await this.prisma.$queryRaw<Array<{
           items: number[];
           games: bigint;

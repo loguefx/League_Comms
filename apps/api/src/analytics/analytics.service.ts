@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { normalizeRankBracket, expandCombinedBracket, isCombinedBracket } from './rank-bracket.util';
 
 @Injectable()
 export class AnalyticsService {
@@ -54,10 +55,13 @@ export class AnalyticsService {
 
     // Query champion stats with bucket totals for pick/ban rates
     // Handle "all_ranks" by aggregating across all rank brackets
+    // Handle combined brackets (emerald_plus, diamond_plus) by expanding and aggregating
     // Handle "world" region by aggregating across all regions
     const isAllRanks = rankBracket === 'all_ranks';
+    const isCombined = isCombinedBracket(rankBracket);
+    const expandedBrackets = isCombined ? expandCombinedBracket(rankBracket) : [rankBracket];
     
-    this.logger.log(`[getChampionStats] Executing SQL query (isAllRanks=${isAllRanks}, isWorld=${isWorld})...`);
+    this.logger.log(`[getChampionStats] Executing SQL query (isAllRanks=${isAllRanks}, isCombined=${isCombined}, expandedBrackets=${expandedBrackets.join(',')}, isWorld=${isWorld})...`);
     let stats;
     if (isAllRanks && isWorld) {
       // Aggregate across all rank brackets AND all regions
@@ -116,6 +120,69 @@ export class AnalyticsService {
         WHERE cs.patch = ${patch}
           AND cs.region = ${region}
           AND cs.queue_id = ${queueId}
+          AND cs.role = ${role}
+        GROUP BY cs.champion_id
+        ORDER BY win_rate DESC
+      `;
+    } else if (isCombined && isWorld) {
+      // Combined bracket (emerald_plus, diamond_plus), aggregate across all regions
+      stats = await this.prisma.$queryRaw<Array<{
+        champion_id: number;
+        games: bigint;
+        wins: bigint;
+        win_rate: number;
+        pick_rate: number;
+        ban_rate: number;
+      }>>`
+        SELECT
+          cs.champion_id,
+          SUM(cs.games)::bigint AS games,
+          SUM(cs.wins)::bigint AS wins,
+          (SUM(cs.wins)::numeric / NULLIF(SUM(cs.games), 0)) AS win_rate,
+          (SUM(cs.games)::numeric / NULLIF(SUM(bt.total_games), 0)) AS pick_rate,
+          (SUM(cs.banned_matches)::numeric / NULLIF(SUM(bt.total_matches), 0)) AS ban_rate
+        FROM champion_stats cs
+        JOIN bucket_totals bt
+          ON bt.patch = cs.patch
+         AND bt.region = cs.region
+         AND bt.queue_id = cs.queue_id
+         AND bt.rank_bracket = cs.rank_bracket
+         AND bt.role = cs.role
+        WHERE cs.patch = ${patch}
+          AND cs.queue_id = ${queueId}
+          AND cs.rank_bracket = ANY(${expandedBrackets}::text[])
+          AND cs.role = ${role}
+        GROUP BY cs.champion_id
+        ORDER BY win_rate DESC
+      `;
+    } else if (isCombined) {
+      // Combined bracket (emerald_plus, diamond_plus), specific region
+      stats = await this.prisma.$queryRaw<Array<{
+        champion_id: number;
+        games: bigint;
+        wins: bigint;
+        win_rate: number;
+        pick_rate: number;
+        ban_rate: number;
+      }>>`
+        SELECT
+          cs.champion_id,
+          SUM(cs.games)::bigint AS games,
+          SUM(cs.wins)::bigint AS wins,
+          (SUM(cs.wins)::numeric / NULLIF(SUM(cs.games), 0)) AS win_rate,
+          (SUM(cs.games)::numeric / NULLIF(SUM(bt.total_games), 0)) AS pick_rate,
+          (SUM(cs.banned_matches)::numeric / NULLIF(SUM(bt.total_matches), 0)) AS ban_rate
+        FROM champion_stats cs
+        JOIN bucket_totals bt
+          ON bt.patch = cs.patch
+         AND bt.region = cs.region
+         AND bt.queue_id = cs.queue_id
+         AND bt.rank_bracket = cs.rank_bracket
+         AND bt.role = cs.role
+        WHERE cs.patch = ${patch}
+          AND cs.region = ${region}
+          AND cs.queue_id = ${queueId}
+          AND cs.rank_bracket = ANY(${expandedBrackets}::text[])
           AND cs.role = ${role}
         GROUP BY cs.champion_id
         ORDER BY win_rate DESC
