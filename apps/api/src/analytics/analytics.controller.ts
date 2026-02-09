@@ -209,7 +209,9 @@ export class AnalyticsController {
   /**
    * Manually trigger aggregation (converts raw matches into champion stats)
    * This is useful after ingesting matches to immediately see results
+   * Supports both GET and POST for convenience
    */
+  @Get('aggregate')
   @Post('aggregate')
   async triggerAggregation() {
     try {
