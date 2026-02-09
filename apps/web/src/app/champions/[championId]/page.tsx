@@ -14,7 +14,6 @@ import {
 import { getLatestDataDragonVersion } from '@/utils/championData';
 import { preloadItemData, getItemData } from '@/utils/itemData';
 import { preloadSpellData, getSpellData } from '@/utils/spellData';
-import { preloadSpellData, getSpellData } from '@/utils/spellData';
 
 interface BuildArchetype {
   archetype: string;
