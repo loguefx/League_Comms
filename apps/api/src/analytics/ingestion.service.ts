@@ -54,7 +54,8 @@ export class IngestionService {
         matchId: existing.matchId,
         region: existing.region,
         patch: existing.patch,
-        createdAt: existing.createdAt?.toISOString(),
+        gameStartTs: existing.gameStartTs?.toISOString(),
+        processedAt: existing.processedAt?.toISOString(),
       };
       console.log(`[ingestMatch] Match ${matchId} already exists, skipping (total matches in DB: ${totalMatches})`);
       console.log(`[ingestMatch] Existing match details:`, existingMatchDetails);
