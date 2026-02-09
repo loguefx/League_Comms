@@ -56,80 +56,38 @@ async function bootstrap() {
   
   try {
     console.log(`⏳ Starting API server on port ${port}...`);
-    console.log(`⏳ Step 1: About to call app.init()...`);
     
-    // Explicitly initialize the app (this sets up routes, modules, etc.)
-    console.log(`⏳ Step 2: Calling app.init()...`);
+    // Don't call app.init() explicitly - it's hanging
+    // Instead, use app.listen() which handles initialization internally
+    // But we need to wait a bit for routes to finish mapping first
+    console.log(`⏳ Waiting for route mapping to complete...`);
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    console.log(`✅ Route mapping should be complete`);
     
-    // Add timeout to app.init() to catch if it hangs
+    // Use app.listen() with a timeout
+    console.log(`⏳ Calling app.listen(${port}, '0.0.0.0')...`);
+    console.log(`   This will initialize the app and start the server`);
+    
     await Promise.race([
-      app.init(),
+      app.listen(port, '0.0.0.0'),
       new Promise<void>((_, reject) => {
         setTimeout(() => {
-          console.error(`❌ app.init() timed out after 15 seconds`);
-          reject(new Error('app.init() timed out after 15 seconds'));
-        }, 15000);
+          console.error(`❌ app.listen() timed out after 20 seconds`);
+          console.error(`   This might mean Fastify is waiting for something`);
+          reject(new Error('app.listen() timed out after 20 seconds'));
+        }, 20000);
       }),
     ]);
     
-    console.log(`✅ Step 3: NestJS application initialized`);
-    
-    // Wait a moment for all async initialization to complete
-    console.log(`⏳ Step 4: Waiting 1 second for async initialization...`);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    console.log(`✅ Step 5: Wait complete`);
-    
-    // Get the Fastify instance and start it manually
-    console.log(`⏳ Step 6: Getting Fastify instance...`);
-    const fastifyInstance = app.getHttpAdapter().getInstance();
-    console.log(`✅ Step 7: Got Fastify instance, type: ${typeof fastifyInstance}`);
-    console.log(`   Fastify instance has 'listen' method: ${typeof fastifyInstance.listen === 'function'}`);
-    console.log(`   Fastify instance has 'server' property: ${!!fastifyInstance.server}`);
-    
-    // Start Fastify server
-    console.log(`⏳ Step 8: Starting Fastify server on port ${port}...`);
-    await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        console.error(`❌ Step 8 FAILED: Fastify listen() timed out after 10 seconds`);
-        console.error(`   Fastify instance ready state: ${fastifyInstance.server?.listening ? 'listening' : 'not listening'}`);
-        console.error(`   Fastify instance server exists: ${!!fastifyInstance.server}`);
-        reject(new Error('Fastify listen() timed out after 10 seconds'));
-      }, 10000);
-      
-      console.log(`⏳ Step 8a: Calling fastifyInstance.listen({ port: ${port}, host: '0.0.0.0' })...`);
-      try {
-        fastifyInstance.listen({ port, host: '0.0.0.0' }, (err: any) => {
-          clearTimeout(timeout);
-          if (err) {
-            console.error(`❌ Step 8b FAILED: Fastify listen() error:`, err);
-            console.error(`   Error message: ${err.message}`);
-            console.error(`   Error code: ${err.code}`);
-            reject(err);
-          } else {
-            console.log(`✅ Step 8b: Fastify listen() callback executed successfully`);
-            resolve();
-          }
-        });
-        console.log(`✅ Step 8a: fastifyInstance.listen() called (callback pending)`);
-      } catch (listenError) {
-        clearTimeout(timeout);
-        console.error(`❌ Step 8a FAILED: Exception calling fastifyInstance.listen():`, listenError);
-        reject(listenError);
-      }
-    });
-    
-    console.log(`✅ Step 9: Server listen() completed`);
+    console.log(`✅ app.listen() completed successfully`);
     
     // Verify server is listening
-    console.log(`⏳ Step 10: Verifying server is listening...`);
+    console.log(`⏳ Verifying server is listening...`);
     const httpServer = app.getHttpServer();
-    console.log(`✅ Step 11: Got HTTP server instance`);
-    
     const address = httpServer.address();
-    console.log(`✅ Step 12: Got address:`, address);
     
     if (address) {
-      console.log(`✅ Step 13: Server is confirmed listening on:`, address);
+      console.log(`✅ Server is confirmed listening on:`, address);
       console.log(`🚀 API server running on http://localhost:${port}`);
       console.log(`🌐 API server accessible on http://0.0.0.0:${port}`);
       console.log(`📡 Health check: http://localhost:${port}/health`);
@@ -139,8 +97,8 @@ async function bootstrap() {
       console.log(`🔑 API key test: http://localhost:${port}/auth/riot/test/api-key`);
       console.log(`🔐 OAuth start: http://localhost:${port}/auth/riot/start`);
     } else {
-      console.warn(`⚠️  Step 13 WARNING: httpServer.address() returned null`);
-      console.warn(`   This might mean the server isn't actually listening`);
+      console.warn(`⚠️  httpServer.address() returned null`);
+      console.warn(`   But app.listen() completed, so server should be running`);
       console.log(`🚀 API server should be running on http://localhost:${port}`);
       console.log(`📡 Test with: curl http://localhost:${port}/health`);
     }
