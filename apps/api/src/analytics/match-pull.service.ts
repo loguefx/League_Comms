@@ -105,11 +105,17 @@ export class MatchPullService implements OnModuleInit {
     }
 
     // Run aggregation after pulling matches
-    this.logger.log('Running aggregation after match pull...');
+    // This ensures champion stats and build data are updated immediately after new matches are ingested
+    this.logger.log('═══════════════════════════════════════════════════════════');
+    this.logger.log('🔄 Match pull complete - Triggering automatic aggregation...');
+    this.logger.log('═══════════════════════════════════════════════════════════');
     try {
       await this.aggregationService.aggregateChampionStats();
+      this.logger.log('✅ Automatic aggregation completed successfully after match pull');
     } catch (error) {
-      this.logger.error('Aggregation after match pull failed:', error);
+      this.logger.error('❌ Aggregation after match pull failed:', error);
+      // Don't throw - allow match pulling to complete even if aggregation fails
+      // Aggregation will retry on next scheduled run (every 2 minutes)
     }
   }
 

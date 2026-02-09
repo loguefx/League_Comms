@@ -73,11 +73,20 @@ export class PublicChampionSeedService {
 
       this.logger.log(`Ingested ${totalMatchesIngested} matches total`);
 
-      // Run aggregation to populate champion stats
-      this.logger.log('Running aggregation...');
-      await this.aggregationService.aggregateChampionStats();
+      // Run aggregation to populate champion stats and build data
+      // This ensures data is immediately available after seeding
+      this.logger.log('═══════════════════════════════════════════════════════════');
+      this.logger.log('🔄 Seed complete - Triggering automatic aggregation...');
+      this.logger.log('═══════════════════════════════════════════════════════════');
+      try {
+        await this.aggregationService.aggregateChampionStats();
+        this.logger.log('✅ Automatic aggregation completed successfully after seed');
+      } catch (error) {
+        this.logger.error('❌ Aggregation after seed failed:', error);
+        throw error; // Re-throw so caller knows seed didn't fully complete
+      }
 
-      this.logger.log('Seed complete!');
+      this.logger.log('✅ Seed complete!');
     } catch (error) {
       this.logger.error('Seed failed:', error);
       throw error;

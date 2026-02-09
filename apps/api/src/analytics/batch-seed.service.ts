@@ -304,12 +304,21 @@ export class BatchSeedService {
 
       this.logger.log(`Ingested ${totalMatchesIngested} unique matches total`);
 
-      // Run aggregation
-      this.logger.log('Running aggregation for all patches and ranks...');
-      await this.aggregationService.aggregateChampionStats();
+      // Run aggregation to populate champion stats and build data
+      // This ensures data is immediately available after batch seeding
+      this.logger.log('═══════════════════════════════════════════════════════════');
+      this.logger.log('🔄 Batch seed complete - Triggering automatic aggregation...');
+      this.logger.log('═══════════════════════════════════════════════════════════');
+      try {
+        await this.aggregationService.aggregateChampionStats();
+        this.logger.log('✅ Automatic aggregation completed successfully after batch seed');
+      } catch (error) {
+        this.logger.error('❌ Aggregation after batch seed failed:', error);
+        throw error; // Re-throw so caller knows seed didn't fully complete
+      }
 
       this.seedProgress.status = 'completed';
-      this.logger.log('Batch seed complete!');
+      this.logger.log('✅ Batch seed complete!');
     } catch (error) {
       this.logger.error('Batch seed failed:', error);
       this.seedProgress.status = 'error';
