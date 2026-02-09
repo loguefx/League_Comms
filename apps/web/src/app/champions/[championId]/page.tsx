@@ -633,6 +633,10 @@ export default function ChampionBuildPage() {
                       // #region agent log
                       fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:620',message:'Rendering primary rune',data:{perkId,perkIdNum,runeImg,hasImage:!!runeImg,runeImagesSize:runeImages.size,runeImagesKeys:Array.from(runeImages.keys()),hasKey:runeImages.has(perkIdNum),getResult:runeImages.get(perkIdNum)},timestamp:Date.now(),runId:'debug2',hypothesisId:'M'})}).catch(()=>{});
                       // #endregion
+                      // #region agent log
+                      console.log(`[RuneRender] About to render rune ${perkIdNum}, runeImg exists:`, !!runeImg, 'runeImg value:', runeImg);
+                      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:636',message:'About to render rune image',data:{perkIdNum,runeImg,willRender:!!runeImg},timestamp:Date.now(),runId:'debug2',hypothesisId:'N'})}).catch(()=>{});
+                      // #endregion
                       return (
                         <div
                           key={`${perkIdNum}-${idx}`}
@@ -640,11 +644,15 @@ export default function ChampionBuildPage() {
                         >
                           {runeImg ? (
                             <img
+                              key={`rune-img-${perkIdNum}-${idx}`}
                               src={runeImg}
                               alt={runeName}
                               className="w-full h-full object-cover rounded-lg"
                               onLoad={() => {
                                 console.log(`[RuneImage] Successfully loaded rune image for perk ${perkIdNum}: ${runeImg}`);
+                                // #region agent log
+                                fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:647',message:'Rune image loaded successfully',data:{perkIdNum,runeImg},timestamp:Date.now(),runId:'debug2',hypothesisId:'O'})}).catch(()=>{});
+                                // #endregion
                               }}
                               onError={async (e) => {
                                 console.error(`[RuneImage] Failed to load rune image for perk ${perkIdNum}: ${runeImg}`);
