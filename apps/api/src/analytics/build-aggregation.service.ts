@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 
 /**
  * Service to aggregate build data (runes, spells, items) into recommendations
@@ -783,5 +784,204 @@ export class BuildAggregationService {
         games,
       };
     });
+  }
+
+  /**
+   * Get build archetypes for a champion
+   * Groups rune pages with their commonly used item builds
+   * Returns build archetypes like "Tank", "AP", "Lethality", "Crit", etc.
+   */
+  async getBuildArchetypes(
+    championId: number,
+    patch: string,
+    rankBracket: string,
+    role: string,
+    region: string | null,
+    limit: number = 5
+  ): Promise<Array<{
+    archetype: string; // "Recommended", "Tank", "AP", "Lethality", "Crit", etc.
+    runes: {
+      primaryStyleId: number;
+      subStyleId: number;
+      perkIds: number[];
+      statShards: number[];
+      winRate: number;
+      games: number;
+    };
+    spells: {
+      spell1Id: number;
+      spell2Id: number;
+      winRate: number;
+      games: number;
+    };
+    items: {
+      items: number[];
+      winRate: number;
+      games: number;
+    };
+    totalGames: number;
+    overallWinRate: number;
+  }>> {
+    const normalizedRole = role === 'ALL' || !role ? 'ALL' : role;
+    const isAllRanks = rankBracket === 'all_ranks';
+    const isWorld = !region;
+
+    // Get top rune pages and item builds
+    const [runePages, itemBuilds, spellSets] = await Promise.all([
+      this.getRecommendedRunes(championId, patch, rankBracket, role, region, limit * 2),
+      this.getRecommendedItems(championId, patch, rankBracket, role, region, limit * 2),
+      this.getRecommendedSpells(championId, patch, rankBracket, role, region, limit * 2),
+    ]);
+
+    if (runePages.length === 0 || itemBuilds.length === 0) {
+      return [];
+    }
+
+    // Find which rune pages are commonly used with which item builds
+    // We'll query the database to find matches
+    const archetypes: Array<{
+      archetype: string;
+      runes: typeof runePages[0];
+      spells: typeof spellSets[0];
+      items: typeof itemBuilds[0];
+      totalGames: number;
+      overallWinRate: number;
+    }> = [];
+
+    // For each rune page, find the most common item build used with it
+    for (const runePage of runePages.slice(0, limit)) {
+      // Find item builds that are commonly used with this rune page by querying matches
+      let matchingItems: Array<{ items: number[]; games: bigint; wins: bigint }> = [];
+      
+      try {
+        const whereConditions = isAllRanks && isWorld
+          ? Prisma.sql`m.patch = ${patch} AND m.queue_id = 420 AND pp.champion_id = ${championId} AND pp.role = ${normalizedRole}`
+          : isAllRanks
+          ? Prisma.sql`m.patch = ${patch} AND m.region = ${region} AND m.queue_id = 420 AND pp.champion_id = ${championId} AND pp.role = ${normalizedRole}`
+          : isWorld
+          ? Prisma.sql`m.patch = ${patch} AND m.queue_id = 420 AND m.rank_bracket = ${rankBracket} AND pp.champion_id = ${championId} AND pp.role = ${normalizedRole}`
+          : Prisma.sql`m.patch = ${patch} AND m.region = ${region} AND m.queue_id = 420 AND m.rank_bracket = ${rankBracket} AND pp.champion_id = ${championId} AND pp.role = ${normalizedRole}`;
+
+        matchingItems = await this.prisma.$queryRaw<Array<{
+          items: number[];
+          games: bigint;
+          wins: bigint;
+        }>>`
+          SELECT
+            pfi.items,
+            COUNT(*)::bigint AS games,
+            SUM(CASE WHEN mp.win = true THEN 1 ELSE 0 END)::bigint AS wins
+          FROM participant_perks pp
+          JOIN participant_final_items pfi ON pp.match_id = pfi.match_id AND pp.puuid = pfi.puuid
+          JOIN match_participants mp ON mp.match_id = pp.match_id AND mp.puuid = pp.puuid
+          JOIN matches m ON m.match_id = pp.match_id
+          WHERE ${whereConditions}
+            AND pp.primary_style_id = ${runePage.primaryStyleId}
+            AND pp.sub_style_id = ${runePage.subStyleId}
+            AND pp.perk_ids = ${runePage.perkIds}::int[]
+          GROUP BY pfi.items
+          HAVING COUNT(*) >= ${this.MIN_GAMES_THRESHOLD}
+          ORDER BY COUNT(*) DESC
+          LIMIT 1
+        `;
+      } catch (error) {
+        this.logger.warn(`Failed to find matching items for rune page:`, error);
+      }
+
+      // If no matching items found, use the most common item build
+      if (matchingItems.length === 0 && itemBuilds.length > 0) {
+        matchingItems = [{
+          items: itemBuilds[0].items,
+          games: BigInt(itemBuilds[0].games),
+          wins: BigInt(Math.round(itemBuilds[0].games * itemBuilds[0].winRate)),
+        }];
+      }
+
+      if (matchingItems.length > 0) {
+        const itemBuildData = matchingItems[0];
+        const itemBuild = itemBuilds.find(ib => 
+          ib.items.length === itemBuildData.items.length &&
+          ib.items.every((id, idx) => id === itemBuildData.items[idx])
+        ) || {
+          items: itemBuildData.items,
+          winRate: Number(itemBuildData.wins) / Number(itemBuildData.games),
+          games: Number(itemBuildData.games),
+        };
+        
+        const matchingSpell = spellSets[0] || spellSets.find(s => s.games >= this.MIN_GAMES_THRESHOLD) || spellSets[0];
+        
+        // Determine archetype based on items
+        const archetype = this.determineArchetype(itemBuild.items, runePage.primaryStyleId);
+        
+        // Calculate combined win rate (weighted average)
+        const totalGames = Math.min(runePage.games, itemBuild.games);
+        const overallWinRate = (runePage.winRate + itemBuild.winRate) / 2;
+
+        archetypes.push({
+          archetype: archetypes.length === 0 ? 'Recommended' : archetype,
+          runes: runePage,
+          spells: matchingSpell || spellSets[0],
+          items: itemBuild,
+          totalGames,
+          overallWinRate,
+        });
+      }
+    }
+
+    // If we don't have enough archetypes, add standalone builds
+    if (archetypes.length < limit && itemBuilds.length > archetypes.length) {
+      for (let i = archetypes.length; i < Math.min(limit, itemBuilds.length); i++) {
+        const itemBuild = itemBuilds[i];
+        const matchingRune = runePages[i] || runePages[0];
+        const matchingSpell = spellSets[i] || spellSets[0];
+        const archetype = this.determineArchetype(itemBuild.items, matchingRune.primaryStyleId);
+        
+        archetypes.push({
+          archetype: archetypes.length === 0 ? 'Recommended' : archetype,
+          runes: matchingRune,
+          spells: matchingSpell,
+          items: itemBuild,
+          totalGames: Math.min(matchingRune.games, itemBuild.games),
+          overallWinRate: (matchingRune.winRate + itemBuild.winRate) / 2,
+        });
+      }
+    }
+
+    // Sort by total games (most popular first)
+    return archetypes.sort((a, b) => b.totalGames - a.totalGames);
+  }
+
+  /**
+   * Determine build archetype based on items and primary rune style
+   * This is a heuristic - in production you'd want more sophisticated logic
+   */
+  private determineArchetype(items: number[], primaryStyleId: number): string {
+    // Common item IDs for different archetypes (these would need to be updated based on current items)
+    // This is a simplified heuristic
+    const tankItemIds = [3068, 3075, 3083, 3084, 3109, 3110, 3111, 3193, 3194]; // Thornmail, Randuin's, etc.
+    const apItemIds = [3089, 3157, 3165, 3285, 4636, 4637, 4638]; // Rabadon's, Void Staff, etc.
+    const adItemIds = [3031, 3036, 3072, 3074, 3508]; // Infinity Edge, Bloodthirster, etc.
+    const lethalityItemIds = [6691, 6692, 6693, 6694, 6695, 6696]; // Lethality items
+    
+    const hasTankItems = items.some(id => tankItemIds.includes(id));
+    const hasAPItems = items.some(id => apItemIds.includes(id));
+    const hasADItems = items.some(id => adItemIds.includes(id));
+    const hasLethalityItems = items.some(id => lethalityItemIds.includes(id));
+
+    // Determine based on items
+    if (hasTankItems && !hasAPItems && !hasADItems) return 'Tank';
+    if (hasAPItems && !hasTankItems) return 'AP';
+    if (hasLethalityItems) return 'Lethality';
+    if (hasADItems && items.some(id => [3031, 3036].includes(id))) return 'Crit'; // Infinity Edge, etc.
+    if (hasADItems) return 'AD';
+    
+    // Fallback: determine by primary rune style
+    if (primaryStyleId === 8000) return 'Precision'; // Precision tree
+    if (primaryStyleId === 8100) return 'Domination'; // Domination tree
+    if (primaryStyleId === 8300) return 'Inspiration'; // Inspiration tree
+    if (primaryStyleId === 8400) return 'Resolve'; // Resolve tree (often tank)
+    if (primaryStyleId === 8200) return 'Sorcery'; // Sorcery tree (often AP)
+    
+    return 'Alternative';
   }
 }

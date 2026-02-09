@@ -242,40 +242,39 @@ export class AnalyticsService {
 
     this.logger.log(`[getChampionStats] Processed ${championsWithStats.length} champions with stats`);
 
-    // Calculate counter picks for each champion (skip if no champions to avoid unnecessary queries)
-    // Limit to first 50 champions to avoid too many queries (counter picks are expensive)
-    const championsToProcess = championsWithStats.slice(0, 50);
-    this.logger.log(`[getChampionStats] Calculating counter picks for ${championsToProcess.length} champions (limited to 50 for performance)`);
+    // Calculate counter picks for all champions
+    // Process in batches to avoid overwhelming the database
+    const BATCH_SIZE = 20;
+    const championsWithCounterPicks: Array<typeof championsWithStats[0] & { counterPicks: number[] }> = [];
     
-    const championsWithCounterPicks = championsToProcess.length > 0
-      ? await Promise.all(
-          championsToProcess.map(async (champ, index) => {
-            try {
-              const counterPicks = await this.getCounterPicks(champ.championId, patch, role, rankBracket, region);
-              this.logger.debug(`[getChampionStats] Champion ${index + 1}/${championsToProcess.length} (ID: ${champ.championId}): ${counterPicks.length} counter picks`);
-              return {
-                ...champ,
-                counterPicks,
-              };
-            } catch (error) {
-              this.logger.warn(`[getChampionStats] Failed to get counter picks for champion ${champ.championId}:`, error);
-              return {
-                ...champ,
-                counterPicks: [],
-              };
-            }
-          })
-        )
-      : [];
-
-    // Add remaining champions without counter picks (if any)
-    if (championsWithStats.length > 50) {
-      const remainingChampions = championsWithStats.slice(50).map(champ => ({
-        ...champ,
-        counterPicks: [],
-      }));
-      championsWithCounterPicks.push(...remainingChampions);
-      this.logger.log(`[getChampionStats] Added ${remainingChampions.length} remaining champions without counter picks (performance optimization)`);
+    this.logger.log(`[getChampionStats] Calculating counter picks for ${championsWithStats.length} champions in batches of ${BATCH_SIZE}`);
+    
+    for (let i = 0; i < championsWithStats.length; i += BATCH_SIZE) {
+      const batch = championsWithStats.slice(i, i + BATCH_SIZE);
+      const batchResults = await Promise.all(
+        batch.map(async (champ, batchIndex) => {
+          try {
+            const counterPicks = await this.getCounterPicks(champ.championId, patch, role, rankBracket, region);
+            this.logger.debug(`[getChampionStats] Champion ${i + batchIndex + 1}/${championsWithStats.length} (ID: ${champ.championId}): ${counterPicks.length} counter picks`);
+            return {
+              ...champ,
+              counterPicks,
+            };
+          } catch (error) {
+            this.logger.warn(`[getChampionStats] Failed to get counter picks for champion ${champ.championId}:`, error);
+            return {
+              ...champ,
+              counterPicks: [],
+            };
+          }
+        })
+      );
+      championsWithCounterPicks.push(...batchResults);
+      
+      // Small delay between batches to avoid overwhelming the database
+      if (i + BATCH_SIZE < championsWithStats.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
     }
 
     this.logger.log(`[getChampionStats] Returning ${championsWithCounterPicks.length} champions (${championsToProcess.length} with counter picks)`);

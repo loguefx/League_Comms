@@ -279,33 +279,78 @@ export class AnalyticsController {
       });
       const championStats = tierStats.find((s: any) => s.championId === champId);
 
-      // Get recommended builds (multiple options)
-      const [runes, spells, items] = await Promise.all([
-        this.buildAggregationService.getRecommendedRunes(
-          champId,
-          actualPatch,
-          rankBracket,
-          normalizedRole,
-          normalizedRegion,
-          5 // Get top 5 rune pages
-        ),
-        this.buildAggregationService.getRecommendedSpells(
-          champId,
-          actualPatch,
-          rankBracket,
-          normalizedRole,
-          normalizedRegion,
-          5 // Get top 5 spell sets
-        ),
-        this.buildAggregationService.getRecommendedItems(
-          champId,
-          actualPatch,
-          rankBracket,
-          normalizedRole,
-          normalizedRegion,
-          5 // Get top 5 item builds
-        ),
-      ]);
+      // Get build archetypes (correlated runes + items + spells)
+      const buildArchetypes = await this.buildAggregationService.getBuildArchetypes(
+        champId,
+        actualPatch,
+        rankBracket,
+        normalizedRole,
+        normalizedRegion,
+        5 // Get top 5 build archetypes
+      );
+
+      // If no archetypes found, fall back to separate builds
+      if (buildArchetypes.length === 0) {
+        const [runes, spells, items] = await Promise.all([
+          this.buildAggregationService.getRecommendedRunes(
+            champId,
+            actualPatch,
+            rankBracket,
+            normalizedRole,
+            normalizedRegion,
+            1
+          ),
+          this.buildAggregationService.getRecommendedSpells(
+            champId,
+            actualPatch,
+            rankBracket,
+            normalizedRole,
+            normalizedRegion,
+            1
+          ),
+          this.buildAggregationService.getRecommendedItems(
+            champId,
+            actualPatch,
+            rankBracket,
+            normalizedRole,
+            normalizedRegion,
+            1
+          ),
+        ]);
+
+        return {
+          championId: champId,
+          patch: actualPatch,
+          rank: rankBracket,
+          role: normalizedRole,
+          region: normalizedRegion || 'world',
+          tierStats: championStats || null,
+          builds: runes.length > 0 && items.length > 0 ? [{
+            archetype: 'Recommended',
+            runes: {
+              primaryStyleId: runes[0].primaryStyleId,
+              subStyleId: runes[0].subStyleId,
+              perkIds: runes[0].perkIds,
+              statShards: runes[0].statShards,
+              winRate: runes[0].winRate * 100,
+              games: runes[0].games,
+            },
+            spells: spells.length > 0 ? {
+              spell1Id: spells[0].spell1Id,
+              spell2Id: spells[0].spell2Id,
+              winRate: spells[0].winRate * 100,
+              games: spells[0].games,
+            } : null,
+            items: {
+              items: items[0].items,
+              winRate: items[0].winRate * 100,
+              games: items[0].games,
+            },
+            totalGames: Math.min(runes[0].games, items[0].games),
+            overallWinRate: (runes[0].winRate + items[0].winRate) / 2 * 100,
+          }] : [],
+        };
+      }
 
       return {
         championId: champId,
@@ -314,48 +359,30 @@ export class AnalyticsController {
         role: normalizedRole,
         region: normalizedRegion || 'world',
         tierStats: championStats || null,
-        recommended: {
-          runes: runes.length > 0 ? runes.map((r) => ({
-            primaryStyleId: r.primaryStyleId,
-            subStyleId: r.subStyleId,
-            perkIds: r.perkIds,
-            statShards: r.statShards,
-            winRate: r.winRate * 100, // Convert to percentage
-            games: r.games,
-          })) : [],
-          spells: spells.length > 0 ? spells.map((s) => ({
-            spell1Id: s.spell1Id,
-            spell2Id: s.spell2Id,
-            winRate: s.winRate * 100, // Convert to percentage
-            games: s.games,
-          })) : [],
-          items: items.length > 0 ? items.map((i) => ({
-            items: i.items,
-            winRate: i.winRate * 100, // Convert to percentage
-            games: i.games,
-          })) : [],
-        },
-        alternatives: {
-          runes: runes.slice(1).map(r => ({
-            primaryStyleId: r.primaryStyleId,
-            subStyleId: r.subStyleId,
-            perkIds: r.perkIds,
-            statShards: r.statShards,
-            winRate: r.winRate * 100,
-            games: r.games,
-          })),
-          spells: spells.slice(1).map(s => ({
-            spell1Id: s.spell1Id,
-            spell2Id: s.spell2Id,
-            winRate: s.winRate * 100,
-            games: s.games,
-          })),
-          items: items.slice(1).map(i => ({
-            items: i.items,
-            winRate: i.winRate * 100,
-            games: i.games,
-          })),
-        },
+        builds: buildArchetypes.map(archetype => ({
+          archetype: archetype.archetype,
+          runes: {
+            primaryStyleId: archetype.runes.primaryStyleId,
+            subStyleId: archetype.runes.subStyleId,
+            perkIds: archetype.runes.perkIds,
+            statShards: archetype.runes.statShards,
+            winRate: archetype.runes.winRate * 100,
+            games: archetype.runes.games,
+          },
+          spells: {
+            spell1Id: archetype.spells.spell1Id,
+            spell2Id: archetype.spells.spell2Id,
+            winRate: archetype.spells.winRate * 100,
+            games: archetype.spells.games,
+          },
+          items: {
+            items: archetype.items.items,
+            winRate: archetype.items.winRate * 100,
+            games: archetype.items.games,
+          },
+          totalGames: archetype.totalGames,
+          overallWinRate: archetype.overallWinRate * 100,
+        })),
       };
     } catch (error) {
       console.error('[AnalyticsController] Error getting champion build:', error);

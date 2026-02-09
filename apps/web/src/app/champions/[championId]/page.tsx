@@ -5,26 +5,29 @@ import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { getApiUrl } from '@/utils/api';
 import { getChampionNameSync, getChampionImageUrl, preloadChampionData } from '@/utils/championData';
 
-interface RunePage {
-  primaryStyleId: number;
-  subStyleId: number;
-  perkIds: number[];
-  statShards: number[];
-  winRate: number;
-  games: number;
-}
-
-interface SpellSet {
-  spell1Id: number;
-  spell2Id: number;
-  winRate: number;
-  games: number;
-}
-
-interface ItemBuild {
-  items: number[];
-  winRate: number;
-  games: number;
+interface BuildArchetype {
+  archetype: string; // "Recommended", "Tank", "AP", "Lethality", etc.
+  runes: {
+    primaryStyleId: number;
+    subStyleId: number;
+    perkIds: number[];
+    statShards: number[];
+    winRate: number;
+    games: number;
+  };
+  spells: {
+    spell1Id: number;
+    spell2Id: number;
+    winRate: number;
+    games: number;
+  } | null;
+  items: {
+    items: number[];
+    winRate: number;
+    games: number;
+  };
+  totalGames: number;
+  overallWinRate: number;
 }
 
 interface ChampionBuild {
@@ -41,16 +44,7 @@ interface ChampionBuild {
     pickRate: number;
     banRate: number;
   } | null;
-  recommended: {
-    runes: RunePage[];
-    spells: SpellSet[];
-    items: ItemBuild[];
-  };
-  alternatives: {
-    runes: RunePage[];
-    spells: SpellSet[];
-    items: ItemBuild[];
-  };
+  builds: BuildArchetype[];
 }
 
 export default function ChampionBuildPage() {
@@ -63,9 +57,7 @@ export default function ChampionBuildPage() {
   const [loading, setLoading] = useState(true);
   const [championDataLoaded, setChampionDataLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedRuneIndex, setSelectedRuneIndex] = useState(0);
-  const [selectedSpellIndex, setSelectedSpellIndex] = useState(0);
-  const [selectedItemIndex, setSelectedItemIndex] = useState(0);
+  const [selectedBuildIndex, setSelectedBuildIndex] = useState(0);
 
   // Get filters from URL or use defaults
   const rank = searchParams.get('rank') || 'ALL_RANKS';
@@ -108,6 +100,10 @@ export default function ChampionBuildPage() {
         }
 
         setBuild(data);
+        // Reset to first build if available
+        if (data.builds && data.builds.length > 0) {
+          setSelectedBuildIndex(0);
+        }
       } catch (err: any) {
         console.error('Error loading champion build:', err);
         setError(err.message || 'Failed to load champion build');
@@ -153,15 +149,30 @@ export default function ChampionBuildPage() {
 
   const championName = getChampionNameSync(championId);
   const championImageUrl = getChampionImageUrl(championId);
+  const selectedBuild = build.builds[selectedBuildIndex];
 
-  // Combine recommended and alternatives for display
-  const allRunes = [...build.recommended.runes, ...build.alternatives.runes];
-  const allSpells = [...build.recommended.spells, ...build.alternatives.spells];
-  const allItems = [...build.recommended.items, ...build.alternatives.items];
-
-  const selectedRune = allRunes[selectedRuneIndex];
-  const selectedSpell = allSpells[selectedSpellIndex];
-  const selectedItem = allItems[selectedItemIndex];
+  if (!selectedBuild) {
+    return (
+      <div className="min-h-screen bg-[#0A0E1A] text-white p-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center py-20">
+            <h1 className="text-2xl font-bold mb-4">{championName}</h1>
+            <p className="text-[#B4BEC8]">
+              No build data available for this champion yet. Build data is computed from match statistics.
+              <br />
+              Try selecting different filters or wait for more matches to be processed.
+            </p>
+            <button
+              onClick={() => router.push('/champions')}
+              className="mt-6 px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+            >
+              Back to Champions
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0A0E1A] text-white p-8">
@@ -199,174 +210,121 @@ export default function ChampionBuildPage() {
           </div>
         </div>
 
-        {/* Build Sections */}
+        {/* Build Archetype Tabs (like U.GG) */}
+        {build.builds.length > 1 && (
+          <div className="mb-6 flex gap-2 border-b border-[#283D4D]">
+            {build.builds.map((buildArchetype, idx) => (
+              <button
+                key={idx}
+                onClick={() => setSelectedBuildIndex(idx)}
+                className={`px-6 py-3 font-semibold transition-colors border-b-2 ${
+                  selectedBuildIndex === idx
+                    ? 'border-blue-500 text-blue-400'
+                    : 'border-transparent text-[#B4BEC8] hover:text-white'
+                }`}
+              >
+                {buildArchetype.archetype}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Selected Build Display */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Runes */}
-          {allRunes.length > 0 && selectedRune && (
-            <div className="bg-[#0D121E] border border-[#283D4D] rounded-lg p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold">Runes</h2>
-                {allRunes.length > 1 && (
-                  <div className="flex gap-2">
-                    {allRunes.map((_, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setSelectedRuneIndex(idx)}
-                        className={`px-3 py-1 rounded text-sm transition-colors ${
-                          selectedRuneIndex === idx
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-[#283D4D] text-[#B4BEC8] hover:bg-[#3A4A5C]'
-                        }`}
-                      >
-                        {idx === 0 ? 'Recommended' : `#${idx + 1}`}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="mb-4">
-                <p className="text-sm text-[#B4BEC8]">
-                  {selectedRune.winRate.toFixed(2)}% Win Rate • {selectedRune.games.toLocaleString()} Matches
-                </p>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm text-[#B4BEC8] mb-2">Primary: Style {selectedRune.primaryStyleId}</p>
-                  <div className="flex gap-2">
-                    {selectedRune.perkIds.slice(0, 4).map((perkId, idx) => (
-                      <div
-                        key={idx}
-                        className="w-12 h-12 bg-[#283D4D] rounded border border-[#3A4A5C] flex items-center justify-center"
-                        title={`Perk ${perkId}`}
-                      >
-                        <span className="text-xs text-[#B4BEC8]">{perkId}</span>
-                      </div>
-                    ))}
-                  </div>
+          <div className="bg-[#0D121E] border border-[#283D4D] rounded-lg p-6">
+            <h2 className="text-xl font-bold mb-4">Runes</h2>
+            <div className="mb-4">
+              <p className="text-sm text-[#B4BEC8]">
+                {selectedBuild.runes.winRate.toFixed(2)}% Win Rate • {selectedBuild.runes.games.toLocaleString()} Matches
+              </p>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm text-[#B4BEC8] mb-2">Primary: Style {selectedBuild.runes.primaryStyleId}</p>
+                <div className="flex gap-2">
+                  {selectedBuild.runes.perkIds.slice(0, 4).map((perkId, idx) => (
+                    <div
+                      key={idx}
+                      className="w-12 h-12 bg-[#283D4D] rounded border border-[#3A4A5C] flex items-center justify-center"
+                      title={`Perk ${perkId}`}
+                    >
+                      <span className="text-xs text-[#B4BEC8]">{perkId}</span>
+                    </div>
+                  ))}
                 </div>
-                <div>
-                  <p className="text-sm text-[#B4BEC8] mb-2">Secondary: Style {selectedRune.subStyleId}</p>
-                  <div className="flex gap-2">
-                    {selectedRune.perkIds.slice(4, 6).map((perkId, idx) => (
-                      <div
-                        key={idx}
-                        className="w-12 h-12 bg-[#283D4D] rounded border border-[#3A4A5C] flex items-center justify-center"
-                        title={`Perk ${perkId}`}
-                      >
-                        <span className="text-xs text-[#B4BEC8]">{perkId}</span>
-                      </div>
-                    ))}
-                  </div>
+              </div>
+              <div>
+                <p className="text-sm text-[#B4BEC8] mb-2">Secondary: Style {selectedBuild.runes.subStyleId}</p>
+                <div className="flex gap-2">
+                  {selectedBuild.runes.perkIds.slice(4, 6).map((perkId, idx) => (
+                    <div
+                      key={idx}
+                      className="w-12 h-12 bg-[#283D4D] rounded border border-[#3A4A5C] flex items-center justify-center"
+                      title={`Perk ${perkId}`}
+                    >
+                      <span className="text-xs text-[#B4BEC8]">{perkId}</span>
+                    </div>
+                  ))}
                 </div>
-                <div>
-                  <p className="text-sm text-[#B4BEC8] mb-2">Stat Shards</p>
-                  <div className="flex gap-2">
-                    {selectedRune.statShards.map((shardId, idx) => (
-                      <div
-                        key={idx}
-                        className="w-10 h-10 bg-[#283D4D] rounded border border-[#3A4A5C] flex items-center justify-center"
-                        title={`Shard ${shardId}`}
-                      >
-                        <span className="text-xs text-[#B4BEC8]">{shardId}</span>
-                      </div>
-                    ))}
-                  </div>
+              </div>
+              <div>
+                <p className="text-sm text-[#B4BEC8] mb-2">Stat Shards</p>
+                <div className="flex gap-2">
+                  {selectedBuild.runes.statShards.map((shardId, idx) => (
+                    <div
+                      key={idx}
+                      className="w-10 h-10 bg-[#283D4D] rounded border border-[#3A4A5C] flex items-center justify-center"
+                      title={`Shard ${shardId}`}
+                    >
+                      <span className="text-xs text-[#B4BEC8]">{shardId}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
-          )}
+          </div>
 
           {/* Summoner Spells */}
-          {allSpells.length > 0 && selectedSpell && (
+          {selectedBuild.spells && (
             <div className="bg-[#0D121E] border border-[#283D4D] rounded-lg p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold">Summoner Spells</h2>
-                {allSpells.length > 1 && (
-                  <div className="flex gap-2">
-                    {allSpells.map((_, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setSelectedSpellIndex(idx)}
-                        className={`px-3 py-1 rounded text-sm transition-colors ${
-                          selectedSpellIndex === idx
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-[#283D4D] text-[#B4BEC8] hover:bg-[#3A4A5C]'
-                        }`}
-                      >
-                        {idx === 0 ? 'Recommended' : `#${idx + 1}`}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <h2 className="text-xl font-bold mb-4">Summoner Spells</h2>
               <div className="mb-4">
                 <p className="text-sm text-[#B4BEC8]">
-                  {selectedSpell.winRate.toFixed(2)}% Win Rate • {selectedSpell.games.toLocaleString()} Matches
+                  {selectedBuild.spells.winRate.toFixed(2)}% Win Rate • {selectedBuild.spells.games.toLocaleString()} Matches
                 </p>
               </div>
               <div className="flex gap-4">
                 <div className="w-16 h-16 bg-[#283D4D] rounded border border-[#3A4A5C] flex items-center justify-center">
-                  <span className="text-xs text-[#B4BEC8]">{selectedSpell.spell1Id}</span>
+                  <span className="text-xs text-[#B4BEC8]">{selectedBuild.spells.spell1Id}</span>
                 </div>
                 <div className="w-16 h-16 bg-[#283D4D] rounded border border-[#3A4A5C] flex items-center justify-center">
-                  <span className="text-xs text-[#B4BEC8]">{selectedSpell.spell2Id}</span>
+                  <span className="text-xs text-[#B4BEC8]">{selectedBuild.spells.spell2Id}</span>
                 </div>
               </div>
             </div>
           )}
 
           {/* Core Items */}
-          {allItems.length > 0 && selectedItem && (
-            <div className="bg-[#0D121E] border border-[#283D4D] rounded-lg p-6 lg:col-span-2">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold">Core Items</h2>
-                {allItems.length > 1 && (
-                  <div className="flex gap-2">
-                    {allItems.map((_, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setSelectedItemIndex(idx)}
-                        className={`px-3 py-1 rounded text-sm transition-colors ${
-                          selectedItemIndex === idx
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-[#283D4D] text-[#B4BEC8] hover:bg-[#3A4A5C]'
-                        }`}
-                      >
-                        {idx === 0 ? 'Recommended' : `#${idx + 1}`}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="mb-4">
-                <p className="text-sm text-[#B4BEC8]">
-                  {selectedItem.winRate.toFixed(2)}% Win Rate • {selectedItem.games.toLocaleString()} Matches
-                </p>
-              </div>
-              <div className="flex gap-4">
-                {selectedItem.items.map((itemId, idx) => (
-                  <div
-                    key={idx}
-                    className="w-16 h-16 bg-[#283D4D] rounded border border-[#3A4A5C] flex items-center justify-center"
-                    title={`Item ${itemId}`}
-                  >
-                    <span className="text-xs text-[#B4BEC8]">{itemId}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* No build data message */}
-          {allRunes.length === 0 && allSpells.length === 0 && allItems.length === 0 && (
-            <div className="lg:col-span-2 bg-[#0D121E] border border-[#283D4D] rounded-lg p-6 text-center">
-              <p className="text-[#B4BEC8]">
-                No build data available for this champion yet. Build data is computed from match statistics.
-                <br />
-                Try selecting different filters or wait for more matches to be processed.
+          <div className="bg-[#0D121E] border border-[#283D4D] rounded-lg p-6 lg:col-span-2">
+            <h2 className="text-xl font-bold mb-4">Core Items</h2>
+            <div className="mb-4">
+              <p className="text-sm text-[#B4BEC8]">
+                {selectedBuild.items.winRate.toFixed(2)}% Win Rate • {selectedBuild.items.games.toLocaleString()} Matches
               </p>
             </div>
-          )}
+            <div className="flex gap-4">
+              {selectedBuild.items.items.map((itemId, idx) => (
+                <div
+                  key={idx}
+                  className="w-16 h-16 bg-[#283D4D] rounded border border-[#3A4A5C] flex items-center justify-center"
+                  title={`Item ${itemId}`}
+                >
+                  <span className="text-xs text-[#B4BEC8]">{itemId}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>
