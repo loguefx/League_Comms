@@ -1235,13 +1235,20 @@ export class BuildAggregationService {
         const games = Number(ib.games);
         const wins = Number(ib.wins);
         const smoothedWinRate = (wins + this.SMOOTHING_K * 0.5) / (games + this.SMOOTHING_K);
-        // Filter out zeros (empty slots) and component items (items < 3000, except starter items 1055-1058)
+        // Filter out zeros (empty slots) and apply build-type-specific filtering
         const filteredItems = Array.isArray(ib.items) 
           ? ib.items
               .filter(id => {
                 const itemId = Number(id);
-                // Keep items >= 3000 (full items) or starter items (1055-1058)
-                return itemId > 0 && (itemId >= 3000 || (itemId >= 1055 && itemId <= 1058));
+                if (itemId <= 0) return false;
+                
+                // Starting items: Allow components (< 3000) OR starter items (1055-1058)
+                if (buildType === 'starting') {
+                  return itemId < 3000 || (itemId >= 1055 && itemId <= 1058);
+                }
+                
+                // Core, Fourth, Fifth, Sixth: ONLY full items (>= 3000), NO starter items
+                return itemId >= 3000;
               })
               .sort((a, b) => Number(a) - Number(b)) // Sort items in ascending order
           : [];

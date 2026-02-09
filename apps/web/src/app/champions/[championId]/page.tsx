@@ -649,10 +649,19 @@ export default function ChampionBuildPage() {
                                   const img = e.target as HTMLImageElement;
                                   console.error(`[RuneImage] Failed to load rune image for perk ${perkIdNum}: ${runeImg}`);
                                   // Try alternative CDN (canisback) as fallback
+                                  // canisback CDN structure: https://ddragon.canisback.com/img/{icon_path}
+                                  // Standard CDN structure: https://ddragon.leagueoflegends.com/cdn/{version}/img/{icon_path}
                                   try {
-                                    const altUrl = runeImg.replace('ddragon.leagueoflegends.com/cdn', 'ddragon.canisback.com');
-                                    console.log(`[RuneImage] Trying alternative CDN for perk ${perkIdNum}: ${altUrl}`);
-                                    img.src = altUrl;
+                                    // Extract the icon path from the URL (everything after /img/)
+                                    const iconPathMatch = runeImg.match(/\/img\/(.+)$/);
+                                    if (iconPathMatch) {
+                                      const iconPath = iconPathMatch[1];
+                                      const altUrl = `https://ddragon.canisback.com/img/${iconPath}`;
+                                      console.log(`[RuneImage] Trying alternative CDN for perk ${perkIdNum}: ${altUrl}`);
+                                      img.src = altUrl;
+                                    } else {
+                                      throw new Error('Could not extract icon path from URL');
+                                    }
                                   } catch (err) {
                                     console.error(`[RuneImage] Error reloading rune ${perkIdNum}:`, err);
                                     img.style.display = 'none';
