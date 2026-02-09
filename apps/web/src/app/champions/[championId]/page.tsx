@@ -951,32 +951,33 @@ export default function ChampionBuildPage() {
                         fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:936',message:'Fourth items buildOption',data:{optIdx,items:buildOption.items,itemsLength:buildOption.items.length,winRate:buildOption.winRate,games:buildOption.games},timestamp:Date.now(),runId:'debug1',hypothesisId:'E'})}).catch(()=>{});
                         // #endregion
                         return (
-                        <div key={optIdx} className="mb-3">
-                          <div className="flex gap-2 mb-1">
-                            {buildOption.items.filter(itemId => itemId > 0).map((itemId, idx) => (
-                              <div
-                                key={idx}
-                                className="w-10 h-10 rounded-lg bg-[#1E293B] border-2 border-[#334155] hover:border-amber-500/50 transition-all hover:scale-110 flex items-center justify-center group relative overflow-hidden"
-                                title={`Item ${itemId}`}
-                              >
-                                <img
-                                  src={getItemImageUrl(itemId, ddVersion)}
-                                  alt={`Item ${itemId}`}
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).style.display = 'none';
-                                    (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${itemId}</span>`;
-                                  }}
-                                />
-                              </div>
-                            ))}
+                          <div key={optIdx} className="mb-3">
+                            <div className="flex gap-2 mb-1">
+                              {buildOption.items.filter(itemId => itemId > 0).map((itemId, idx) => (
+                                <div
+                                  key={idx}
+                                  className="w-10 h-10 rounded-lg bg-[#1E293B] border-2 border-[#334155] hover:border-amber-500/50 transition-all hover:scale-110 flex items-center justify-center group relative overflow-hidden"
+                                  title={`Item ${itemId}`}
+                                >
+                                  <img
+                                    src={getItemImageUrl(itemId, ddVersion)}
+                                    alt={`Item ${itemId}`}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).style.display = 'none';
+                                      (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${itemId}</span>`;
+                                    }}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                            <div className="text-xs text-[#64748B]">
+                              <span className="text-emerald-400">{buildOption.winRate.toFixed(2)}%</span> WR •{' '}
+                              <span className="text-white">{buildOption.games.toLocaleString()}</span>
+                            </div>
                           </div>
-                          <div className="text-xs text-[#64748B]">
-                            <span className="text-emerald-400">{buildOption.winRate.toFixed(2)}%</span> WR •{' '}
-                            <span className="text-white">{buildOption.games.toLocaleString()}</span>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
 
