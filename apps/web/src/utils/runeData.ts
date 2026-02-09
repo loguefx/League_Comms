@@ -199,8 +199,9 @@ export async function getRuneImageUrl(perkId: number): Promise<string> {
   
   // Data Dragon rune icon path structure
   // Icon path is like: "perk-images/Styles/7200_Domination/7201_PressTheAttack/7201_PressTheAttack.png"
-  // We need to construct the full URL
-  const imageUrl = `https://ddragon.leagueoflegends.com/cdn/${runeDataCache.version}/img/${rune.icon}`;
+  // Try standard ddragon first, fallback to canisback CDN if needed
+  const standardUrl = `https://ddragon.leagueoflegends.com/cdn/${runeDataCache.version}/img/${rune.icon}`;
+  const canisbackUrl = `https://ddragon.canisback.com/img/${rune.icon}`;
   
   // Validate the icon path
   if (!rune.icon || rune.icon.trim() === '') {
@@ -208,8 +209,9 @@ export async function getRuneImageUrl(perkId: number): Promise<string> {
     return `https://ddragon.leagueoflegends.com/cdn/${runeDataCache.version}/img/perk-images/StatMods/StatModsEmpty.png`;
   }
   
-  console.log(`[getRuneImageUrl] Returning image URL for perk ID ${perkId}: ${imageUrl}`);
-  return imageUrl;
+  // Return standard URL (frontend will handle fallback if it fails)
+  console.log(`[getRuneImageUrl] Returning image URL for perk ID ${perkId}: ${standardUrl}`);
+  return standardUrl;
 }
 
 /**

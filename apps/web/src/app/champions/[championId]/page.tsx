@@ -592,42 +592,17 @@ export default function ChampionBuildPage() {
                         src={runeStyleImages.get(selectedBuild.runes.primaryStyleId)!}
                         alt={`Style ${selectedBuild.runes.primaryStyleId}`}
                         className="w-full h-full object-cover"
-                        onLoad={() => {
-                          console.log(`[RuneStyleImage] ✅ Successfully loaded primary style ${selectedBuild.runes.primaryStyleId}`);
-                          // #region agent log
-                          fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:591',message:'Primary style image loaded successfully',data:{styleId:selectedBuild.runes.primaryStyleId,imageUrl:runeStyleImages.get(selectedBuild.runes.primaryStyleId)},timestamp:Date.now(),runId:'debug3',hypothesisId:'U'})}).catch(()=>{});
-                          // #endregion
-                        }}
                         onError={async (e) => {
                           const img = e.target as HTMLImageElement;
                           const styleUrl = runeStyleImages.get(selectedBuild.runes.primaryStyleId);
-                          const errorDetails = {
-                            styleId: selectedBuild.runes.primaryStyleId,
-                            styleUrl,
-                            naturalWidth: img.naturalWidth,
-                            naturalHeight: img.naturalHeight,
-                            complete: img.complete,
-                            currentSrc: img.currentSrc,
-                            src: img.src,
-                            error: img.error?.message || 'Unknown error'
-                          };
-                          console.error(`[RuneStyleImage] ❌ Failed to load primary style ${selectedBuild.runes.primaryStyleId}:`, errorDetails);
-                          // #region agent log
-                          fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:595',message:'Primary style image failed to load',data:errorDetails,timestamp:Date.now(),runId:'debug3',hypothesisId:'V'})}).catch(()=>{});
-                          // #endregion
+                          console.error(`[RuneStyleImage] Failed to load primary style ${selectedBuild.runes.primaryStyleId}: ${styleUrl}`);
+                          // Try alternative CDN (canisback) as fallback
                           try {
-                            const { getRuneStyleImageUrl } = await import('@/utils/runeData');
-                            const newUrl = await getRuneStyleImageUrl(selectedBuild.runes.primaryStyleId);
-                            if (newUrl) {
-                              img.src = newUrl;
-                              // Update the state
-                              setRuneStyleImages(prev => new Map(prev).set(selectedBuild.runes.primaryStyleId, newUrl));
-                            } else {
-                              img.style.display = 'none';
-                              const parent = img.parentElement;
-                              if (parent) {
-                                parent.innerHTML = `<span class="text-xs text-[#94A3B8]">Style ${selectedBuild.runes.primaryStyleId}</span>`;
-                              }
+                            if (styleUrl) {
+                              const altUrl = styleUrl.replace('ddragon.leagueoflegends.com/cdn', 'ddragon.canisback.com');
+                              console.log(`[RuneStyleImage] Trying alternative CDN for style ${selectedBuild.runes.primaryStyleId}: ${altUrl}`);
+                              img.src = altUrl;
+                              setRuneStyleImages(prev => new Map(prev).set(selectedBuild.runes.primaryStyleId, altUrl));
                             }
                           } catch (err) {
                             console.error(`[RuneStyleImage] Error reloading style ${selectedBuild.runes.primaryStyleId}:`, err);
@@ -657,13 +632,6 @@ export default function ChampionBuildPage() {
                         allKeys: Array.from(runeImages.keys()),
                         allEntries: Array.from(runeImages.entries()).slice(0, 5)
                       });
-                      // #region agent log
-                      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:620',message:'Rendering primary rune',data:{perkId,perkIdNum,runeImg,hasImage:!!runeImg,runeImagesSize:runeImages.size,runeImagesKeys:Array.from(runeImages.keys()),hasKey:runeImages.has(perkIdNum),getResult:runeImages.get(perkIdNum)},timestamp:Date.now(),runId:'debug2',hypothesisId:'M'})}).catch(()=>{});
-                      // #endregion
-                      // #region agent log
-                      console.log(`[RuneRender] About to render rune ${perkIdNum}, runeImg exists:`, !!runeImg, 'runeImg value:', runeImg);
-                      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:636',message:'About to render rune image',data:{perkIdNum,runeImg,willRender:!!runeImg},timestamp:Date.now(),runId:'debug2',hypothesisId:'N'})}).catch(()=>{});
-                      // #endregion
                       return (
                         <div
                           key={`${perkIdNum}-${idx}`}
@@ -677,57 +645,14 @@ export default function ChampionBuildPage() {
                                 alt={runeName}
                                 className="w-full h-full object-cover rounded-lg"
                                 style={{ display: 'block' }}
-                                onLoad={() => {
-                                  console.log(`[RuneImage] ✅ Successfully loaded rune image for perk ${perkIdNum}: ${runeImg}`);
-                                  // #region agent log
-                                  fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:647',message:'Rune image loaded successfully',data:{perkIdNum,runeImg,imageElementExists:true,imageNaturalWidth:0,imageNaturalHeight:0},timestamp:Date.now(),runId:'debug3',hypothesisId:'Q'})}).catch(()=>{});
-                                  // #endregion
-                                }}
                                 onError={async (e) => {
                                   const img = e.target as HTMLImageElement;
-                                  const errorDetails = {
-                                    perkIdNum,
-                                    runeImg,
-                                    perkId,
-                                    naturalWidth: img.naturalWidth,
-                                    naturalHeight: img.naturalHeight,
-                                    complete: img.complete,
-                                    currentSrc: img.currentSrc,
-                                    src: img.src,
-                                    error: img.error?.message || 'Unknown error'
-                                  };
-                                  console.error(`[RuneImage] ❌ Failed to load rune image for perk ${perkIdNum}:`, errorDetails);
-                                  // #region agent log
-                                  fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:650',message:'Rune image failed to load',data:errorDetails,timestamp:Date.now(),runId:'debug3',hypothesisId:'R'})}).catch(()=>{});
-                                  // #endregion
-                                  // Test if URL is accessible
+                                  console.error(`[RuneImage] Failed to load rune image for perk ${perkIdNum}: ${runeImg}`);
+                                  // Try alternative CDN (canisback) as fallback
                                   try {
-                                    const testResponse = await fetch(runeImg, { method: 'HEAD', mode: 'no-cors' });
-                                    console.log(`[RuneImage] URL accessibility test for ${runeImg}:`, testResponse);
-                                    // #region agent log
-                                    fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:655',message:'URL accessibility test',data:{runeImg,testResponseStatus:testResponse.status,testResponseOk:testResponse.ok},timestamp:Date.now(),runId:'debug3',hypothesisId:'S'})}).catch(()=>{});
-                                    // #endregion
-                                  } catch (fetchErr) {
-                                    console.error(`[RuneImage] URL fetch test failed:`, fetchErr);
-                                    // #region agent log
-                                    fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:658',message:'URL fetch test failed',data:{runeImg,error:fetchErr instanceof Error?fetchErr.message:String(fetchErr)},timestamp:Date.now(),runId:'debug3',hypothesisId:'T'})}).catch(()=>{});
-                                    // #endregion
-                                  }
-                                  // Try to reload the rune image
-                                  try {
-                                    const { getRuneImageUrl } = await import('@/utils/runeData');
-                                    const newUrl = await getRuneImageUrl(perkIdNum);
-                                    if (newUrl && newUrl !== runeImg) {
-                                      console.log(`[RuneImage] Retrying with new URL for perk ${perkIdNum}: ${newUrl}`);
-                                      img.src = newUrl;
-                                    } else {
-                                      console.warn(`[RuneImage] No alternative URL found for perk ${perkIdNum}, showing fallback`);
-                                      img.style.display = 'none';
-                                      const parent = img.parentElement;
-                                      if (parent) {
-                                        parent.innerHTML = `<span class="text-xs text-[#94A3B8]">${perkIdNum}</span>`;
-                                      }
-                                    }
+                                    const altUrl = runeImg.replace('ddragon.leagueoflegends.com/cdn', 'ddragon.canisback.com');
+                                    console.log(`[RuneImage] Trying alternative CDN for perk ${perkIdNum}: ${altUrl}`);
+                                    img.src = altUrl;
                                   } catch (err) {
                                     console.error(`[RuneImage] Error reloading rune ${perkIdNum}:`, err);
                                     img.style.display = 'none';
@@ -771,42 +696,17 @@ export default function ChampionBuildPage() {
                         src={runeStyleImages.get(selectedBuild.runes.subStyleId)!}
                         alt={`Style ${selectedBuild.runes.subStyleId}`}
                         className="w-full h-full object-cover"
-                        onLoad={() => {
-                          console.log(`[RuneStyleImage] ✅ Successfully loaded sub style ${selectedBuild.runes.subStyleId}`);
-                          // #region agent log
-                          fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:744',message:'Sub style image loaded successfully',data:{styleId:selectedBuild.runes.subStyleId,imageUrl:runeStyleImages.get(selectedBuild.runes.subStyleId)},timestamp:Date.now(),runId:'debug3',hypothesisId:'W'})}).catch(()=>{});
-                          // #endregion
-                        }}
                         onError={async (e) => {
                           const img = e.target as HTMLImageElement;
                           const styleUrl = runeStyleImages.get(selectedBuild.runes.subStyleId);
-                          const errorDetails = {
-                            styleId: selectedBuild.runes.subStyleId,
-                            styleUrl,
-                            naturalWidth: img.naturalWidth,
-                            naturalHeight: img.naturalHeight,
-                            complete: img.complete,
-                            currentSrc: img.currentSrc,
-                            src: img.src,
-                            error: img.error?.message || 'Unknown error'
-                          };
-                          console.error(`[RuneStyleImage] ❌ Failed to load sub style ${selectedBuild.runes.subStyleId}:`, errorDetails);
-                          // #region agent log
-                          fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:748',message:'Sub style image failed to load',data:errorDetails,timestamp:Date.now(),runId:'debug3',hypothesisId:'X'})}).catch(()=>{});
-                          // #endregion
+                          console.error(`[RuneStyleImage] Failed to load sub style ${selectedBuild.runes.subStyleId}: ${styleUrl}`);
+                          // Try alternative CDN (canisback) as fallback
                           try {
-                            const { getRuneStyleImageUrl } = await import('@/utils/runeData');
-                            const newUrl = await getRuneStyleImageUrl(selectedBuild.runes.subStyleId);
-                            if (newUrl) {
-                              img.src = newUrl;
-                              // Update the state
-                              setRuneStyleImages(prev => new Map(prev).set(selectedBuild.runes.subStyleId, newUrl));
-                            } else {
-                              img.style.display = 'none';
-                              const parent = img.parentElement;
-                              if (parent) {
-                                parent.innerHTML = `<span class="text-xs text-[#94A3B8]">Style ${selectedBuild.runes.subStyleId}</span>`;
-                              }
+                            if (styleUrl) {
+                              const altUrl = styleUrl.replace('ddragon.leagueoflegends.com/cdn', 'ddragon.canisback.com');
+                              console.log(`[RuneStyleImage] Trying alternative CDN for style ${selectedBuild.runes.subStyleId}: ${altUrl}`);
+                              img.src = altUrl;
+                              setRuneStyleImages(prev => new Map(prev).set(selectedBuild.runes.subStyleId, altUrl));
                             }
                           } catch (err) {
                             console.error(`[RuneStyleImage] Error reloading style ${selectedBuild.runes.subStyleId}:`, err);
@@ -963,11 +863,6 @@ export default function ChampionBuildPage() {
                     <div>
                       <h3 className="text-sm font-semibold text-[#94A3B8] mb-3 uppercase tracking-wider">Starting Items</h3>
                       {build.itemBuilds.starting.slice(0, 1).map((buildOption, optIdx) => {
-                        // #region agent log
-                        console.log(`[ItemBuildRender] Starting items buildOption[${optIdx}]:`, { items: buildOption.items, itemsLength: buildOption.items.length, winRate: buildOption.winRate, games: buildOption.games });
-                        console.log(`[ItemBuildRender] Starting items buildOption[${optIdx}] actual item IDs:`, buildOption.items);
-                        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:852',message:'Starting items buildOption',data:{optIdx,items:buildOption.items,itemsLength:buildOption.items.length,itemIds:buildOption.items,winRate:buildOption.winRate,games:buildOption.games},timestamp:Date.now(),runId:'debug2',hypothesisId:'C'})}).catch(()=>{});
-                        // #endregion
                         return (
                         <div key={optIdx} className="mb-4">
                           <div className="flex flex-wrap gap-2 mb-2">
@@ -1012,11 +907,6 @@ export default function ChampionBuildPage() {
                     <div>
                       <h3 className="text-sm font-semibold text-[#94A3B8] mb-3 uppercase tracking-wider">Core Items</h3>
                       {build.itemBuilds.core.slice(0, 1).map((buildOption, optIdx) => {
-                        // #region agent log
-                        console.log(`[ItemBuildRender] Core items buildOption[${optIdx}]:`, { items: buildOption.items, itemsLength: buildOption.items.length, winRate: buildOption.winRate, games: buildOption.games });
-                        console.log(`[ItemBuildRender] Core items buildOption[${optIdx}] actual item IDs:`, buildOption.items);
-                        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:894',message:'Core items buildOption',data:{optIdx,items:buildOption.items,itemsLength:buildOption.items.length,itemIds:buildOption.items,winRate:buildOption.winRate,games:buildOption.games},timestamp:Date.now(),runId:'debug2',hypothesisId:'D'})}).catch(()=>{});
-                        // #endregion
                         return (
                         <div key={optIdx} className="mb-4">
                           <div className="flex flex-wrap gap-2 mb-2">
@@ -1061,11 +951,6 @@ export default function ChampionBuildPage() {
                     <div>
                       <h3 className="text-sm font-semibold text-[#94A3B8] mb-3 uppercase tracking-wider">Fourth Item</h3>
                       {build.itemBuilds.fourth.slice(0, 3).map((buildOption, optIdx) => {
-                        // #region agent log
-                        console.log(`[ItemBuildRender] Fourth items buildOption[${optIdx}]:`, { items: buildOption.items, itemsLength: buildOption.items.length, winRate: buildOption.winRate, games: buildOption.games });
-                        console.log(`[ItemBuildRender] Fourth items buildOption[${optIdx}] actual item IDs:`, buildOption.items);
-                        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:936',message:'Fourth items buildOption',data:{optIdx,items:buildOption.items,itemsLength:buildOption.items.length,itemIds:buildOption.items,winRate:buildOption.winRate,games:buildOption.games},timestamp:Date.now(),runId:'debug2',hypothesisId:'E'})}).catch(()=>{});
-                        // #endregion
                         return (
                           <div key={optIdx} className="mb-3">
                             <div className="flex gap-2 mb-1">

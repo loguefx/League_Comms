@@ -1235,14 +1235,22 @@ export class BuildAggregationService {
         const games = Number(ib.games);
         const wins = Number(ib.wins);
         const smoothedWinRate = (wins + this.SMOOTHING_K * 0.5) / (games + this.SMOOTHING_K);
-        // Filter out zeros (empty slots) from items array
-        const filteredItems = Array.isArray(ib.items) ? ib.items.filter(id => Number(id) > 0) : [];
+        // Filter out zeros (empty slots) and component items (items < 3000, except starter items 1055-1058)
+        const filteredItems = Array.isArray(ib.items) 
+          ? ib.items
+              .filter(id => {
+                const itemId = Number(id);
+                // Keep items >= 3000 (full items) or starter items (1055-1058)
+                return itemId > 0 && (itemId >= 3000 || (itemId >= 1055 && itemId <= 1058));
+              })
+              .sort((a, b) => Number(a) - Number(b)) // Sort items in ascending order
+          : [];
         return {
           items: filteredItems,
           winRate: smoothedWinRate,
           games,
         };
-      });
+      }).sort((a, b) => b.games - a.games); // Sort builds by games (most common first)
     }
 
     this.logger.log(`[getAllItemBuilds] Final result for champion ${championId}:`, {
