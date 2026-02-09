@@ -455,13 +455,14 @@ export class BuildAggregationService {
               rank_bracket,
               role,
               champion_id,
-              item_slice,
+              array_remove(item_slice, 0) AS item_slice,
               COUNT(*)::bigint AS frequency,
               SUM(CASE WHEN win THEN 1 ELSE 0 END)::bigint AS wins
             FROM filtered_items
+            WHERE array_length(array_remove(item_slice, 0), 1) >= 1
             GROUP BY
               patch, region, queue_id, rank_bracket,
-              role, champion_id, item_slice
+              role, champion_id, array_remove(item_slice, 0)
           ),
            ranked_combinations AS (
              SELECT *,
