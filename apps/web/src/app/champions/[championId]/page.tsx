@@ -668,25 +668,71 @@ export default function ChampionBuildPage() {
                                 alt={runeName}
                                 className="w-full h-full object-cover rounded-lg"
                                 style={{ display: 'block' }}
+                                onLoad={(e) => {
+                                  const img = e.target as HTMLImageElement;
+                                  console.log(`[RuneImage] Successfully loaded primary rune image for perk ${perkIdNum}: ${img.src}`);
+                                  img.style.display = 'block';
+                                  img.style.opacity = '1';
+                                }}
                                 onError={async (e) => {
                                   const img = e.target as HTMLImageElement;
-                                  console.error(`[RuneImage] Failed to load rune image for perk ${perkIdNum}: ${runeImg}`);
-                                  // Try alternative CDN (canisback) as fallback
-                                  // canisback CDN structure: https://ddragon.canisback.com/img/{icon_path}
-                                  // Standard CDN structure: https://ddragon.leagueoflegends.com/cdn/{version}/img/{icon_path}
+                                  const currentSrc = img.src;
+                                  console.error(`[RuneImage] Failed to load rune image for perk ${perkIdNum}: ${currentSrc}`);
+                                  
+                                  // Try multiple fallback strategies
                                   try {
-                                    // Extract the icon path from the URL (everything after /img/)
                                     const iconPathMatch = runeImg.match(/\/img\/(.+)$/);
                                     if (iconPathMatch) {
                                       const iconPath = iconPathMatch[1];
-                                      const altUrl = `https://ddragon.canisback.com/img/${iconPath}`;
-                                      console.log(`[RuneImage] Trying alternative CDN for perk ${perkIdNum}: ${altUrl}`);
-                                      img.src = altUrl;
+                                      
+                                      // Strategy 1: Try canisback without version
+                                      if (!currentSrc.includes('canisback.com')) {
+                                        const altUrl1 = `https://ddragon.canisback.com/img/${iconPath}`;
+                                        console.log(`[RuneImage] Trying fallback CDN (strategy 1) for perk ${perkIdNum}: ${altUrl1}`);
+                                        img.onerror = null; // Remove this handler to prevent infinite loop
+                                        img.src = altUrl1;
+                                        
+                                        // Set up new error handler for fallback
+                                        img.onerror = async (e2) => {
+                                          const img2 = e2.target as HTMLImageElement;
+                                          console.error(`[RuneImage] Fallback CDN also failed for perk ${perkIdNum}: ${img2.src}`);
+                                          
+                                          // Strategy 2: Try canisback with version from original URL
+                                          const versionMatch = runeImg.match(/\/cdn\/([^/]+)\//);
+                                          if (versionMatch) {
+                                            const version = versionMatch[1];
+                                            const altUrl2 = `https://ddragon.canisback.com/${version}/img/${iconPath}`;
+                                            console.log(`[RuneImage] Trying fallback CDN (strategy 2) for perk ${perkIdNum}: ${altUrl2}`);
+                                            img2.onerror = null;
+                                            img2.src = altUrl2;
+                                            
+                                            // Final fallback: show text
+                                            img2.onerror = () => {
+                                              console.error(`[RuneImage] All fallbacks failed for perk ${perkIdNum}`);
+                                              img2.style.display = 'none';
+                                              const parent = img2.parentElement;
+                                              if (parent) {
+                                                parent.innerHTML = `<span class="text-xs text-[#94A3B8]">${perkIdNum}</span>`;
+                                              }
+                                            };
+                                          } else {
+                                            // No version found, show text
+                                            img2.style.display = 'none';
+                                            const parent = img2.parentElement;
+                                            if (parent) {
+                                              parent.innerHTML = `<span class="text-xs text-[#94A3B8]">${perkIdNum}</span>`;
+                                            }
+                                          }
+                                        };
+                                      } else {
+                                        // Already tried canisback, show text
+                                        throw new Error('All CDN attempts failed');
+                                      }
                                     } else {
                                       throw new Error('Could not extract icon path from URL');
                                     }
                                   } catch (err) {
-                                    console.error(`[RuneImage] Error reloading rune ${perkIdNum}:`, err);
+                                    console.error(`[RuneImage] Error handling fallback for rune ${perkIdNum}:`, err);
                                     img.style.display = 'none';
                                     const parent = img.parentElement;
                                     if (parent) {
@@ -815,22 +861,71 @@ export default function ChampionBuildPage() {
                                 alt={runeName}
                                 className="w-full h-full object-cover rounded-lg"
                                 style={{ display: 'block' }}
+                                onLoad={(e) => {
+                                  const img = e.target as HTMLImageElement;
+                                  console.log(`[RuneImage] Successfully loaded secondary rune image for perk ${perkIdNum}: ${img.src}`);
+                                  img.style.display = 'block';
+                                  img.style.opacity = '1';
+                                }}
                                 onError={async (e) => {
                                   const img = e.target as HTMLImageElement;
-                                  console.error(`[RuneImage] Failed to load rune image for perk ${perkIdNum}: ${runeImg}`);
-                                  // Try alternative CDN (canisback) as fallback
+                                  const currentSrc = img.src;
+                                  console.error(`[RuneImage] Failed to load secondary rune image for perk ${perkIdNum}: ${currentSrc}`);
+                                  
+                                  // Try multiple fallback strategies
                                   try {
                                     const iconPathMatch = runeImg.match(/\/img\/(.+)$/);
                                     if (iconPathMatch) {
                                       const iconPath = iconPathMatch[1];
-                                      const altUrl = `https://ddragon.canisback.com/img/${iconPath}`;
-                                      console.log(`[RuneImage] Trying alternative CDN for perk ${perkIdNum}: ${altUrl}`);
-                                      img.src = altUrl;
+                                      
+                                      // Strategy 1: Try canisback without version
+                                      if (!currentSrc.includes('canisback.com')) {
+                                        const altUrl1 = `https://ddragon.canisback.com/img/${iconPath}`;
+                                        console.log(`[RuneImage] Trying fallback CDN (strategy 1) for perk ${perkIdNum}: ${altUrl1}`);
+                                        img.onerror = null; // Remove this handler to prevent infinite loop
+                                        img.src = altUrl1;
+                                        
+                                        // Set up new error handler for fallback
+                                        img.onerror = async (e2) => {
+                                          const img2 = e2.target as HTMLImageElement;
+                                          console.error(`[RuneImage] Fallback CDN also failed for perk ${perkIdNum}: ${img2.src}`);
+                                          
+                                          // Strategy 2: Try canisback with version from original URL
+                                          const versionMatch = runeImg.match(/\/cdn\/([^/]+)\//);
+                                          if (versionMatch) {
+                                            const version = versionMatch[1];
+                                            const altUrl2 = `https://ddragon.canisback.com/${version}/img/${iconPath}`;
+                                            console.log(`[RuneImage] Trying fallback CDN (strategy 2) for perk ${perkIdNum}: ${altUrl2}`);
+                                            img2.onerror = null;
+                                            img2.src = altUrl2;
+                                            
+                                            // Final fallback: show text
+                                            img2.onerror = () => {
+                                              console.error(`[RuneImage] All fallbacks failed for perk ${perkIdNum}`);
+                                              img2.style.display = 'none';
+                                              const parent = img2.parentElement;
+                                              if (parent) {
+                                                parent.innerHTML = `<span class="text-xs text-[#94A3B8]">${perkIdNum}</span>`;
+                                              }
+                                            };
+                                          } else {
+                                            // No version found, show text
+                                            img2.style.display = 'none';
+                                            const parent = img2.parentElement;
+                                            if (parent) {
+                                              parent.innerHTML = `<span class="text-xs text-[#94A3B8]">${perkIdNum}</span>`;
+                                            }
+                                          }
+                                        };
+                                      } else {
+                                        // Already tried canisback, show text
+                                        throw new Error('All CDN attempts failed');
+                                      }
                                     } else {
                                       throw new Error('Could not extract icon path from URL');
                                     }
                                   } catch (err) {
-                                    console.error(`[RuneImage] Error reloading rune ${perkIdNum}:`, err);
+                                    console.error(`[RuneImage] Error handling fallback for rune ${perkIdNum}:`, err);
                                     img.style.display = 'none';
                                     const parent = img.parentElement;
                                     if (parent) {
@@ -965,12 +1060,19 @@ export default function ChampionBuildPage() {
                                       (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${itemId}</span>`;
                                     }}
                                   />
-                                  {itemInfo && (
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-4 py-3 bg-[#0F172A] border border-[#334155] rounded-lg text-sm text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-pre-line max-w-sm z-50 shadow-xl">
-                                      <div className="font-bold text-base text-amber-400 mb-2">{itemInfo.name}</div>
-                                      <div className="text-[#94A3B8] leading-relaxed">{itemInfo.description}</div>
-                                    </div>
-                                  )}
+                                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-4 py-3 bg-[#0F172A] border border-[#334155] rounded-lg text-sm text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-pre-line max-w-sm z-50 shadow-xl">
+                                    {itemInfo ? (
+                                      <>
+                                        <div className="font-bold text-base text-amber-400 mb-2">{itemInfo.name}</div>
+                                        <div className="text-[#94A3B8] leading-relaxed">{itemInfo.description}</div>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <div className="font-bold text-base text-amber-400 mb-2">Item {itemId}</div>
+                                        <div className="text-[#94A3B8] leading-relaxed">Loading item data...</div>
+                                      </>
+                                    )}
+                                  </div>
                                 </div>
                               );
                             })}
@@ -1009,12 +1111,19 @@ export default function ChampionBuildPage() {
                                       (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${itemId}</span>`;
                                     }}
                                   />
-                                  {itemInfo && (
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-4 py-3 bg-[#0F172A] border border-[#334155] rounded-lg text-sm text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-pre-line max-w-sm z-50 shadow-xl">
-                                      <div className="font-bold text-base text-amber-400 mb-2">{itemInfo.name}</div>
-                                      <div className="text-[#94A3B8] leading-relaxed">{itemInfo.description}</div>
-                                    </div>
-                                  )}
+                                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-4 py-3 bg-[#0F172A] border border-[#334155] rounded-lg text-sm text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-pre-line max-w-sm z-50 shadow-xl">
+                                    {itemInfo ? (
+                                      <>
+                                        <div className="font-bold text-base text-amber-400 mb-2">{itemInfo.name}</div>
+                                        <div className="text-[#94A3B8] leading-relaxed">{itemInfo.description}</div>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <div className="font-bold text-base text-amber-400 mb-2">Item {itemId}</div>
+                                        <div className="text-[#94A3B8] leading-relaxed">Loading item data...</div>
+                                      </>
+                                    )}
+                                  </div>
                                 </div>
                               );
                             })}
@@ -1096,12 +1205,19 @@ export default function ChampionBuildPage() {
                                       (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${itemId}</span>`;
                                     }}
                                   />
-                                  {itemInfo && (
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-4 py-3 bg-[#0F172A] border border-[#334155] rounded-lg text-sm text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-pre-line max-w-sm z-50 shadow-xl">
-                                      <div className="font-bold text-base text-amber-400 mb-2">{itemInfo.name}</div>
-                                      <div className="text-[#94A3B8] leading-relaxed">{itemInfo.description}</div>
-                                    </div>
-                                  )}
+                                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-4 py-3 bg-[#0F172A] border border-[#334155] rounded-lg text-sm text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-pre-line max-w-sm z-50 shadow-xl">
+                                    {itemInfo ? (
+                                      <>
+                                        <div className="font-bold text-base text-amber-400 mb-2">{itemInfo.name}</div>
+                                        <div className="text-[#94A3B8] leading-relaxed">{itemInfo.description}</div>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <div className="font-bold text-base text-amber-400 mb-2">Item {itemId}</div>
+                                        <div className="text-[#94A3B8] leading-relaxed">Loading item data...</div>
+                                      </>
+                                    )}
+                                  </div>
                                 </div>
                               );
                             })}
@@ -1138,12 +1254,19 @@ export default function ChampionBuildPage() {
                                       (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${itemId}</span>`;
                                     }}
                                   />
-                                  {itemInfo && (
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-4 py-3 bg-[#0F172A] border border-[#334155] rounded-lg text-sm text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-pre-line max-w-sm z-50 shadow-xl">
-                                      <div className="font-bold text-base text-amber-400 mb-2">{itemInfo.name}</div>
-                                      <div className="text-[#94A3B8] leading-relaxed">{itemInfo.description}</div>
-                                    </div>
-                                  )}
+                                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-4 py-3 bg-[#0F172A] border border-[#334155] rounded-lg text-sm text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-pre-line max-w-sm z-50 shadow-xl">
+                                    {itemInfo ? (
+                                      <>
+                                        <div className="font-bold text-base text-amber-400 mb-2">{itemInfo.name}</div>
+                                        <div className="text-[#94A3B8] leading-relaxed">{itemInfo.description}</div>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <div className="font-bold text-base text-amber-400 mb-2">Item {itemId}</div>
+                                        <div className="text-[#94A3B8] leading-relaxed">Loading item data...</div>
+                                      </>
+                                    )}
+                                  </div>
                                 </div>
                               );
                             })}
