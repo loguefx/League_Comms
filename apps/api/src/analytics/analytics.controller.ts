@@ -438,6 +438,9 @@ export class AnalyticsController {
     @Query('patch') patch?: string,
     @Query('region') region?: string
   ) {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'analytics.controller.ts:434',message:'getChampionBuild entry',data:{championId,rank,role,patch,region},timestamp:Date.now(),runId:'debug1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     try {
       const champId = parseInt(championId, 10);
       if (isNaN(champId)) {
@@ -643,6 +646,10 @@ export class AnalyticsController {
           : [],
       } : null;
 
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'analytics.controller.ts:647',message:'Before building responseData',data:{buildArchetypesLength:buildArchetypes.length,allItemBuildsKeys:Object.keys(allItemBuilds)},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+      
       // Build the response object
       const responseData = {
         championId: champId,
@@ -703,24 +710,33 @@ export class AnalyticsController {
           overallWinRate: Number(archetype.overallWinRate) * 100,
         })),
       };
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'analytics.controller.ts:705',message:'After building responseData',data:{responseDataKeys:Object.keys(responseData),buildsLength:responseData.builds.length},timestamp:Date.now(),runId:'debug1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
 
       // Final sanitization pass - recursively convert any remaining BigInt values
-      const sanitizeBigInt = (obj: any): any => {
+      const sanitizeBigInt = (obj: any, path: string = 'root'): any => {
+        // #region agent log
+        if (typeof obj === 'bigint') {
+          fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'analytics.controller.ts:708',message:'Found BigInt during sanitizeBigInt',data:{path,value:String(obj)},timestamp:Date.now(),runId:'debug1',hypothesisId:'D'})}).catch(()=>{});
+        }
+        // #endregion
         if (obj === null || obj === undefined) {
           return obj;
         }
         if (typeof obj === 'bigint') {
-          console.warn(`[getChampionBuild] Found BigInt in final sanitization, converting to number`);
+          console.warn(`[getChampionBuild] Found BigInt in final sanitization at path ${path}, converting to number`);
           return Number(obj);
         }
         if (Array.isArray(obj)) {
-          return obj.map(item => sanitizeBigInt(item));
+          return obj.map((item, idx) => sanitizeBigInt(item, `${path}[${idx}]`));
         }
         if (typeof obj === 'object') {
           const sanitized: any = {};
           for (const key in obj) {
             if (obj.hasOwnProperty(key)) {
-              sanitized[key] = sanitizeBigInt(obj[key]);
+              sanitized[key] = sanitizeBigInt(obj[key], `${path}.${key}`);
             }
           }
           return sanitized;
@@ -729,23 +745,42 @@ export class AnalyticsController {
       };
 
       // Test serialization before returning with multiple passes
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'analytics.controller.ts:732',message:'Before sanitizeBigInt call',data:{responseDataType:typeof responseData},timestamp:Date.now(),runId:'debug1',hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
       let finalResponse = sanitizeBigInt(responseData);
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'analytics.controller.ts:735',message:'After sanitizeBigInt call',data:{finalResponseKeys:Object.keys(finalResponse)},timestamp:Date.now(),runId:'debug1',hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
       
       // Try serialization multiple times to catch any remaining BigInt values
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'analytics.controller.ts:738',message:'Before JSON.stringify attempt',data:{attempt:attempt+1},timestamp:Date.now(),runId:'debug1',hypothesisId:'A'})}).catch(()=>{});
+          // #endregion
           // Use a replacer function to catch BigInt during stringify
           JSON.stringify(finalResponse, (key, value) => {
             if (typeof value === 'bigint') {
+              // #region agent log
+              fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'analytics.controller.ts:742',message:'Found BigInt in JSON.stringify replacer',data:{key,attempt:attempt+1},timestamp:Date.now(),runId:'debug1',hypothesisId:'A'})}).catch(()=>{});
+              // #endregion
               console.warn(`[getChampionBuild] Found BigInt at path: ${key} during stringify attempt ${attempt + 1}, converting to number`);
               return Number(value);
             }
             return value;
           });
           // If we get here, serialization succeeded
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'analytics.controller.ts:750',message:'JSON.stringify succeeded',data:{attempt:attempt+1},timestamp:Date.now(),runId:'debug1',hypothesisId:'A'})}).catch(()=>{});
+          // #endregion
           console.log(`[getChampionBuild] ✅ Successfully serialized response after ${attempt + 1} attempt(s)`);
           return finalResponse;
         } catch (serializeError: any) {
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'analytics.controller.ts:754',message:'JSON.stringify failed',data:{attempt:attempt+1,errorMessage:serializeError.message,errorName:serializeError.name},timestamp:Date.now(),runId:'debug1',hypothesisId:'A'})}).catch(()=>{});
+          // #endregion
           console.error(`[getChampionBuild] ❌ Serialization attempt ${attempt + 1} failed:`, serializeError.message);
           if (serializeError.message && serializeError.message.includes('BigInt')) {
             // Re-sanitize and try again
@@ -768,10 +803,16 @@ export class AnalyticsController {
       console.warn(`[getChampionBuild] ⚠️ Returning response after failed serialization attempts - interceptor will handle it`);
       return finalResponse;
     } catch (error: any) {
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'analytics.controller.ts:770',message:'Caught error in getChampionBuild',data:{errorMessage:error.message,errorName:error.name,errorStack:error.stack?.substring(0,500)},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       console.error('[AnalyticsController] Error getting champion build:', error);
       
       // If it's a BigInt serialization error, return a safe fallback response
       if (error.message && (error.message.includes('BigInt') || error.message.includes('serialize'))) {
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'analytics.controller.ts:775',message:'BigInt serialization error detected',data:{championId,errorMessage:error.message},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
         console.error(`[getChampionBuild] BigInt serialization error detected for champion ${championId}`);
         console.error(`[getChampionBuild] Error details:`, error.message);
         

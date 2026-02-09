@@ -1411,12 +1411,20 @@ export class BuildAggregationService {
           wins: bigint;
         }>>(query);
         
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:1408',message:'Raw items query result',data:{rawItemsLength:rawItems.length,firstItemGamesType:rawItems[0]?typeof rawItems[0].games:'none',firstItemWinsType:rawItems[0]?typeof rawItems[0].wins:'none'},timestamp:Date.now(),runId:'debug1',hypothesisId:'E'})}).catch(()=>{});
+        // #endregion
+        
         // Convert BigInt to numbers immediately
         matchingItems = rawItems.map(item => ({
           items: item.items,
           games: Number(item.games),
           wins: Number(item.wins),
         }));
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:1419',message:'After converting matchingItems',data:{matchingItemsLength:matchingItems.length,firstItemGamesType:matchingItems[0]?typeof matchingItems[0].games:'none',firstItemWinsType:matchingItems[0]?typeof matchingItems[0].wins:'none'},timestamp:Date.now(),runId:'debug1',hypothesisId:'E'})}).catch(()=>{});
+        // #endregion
       } catch (error) {
         this.logger.warn(`Failed to find matching items for rune page:`, error);
       }
