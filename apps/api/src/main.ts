@@ -4,6 +4,7 @@ import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/http-exception.filter';
 import { RiotRateLimitInterceptor } from './common/riot-rate-limit.interceptor';
+import { BigIntSerializerInterceptor } from './common/bigint-serializer.interceptor';
 
 async function bootstrap() {
   // @ts-ignore - FastifyAdapter type conflicts with NestJS CORS types
@@ -50,40 +51,10 @@ async function bootstrap() {
   );
 
   // Global interceptors
-  app.useGlobalInterceptors(new RiotRateLimitInterceptor() as any);
-
-  // Add BigInt serializer for Fastify JSON responses
-  // Hook into Fastify's reply to convert BigInt before serialization
-  const fastifyInstance = app.getHttpAdapter().getInstance();
-  
-  // Recursively convert BigInt values to numbers
-  const convertBigInt = (obj: any): any => {
-    if (obj === null || obj === undefined) {
-      return obj;
-    }
-    if (typeof obj === 'bigint') {
-      return Number(obj);
-    }
-    if (Array.isArray(obj)) {
-      return obj.map(convertBigInt);
-    }
-    if (typeof obj === 'object' && obj.constructor === Object) {
-      const converted: any = {};
-      for (const key in obj) {
-        converted[key] = convertBigInt(obj[key]);
-      }
-      return converted;
-    }
-    return obj;
-  };
-  
-  // Add hook to convert BigInt before sending response
-  fastifyInstance.addHook('onSend', async (request, reply, payload) => {
-    if (typeof payload === 'object' && payload !== null) {
-      return convertBigInt(payload);
-    }
-    return payload;
-  });
+  app.useGlobalInterceptors(
+    new RiotRateLimitInterceptor() as any,
+    new BigIntSerializerInterceptor()
+  );
 
   const port = process.env.PORT || 4000;
   
