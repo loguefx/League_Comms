@@ -438,8 +438,6 @@ export class AnalyticsController {
     @Query('patch') patch?: string,
     @Query('region') region?: string
   ) {
-    // Wrap entire method in try-catch to handle BigInt serialization errors
-    try {
     try {
       const champId = parseInt(championId, 10);
       if (isNaN(champId)) {
