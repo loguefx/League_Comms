@@ -57,28 +57,37 @@ async function bootstrap() {
   try {
     console.log(`⏳ Starting API server on port ${port}...`);
     
-    // Use app.listen() which properly initializes Fastify
-    // This ensures Fastify hooks are properly set up before handling requests
+    // Explicitly initialize the app (this sets up routes, modules, etc.)
     console.log(`⏳ Initializing NestJS application...`);
+    await app.init();
+    console.log(`✅ NestJS application initialized`);
     
-    // Wait a moment for all modules to initialize
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Wait a moment for all async initialization to complete
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
-    console.log(`⏳ Starting to listen on port ${port}...`);
+    // Get the Fastify instance and start it manually
+    console.log(`⏳ Starting Fastify server...`);
+    const fastifyInstance = app.getHttpAdapter().getInstance();
     
-    // Use app.listen() with a timeout to prevent hanging
-    await Promise.race([
-      app.listen(port, '0.0.0.0'),
-      new Promise<void>((_, reject) => {
-        setTimeout(() => {
-          reject(new Error('app.listen() timed out after 15 seconds'));
-        }, 15000);
-      }),
-    ]);
+    // Start Fastify server
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Fastify listen() timed out after 10 seconds'));
+      }, 10000);
+      
+      fastifyInstance.listen({ port, host: '0.0.0.0' }, (err) => {
+        clearTimeout(timeout);
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+    });
     
     console.log(`✅ Server listen() completed`);
     
-    // Get the HTTP server to verify it's listening
+    // Verify server is listening
     const httpServer = app.getHttpServer();
     const address = httpServer.address();
     
