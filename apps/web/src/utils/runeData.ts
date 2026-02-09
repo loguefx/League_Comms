@@ -176,18 +176,25 @@ async function fetchRuneData(): Promise<void> {
  * Get rune image URL by perk ID
  */
 export async function getRuneImageUrl(perkId: number): Promise<string> {
+  console.log(`[getRuneImageUrl] Called for perk ID: ${perkId}`);
   await fetchRuneData();
   
   if (!runeDataCache) {
+    console.error(`[getRuneImageUrl] Rune data cache is null for perk ID: ${perkId}`);
     return `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/perk-images/StatMods/StatModsEmpty.png`;
   }
 
+  console.log(`[getRuneImageUrl] Cache exists, version: ${runeDataCache.version}, total runes: ${runeDataCache.perkIdToRune.size}`);
   const rune = runeDataCache.perkIdToRune.get(perkId);
   if (!rune) {
-    console.error(`[getRuneImageUrl] Rune not found for perk ID: ${perkId}. Available runes:`, Array.from(runeDataCache.perkIdToRune.keys()).slice(0, 10));
+    console.error(`[getRuneImageUrl] Rune not found for perk ID: ${perkId}`);
+    console.error(`[getRuneImageUrl] Available perk IDs (first 20):`, Array.from(runeDataCache.perkIdToRune.keys()).slice(0, 20));
+    console.error(`[getRuneImageUrl] Checking if perk ID is in cache:`, runeDataCache.perkIdToRune.has(perkId));
     return `https://ddragon.leagueoflegends.com/cdn/${runeDataCache.version}/img/perk-images/StatMods/StatModsEmpty.png`;
   }
 
+  console.log(`[getRuneImageUrl] Found rune for perk ID ${perkId}:`, { name: rune.name, icon: rune.icon, styleId: rune.styleId });
+  
   // Data Dragon rune icon path structure
   // Icon path is like: "perk-images/Styles/7200_Domination/7201_PressTheAttack/7201_PressTheAttack.png"
   // We need to construct the full URL
@@ -199,6 +206,7 @@ export async function getRuneImageUrl(perkId: number): Promise<string> {
     return `https://ddragon.leagueoflegends.com/cdn/${runeDataCache.version}/img/perk-images/StatMods/StatModsEmpty.png`;
   }
   
+  console.log(`[getRuneImageUrl] Returning image URL for perk ID ${perkId}: ${imageUrl}`);
   return imageUrl;
 }
 
@@ -220,6 +228,7 @@ export async function getRuneName(perkId: number): Promise<string> {
  * Get rune style image URL by style ID
  */
 export async function getRuneStyleImageUrl(styleId: number): Promise<string> {
+  console.log(`[getRuneStyleImageUrl] Called for style ID: ${styleId}`);
   // Ensure rune data is loaded first
   await fetchRuneData();
   
@@ -237,10 +246,14 @@ export async function getRuneStyleImageUrl(styleId: number): Promise<string> {
     return `https://ddragon.leagueoflegends.com/cdn/${version}/img/${stylePath}`;
   }
   
+  console.log(`[getRuneStyleImageUrl] Cache exists, version: ${runeDataCache.version}, rune tree length: ${runeDataCache.runeTree.length}`);
+  
   // Data Dragon rune style images are in the rune tree data
   if (runeDataCache.runeTree.length > 0) {
     const style = runeDataCache.runeTree.find(s => s.id === styleId);
+    console.log(`[getRuneStyleImageUrl] Looking for style ${styleId}, found:`, style ? 'YES' : 'NO');
     if (style) {
+      console.log(`[getRuneStyleImageUrl] Style object:`, { id: style.id, name: style.name, icon: style.icon, key: style.key });
       // Check if style has icon property
       if (style.icon) {
         const imageUrl = `https://ddragon.leagueoflegends.com/cdn/${runeDataCache.version}/img/${style.icon}`;
@@ -250,7 +263,7 @@ export async function getRuneStyleImageUrl(styleId: number): Promise<string> {
         console.warn(`[getRuneStyleImageUrl] Style ${styleId} found but has no icon property:`, style);
       }
     } else {
-      console.warn(`[getRuneStyleImageUrl] Style ${styleId} not found in rune tree. Available styles:`, runeDataCache.runeTree.map(s => s.id));
+      console.warn(`[getRuneStyleImageUrl] Style ${styleId} not found in rune tree. Available styles:`, runeDataCache.runeTree.map(s => ({ id: s.id, name: s.name })));
     }
   } else {
     console.warn(`[getRuneStyleImageUrl] Rune tree is empty for style ID: ${styleId}`);

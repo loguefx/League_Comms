@@ -150,17 +150,40 @@ export default function ChampionBuildPage() {
           throw new Error(data.error);
         }
 
-        console.log('[loadBuild] Received build data:', {
-          championId: data.championId,
-          builds: data.builds?.length || 0,
-          itemBuilds: data.itemBuilds ? {
-            starting: data.itemBuilds.starting?.length || 0,
-            core: data.itemBuilds.core?.length || 0,
-            fourth: data.itemBuilds.fourth?.length || 0,
-            fifth: data.itemBuilds.fifth?.length || 0,
-            sixth: data.itemBuilds.sixth?.length || 0,
-          } : null,
+        console.log('[loadBuild] ========== FULL BUILD DATA RECEIVED ==========');
+        console.log('[loadBuild] Champion ID:', data.championId);
+        console.log('[loadBuild] Build archetypes count:', data.builds?.length || 0);
+        console.log('[loadBuild] Full itemBuilds object:', JSON.stringify(data.itemBuilds, null, 2));
+        console.log('[loadBuild] Item builds breakdown:', {
+          hasItemBuilds: !!data.itemBuilds,
+          starting: {
+            exists: !!data.itemBuilds?.starting,
+            length: data.itemBuilds?.starting?.length || 0,
+            data: data.itemBuilds?.starting || []
+          },
+          core: {
+            exists: !!data.itemBuilds?.core,
+            length: data.itemBuilds?.core?.length || 0,
+            data: data.itemBuilds?.core || []
+          },
+          fourth: {
+            exists: !!data.itemBuilds?.fourth,
+            length: data.itemBuilds?.fourth?.length || 0,
+            data: data.itemBuilds?.fourth || []
+          },
+          fifth: {
+            exists: !!data.itemBuilds?.fifth,
+            length: data.itemBuilds?.fifth?.length || 0,
+            data: data.itemBuilds?.fifth || []
+          },
+          sixth: {
+            exists: !!data.itemBuilds?.sixth,
+            length: data.itemBuilds?.sixth?.length || 0,
+            data: data.itemBuilds?.sixth || []
+          }
         });
+        console.log('[loadBuild] First build archetype runes:', data.builds?.[0]?.runes);
+        console.log('[loadBuild] ==============================================');
 
         setBuild(data);
         if (data.builds && data.builds.length > 0) {
@@ -232,7 +255,14 @@ export default function ChampionBuildPage() {
               }
             }
             
+            console.log(`[loadRuneImages] ========== RUNE IMAGE LOADING SUMMARY ==========`);
             console.log(`[loadRuneImages] Loaded ${runeImgMap.size} rune images, ${runeNameMap.size} rune names, ${styleImgMap.size} style images`);
+            console.log(`[loadRuneImages] Rune images map:`, Array.from(runeImgMap.entries()));
+            console.log(`[loadRuneImages] Rune names map:`, Array.from(runeNameMap.entries()));
+            console.log(`[loadRuneImages] Style images map:`, Array.from(styleImgMap.entries()));
+            console.log(`[loadRuneImages] All perk IDs from builds:`, data.builds.flatMap(b => b.runes.perkIds));
+            console.log(`[loadRuneImages] Missing rune images:`, data.builds.flatMap(b => b.runes.perkIds).filter(id => !runeImgMap.has(id)));
+            console.log(`[loadRuneImages] ================================================`);
             
             setRuneImages(runeImgMap);
             setRuneNames(runeNameMap);
@@ -456,6 +486,7 @@ export default function ChampionBuildPage() {
                     {selectedBuild.runes.perkIds.slice(0, 4).map((perkId, idx) => {
                       const runeImg = runeImages.get(perkId);
                       const runeName = runeNames.get(perkId) || `Perk ${perkId}`;
+                      console.log(`[RuneRender] Rendering primary rune ${perkId}:`, { runeImg, runeName, hasImage: !!runeImg, runeImagesSize: runeImages.size });
                       return (
                         <div
                           key={`${perkId}-${idx}`}
@@ -537,6 +568,7 @@ export default function ChampionBuildPage() {
                     {selectedBuild.runes.perkIds.slice(4, 6).map((perkId, idx) => {
                       const runeImg = runeImages.get(perkId);
                       const runeName = runeNames.get(perkId) || `Perk ${perkId}`;
+                      console.log(`[RuneRender] Rendering secondary rune ${perkId}:`, { runeImg, runeName, hasImage: !!runeImg });
                       return (
                         <div
                           key={`${perkId}-${idx}`}
@@ -629,6 +661,17 @@ export default function ChampionBuildPage() {
             )}
 
             {/* Items - U.GG Style Layout */}
+            {(() => {
+              console.log('[ItemBuildRender] Rendering item builds section');
+              console.log('[ItemBuildRender] build.itemBuilds exists:', !!build.itemBuilds);
+              console.log('[ItemBuildRender] build.itemBuilds:', build.itemBuilds);
+              console.log('[ItemBuildRender] Starting items length:', build.itemBuilds?.starting?.length || 0);
+              console.log('[ItemBuildRender] Core items length:', build.itemBuilds?.core?.length || 0);
+              console.log('[ItemBuildRender] Fourth items length:', build.itemBuilds?.fourth?.length || 0);
+              console.log('[ItemBuildRender] Fifth items length:', build.itemBuilds?.fifth?.length || 0);
+              console.log('[ItemBuildRender] Sixth items length:', build.itemBuilds?.sixth?.length || 0);
+              return null;
+            })()}
             {build.itemBuilds && (
               <div className="bg-[#0F172A]/80 backdrop-blur-sm border border-[#1E293B] rounded-2xl p-6 shadow-xl">
                 <h2 className="text-2xl font-bold text-white mb-6">Item Build</h2>

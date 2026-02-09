@@ -487,13 +487,21 @@ export class AnalyticsController {
       );
       
       // Log item build counts for debugging
-      console.log(`[getChampionBuild] Item builds for champion ${champId}:`, {
+      console.log(`[getChampionBuild] ========== ITEM BUILDS DEBUG ==========`);
+      console.log(`[getChampionBuild] Champion ID: ${champId}, Patch: ${actualPatch}, Rank: ${rankBracket}, Role: ${normalizedRole}, Region: ${normalizedRegion || 'world'}`);
+      console.log(`[getChampionBuild] Item builds counts:`, {
         starting: allItemBuilds.starting.length,
         core: allItemBuilds.core.length,
         fourth: allItemBuilds.fourth.length,
         fifth: allItemBuilds.fifth.length,
         sixth: allItemBuilds.sixth.length,
       });
+      console.log(`[getChampionBuild] Starting items data:`, JSON.stringify(allItemBuilds.starting, null, 2));
+      console.log(`[getChampionBuild] Core items data:`, JSON.stringify(allItemBuilds.core, null, 2));
+      console.log(`[getChampionBuild] Fourth items data:`, JSON.stringify(allItemBuilds.fourth, null, 2));
+      console.log(`[getChampionBuild] Fifth items data:`, JSON.stringify(allItemBuilds.fifth, null, 2));
+      console.log(`[getChampionBuild] Sixth items data:`, JSON.stringify(allItemBuilds.sixth, null, 2));
+      console.log(`[getChampionBuild] ======================================`);
 
       // Get build archetypes (correlated runes + items + spells)
       const buildArchetypes = await this.buildAggregationService.getBuildArchetypes(
