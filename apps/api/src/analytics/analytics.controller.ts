@@ -22,10 +22,12 @@ export class AnalyticsController {
     @Query('patch') patch?: string,
     @Query('region') region?: string
   ) {
+    console.log(`[AnalyticsController] GET /champions called with params:`, { rank, role, patch, region });
     try {
       const stats = await this.analyticsService.getChampionStats({ rank, role, patch, region });
 
-      console.log(`[AnalyticsController] Returning ${stats?.length || 0} champions for rank=${rank}, role=${role}, patch=${patch}`);
+      console.log(`[AnalyticsController] Service returned ${stats?.length || 0} champions`);
+      console.log(`[AnalyticsController] First 3 champions (if any):`, stats?.slice(0, 3));
 
       // Ensure stats is an array and properly formatted
       const champions = Array.isArray(stats) ? stats : [];
@@ -174,9 +176,12 @@ export class AnalyticsController {
    */
   @Get('patches')
   async getAvailablePatches() {
+    console.log(`[AnalyticsController] GET /champions/patches called`);
     try {
+      console.log(`[AnalyticsController] Calling analyticsService.getAvailablePatches()...`);
       const result = await this.analyticsService.getAvailablePatches();
-      console.log(`[AnalyticsController] Returning patches:`, result);
+      console.log(`[AnalyticsController] Service returned:`, JSON.stringify(result, null, 2));
+      console.log(`[AnalyticsController] Patches count: ${result.patches?.length || 0}, Latest: ${result.latest || 'null'}`);
       return result;
     } catch (error) {
       console.error('[AnalyticsController] Error getting patches:', error);

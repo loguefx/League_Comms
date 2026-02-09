@@ -33,11 +33,17 @@ export class AnalyticsService {
     this.logger.log(`[getChampionStats] Query params: rank=${options.rank}, role=${options.role}, patch=${options.patch}, region=${options.region}`);
     this.logger.log(`[getChampionStats] Normalized: rankBracket=${rankBracket}, role=${role}, patch=${patch}, isWorld=${isWorld}, isAllRanks=${rankBracket === 'all_ranks'}`);
 
+    // Check database state first
+    const totalChampionStats = await this.prisma.championStat.count();
+    const totalBucketTotals = await this.prisma.bucketTotal.count();
+    this.logger.log(`[getChampionStats] Database state: ${totalChampionStats} champion stats, ${totalBucketTotals} bucket totals`);
+
     // Query champion stats with bucket totals for pick/ban rates
     // Handle "all_ranks" by aggregating across all rank brackets
     // Handle "world" region by aggregating across all regions
     const isAllRanks = rankBracket === 'all_ranks';
     
+    this.logger.log(`[getChampionStats] Executing SQL query (isAllRanks=${isAllRanks}, isWorld=${isWorld})...`);
     let stats;
     if (isAllRanks && isWorld) {
       // Aggregate across all rank brackets AND all regions
@@ -164,19 +170,52 @@ export class AnalyticsService {
       `;
     }
 
-    this.logger.log(`[getChampionStats] Found ${stats.length} raw champion stats from database`);
+    this.logger.log(`[getChampionStats] SQL query completed, found ${stats.length} raw champion stats`);
     
     if (stats.length === 0) {
-      this.logger.warn(`[getChampionStats] No champion stats found for patch=${patch}, rankBracket=${rankBracket}, role=${role}, region=${region || 'world'}`);
+      this.logger.warn(`[getChampionStats] ⚠️  No champion stats found for patch=${patch}, rankBracket=${rankBracket}, role=${role}, region=${region || 'world'}`);
       this.logger.warn(`[getChampionStats] This might mean: 1) No matches ingested yet, 2) Aggregation hasn't run, or 3) No data for these filters`);
       
       // Check if we have any champion stats at all
       const anyStats = await this.prisma.championStat.findFirst();
       if (!anyStats) {
-        this.logger.warn(`[getChampionStats] No champion stats exist in database at all - aggregation may not have run`);
+        this.logger.warn(`[getChampionStats] ⚠️  No champion stats exist in database at all - aggregation may not have run`);
       } else {
-        this.logger.warn(`[getChampionStats] Champion stats exist but don't match filters - check patch/rank/role/region`);
+        this.logger.warn(`[getChampionStats] ⚠️  Champion stats exist but don't match filters`);
+        
+        // Check what patches/ranks/roles we actually have
+        const sampleStats = await this.prisma.championStat.findMany({ take: 5 });
+        this.logger.warn(`[getChampionStats] Sample champion stats in DB:`, sampleStats.map(s => ({
+          patch: s.patch,
+          rankBracket: s.rankBracket,
+          role: s.role,
+          region: s.region,
+          championId: s.championId,
+        })));
+        
+        // Check what patches exist
+        const existingPatches = await this.prisma.championStat.findMany({
+          select: { patch: true },
+          distinct: ['patch'],
+        });
+        this.logger.warn(`[getChampionStats] Available patches in champion_stats:`, existingPatches.map(p => p.patch));
+        
+        // Check what rank brackets exist
+        const existingRanks = await this.prisma.championStat.findMany({
+          select: { rankBracket: true },
+          distinct: ['rankBracket'],
+        });
+        this.logger.warn(`[getChampionStats] Available rank brackets:`, existingRanks.map(r => r.rankBracket));
+        
+        // Check what roles exist
+        const existingRoles = await this.prisma.championStat.findMany({
+          select: { role: true },
+          distinct: ['role'],
+        });
+        this.logger.warn(`[getChampionStats] Available roles:`, existingRoles.map(r => r.role));
       }
+    } else {
+      this.logger.log(`[getChampionStats] ✓ Found ${stats.length} champion stats, first champion ID: ${stats[0]?.champion_id || 'N/A'}`);
     }
     
     // Convert BigInt to numbers and format percentages
@@ -302,8 +341,22 @@ export class AnalyticsService {
    * Get available patches from database
    */
   async getAvailablePatches() {
+    this.logger.log(`[getAvailablePatches] Starting query...`);
     try {
+      // First, check if we have any matches at all
+      const totalMatches = await this.prisma.match.count();
+      this.logger.log(`[getAvailablePatches] Total matches in database: ${totalMatches}`);
+      
+      if (totalMatches === 0) {
+        this.logger.warn(`[getAvailablePatches] No matches in database - returning empty patches`);
+        return {
+          patches: [],
+          latest: null,
+        };
+      }
+
       // Use groupBy to get distinct patches (Prisma's distinct doesn't work the way we need)
+      this.logger.log(`[getAvailablePatches] Querying distinct patches using groupBy...`);
       const patchGroups = await this.prisma.match.groupBy({
         by: ['patch'],
         _count: {
@@ -314,6 +367,9 @@ export class AnalyticsService {
         },
       });
 
+      this.logger.log(`[getAvailablePatches] groupBy returned ${patchGroups.length} groups`);
+      this.logger.log(`[getAvailablePatches] Raw patch groups:`, JSON.stringify(patchGroups, null, 2));
+
       const patchList = patchGroups
         .map((p) => p.patch)
         .filter((patch): patch is string => Boolean(patch) && typeof patch === 'string');
@@ -321,6 +377,7 @@ export class AnalyticsService {
       const latest = patchList[0] || null;
 
       this.logger.log(`[getAvailablePatches] Found ${patchList.length} patches: ${patchList.join(', ')}`);
+      this.logger.log(`[getAvailablePatches] Latest patch: ${latest || 'null'}`);
 
       return {
         patches: patchList,

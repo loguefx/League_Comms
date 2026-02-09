@@ -68,18 +68,24 @@ async function bootstrap() {
     // Get the Fastify instance and start it manually
     console.log(`⏳ Starting Fastify server...`);
     const fastifyInstance = app.getHttpAdapter().getInstance();
+    console.log(`✓ Got Fastify instance, type: ${typeof fastifyInstance}`);
     
     // Start Fastify server
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
+        console.error(`❌ Fastify listen() timed out after 10 seconds`);
+        console.error(`   Fastify instance ready state: ${fastifyInstance.server?.listening ? 'listening' : 'not listening'}`);
         reject(new Error('Fastify listen() timed out after 10 seconds'));
       }, 10000);
       
+      console.log(`⏳ Calling fastifyInstance.listen({ port: ${port}, host: '0.0.0.0' })...`);
       fastifyInstance.listen({ port, host: '0.0.0.0' }, (err) => {
         clearTimeout(timeout);
         if (err) {
+          console.error(`❌ Fastify listen() error:`, err);
           reject(err);
         } else {
+          console.log(`✓ Fastify listen() callback executed successfully`);
           resolve();
         }
       });
