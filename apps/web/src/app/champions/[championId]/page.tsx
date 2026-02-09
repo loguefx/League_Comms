@@ -145,8 +145,11 @@ export default function ChampionBuildPage() {
         if (data.builds && data.builds.length > 0) {
           setSelectedBuildIndex(0);
           
-          // Load rune and stat shard images
+          // Load rune images - ensure rune data is preloaded first
           const loadRuneImages = async () => {
+            // Ensure rune data is loaded
+            await preloadRuneData();
+            
             const runeImgMap = new Map<number, string>();
             const runeNameMap = new Map<number, string>();
             
@@ -154,10 +157,16 @@ export default function ChampionBuildPage() {
               // Load rune images
               for (const perkId of buildArchetype.runes.perkIds) {
                 if (!runeImgMap.has(perkId)) {
-                  const imgUrl = await getRuneImageUrl(perkId);
-                  const name = await getRuneName(perkId);
-                  runeImgMap.set(perkId, imgUrl);
-                  runeNameMap.set(perkId, name);
+                  try {
+                    const imgUrl = await getRuneImageUrl(perkId);
+                    const name = await getRuneName(perkId);
+                    if (imgUrl && name) {
+                      runeImgMap.set(perkId, imgUrl);
+                      runeNameMap.set(perkId, name);
+                    }
+                  } catch (err) {
+                    console.warn(`Failed to load rune for perk ${perkId}:`, err);
+                  }
                 }
               }
             }
