@@ -145,7 +145,17 @@ export default function ChampionBuildPage() {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
-        const data = await response.json();
+        let data;
+        try {
+          // Try to parse JSON response
+          const text = await response.text();
+          data = JSON.parse(text);
+        } catch (parseError: any) {
+          // If JSON parsing fails, it might be due to BigInt serialization
+          console.error('[loadBuild] Failed to parse JSON response:', parseError);
+          throw new Error(`Failed to parse server response: ${parseError.message}`);
+        }
+        
         if (data.error) {
           throw new Error(data.error);
         }
