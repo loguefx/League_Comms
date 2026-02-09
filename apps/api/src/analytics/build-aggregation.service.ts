@@ -442,8 +442,9 @@ export class BuildAggregationService {
             WHERE m.patch = ${patch}
               AND m.queue_id = 420
               AND array_length(pfi.items, 1) >= ${endPos}
-              AND array_length((pfi.items[${startPos}:${endPos}])::int[], 1) = ${expectedCount}
+              AND array_length((pfi.items[${startPos}:${endPos}])::int[], 1) >= 1
               AND (pfi.items[${startPos}:${endPos}])::int[] IS NOT NULL
+              AND array_length(array_remove((pfi.items[${startPos}:${endPos}])::int[], 0), 1) >= 1
               ${roleFilter ? Prisma.sql`AND pfi.role = ${roleFilter}` : Prisma.empty}
           ),
           item_combinations AS (
