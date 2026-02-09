@@ -83,6 +83,18 @@ export class IngestionService {
         win: p.win,
       }));
 
+      // Extract build data
+      const perks = this.extractPerks(match.info.participants);
+      const spells = this.extractSpells(match.info.participants);
+      const finalItems = this.extractFinalItems(match.info.participants);
+
+      // Log extraction results for verification
+      this.logger.log(`[ingestMatch] Extracted data for match ${matchId}: ${perks.length} perks, ${spells.length} spells, ${finalItems.length} final items`);
+      if (finalItems.length > 0) {
+        const sampleItems = finalItems[0]?.items || [];
+        this.logger.log(`[ingestMatch] Sample items array length: ${sampleItems.length}, items: ${sampleItems.slice(0, 7).join(', ')}`);
+      }
+
       // Store match with participants and bans
       await this.prisma.match.create({
         data: {
@@ -102,13 +114,13 @@ export class IngestionService {
           },
           // Store build data (runes, spells, items)
           perks: {
-            create: this.extractPerks(match.info.participants),
+            create: perks,
           },
           spells: {
-            create: this.extractSpells(match.info.participants),
+            create: spells,
           },
           finalItems: {
-            create: this.extractFinalItems(match.info.participants),
+            create: finalItems,
           },
         },
       });
@@ -266,12 +278,19 @@ export class IngestionService {
   }> {
     return participants.map((p: any) => {
       // Extract items from item0-item6, filter out 0 (empty slot)
+      // IMPORTANT: Keep ALL items including 0s for position-based aggregation
+      // We'll filter 0s when displaying, but need them for position tracking
       const items: number[] = [];
       for (let i = 0; i <= 6; i++) {
         const itemId = p[`item${i}`];
-        if (itemId && itemId > 0) {
-          items.push(itemId);
-        }
+        // Store item ID even if 0, so we can track position (items[1] = first item, items[6] = sixth item)
+        items.push(itemId || 0);
+      }
+      
+      // Log extraction for debugging (first participant only)
+      if (participants.indexOf(p) === 0) {
+        this.logger.debug(`[extractFinalItems] Sample participant items: item0=${p.item0}, item1=${p.item1}, item2=${p.item2}, item3=${p.item3}, item4=${p.item4}, item5=${p.item5}, item6=${p.item6}`);
+        this.logger.debug(`[extractFinalItems] Extracted items array: [${items.join(', ')}]`);
       }
       
       return {

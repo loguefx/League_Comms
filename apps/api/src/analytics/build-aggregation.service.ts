@@ -491,25 +491,37 @@ export class BuildAggregationService {
     
     for (const role of roles) {
       try {
-        // Starting items: items[1:2] (first 2 items)
+        // Item positions in PostgreSQL array (1-indexed, stores item0-item6):
+        // items[1] = item0 (first item slot)
+        // items[2] = item1 (second item slot)
+        // items[3] = item2 (third item slot)
+        // items[4] = item3 (fourth item slot)
+        // items[5] = item4 (fifth item slot)
+        // items[6] = item5 (sixth item slot)
+        // items[7] = item6 (trinket/ward slot - usually not included in builds)
+        
+        // Starting items: items[1:2] (first 2 items = item0, item1)
         this.logger.log(`Aggregating starting items for patch ${patch}, role: ${role || 'ALL'}`);
         await aggregateByPosition('starting', 1, 2, 2, role);
         
-        // Core items: items[3:5] (next 3 items)
+        // Core items: items[3:5] (next 3 items = item2, item3, item4)
         this.logger.log(`Aggregating core items for patch ${patch}, role: ${role || 'ALL'}`);
         await aggregateByPosition('core', 3, 5, 3, role);
         
-        // Fourth item: items[6] (if exists)
+        // Fourth item: items[4] (fourth item slot = item3)
+        // Note: This overlaps with core items[3:5], but we want individual item recommendations
         this.logger.log(`Aggregating fourth items for patch ${patch}, role: ${role || 'ALL'}`);
-        await aggregateByPosition('fourth', 6, null, 1, role);
+        await aggregateByPosition('fourth', 4, null, 1, role);
         
-        // Fifth item: items[7] (if exists)
+        // Fifth item: items[5] (fifth item slot = item4)
+        // Note: This also overlaps with core items[3:5]
         this.logger.log(`Aggregating fifth items for patch ${patch}, role: ${role || 'ALL'}`);
-        await aggregateByPosition('fifth', 7, null, 1, role);
+        await aggregateByPosition('fifth', 5, null, 1, role);
         
-        // Sixth item: items[8] (if exists)
+        // Sixth item: items[6] (sixth item slot = item5)
+        // Note: This is the last item slot (before trinket)
         this.logger.log(`Aggregating sixth items for patch ${patch}, role: ${role || 'ALL'}`);
-        await aggregateByPosition('sixth', 8, null, 1, role);
+        await aggregateByPosition('sixth', 6, null, 1, role);
       } catch (error) {
         this.logger.error(`Failed to aggregate item builds for role ${role || 'ALL'}:`, error);
       }
