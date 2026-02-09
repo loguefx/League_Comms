@@ -686,7 +686,7 @@ export class BuildAggregationService {
         WHERE patch = ${patch}
           AND region = ${region}
           AND queue_id = 420
-          AND role = ${normalizedRole}
+          ${roleFilter}
           AND champion_id = ${championId}
           AND games >= ${this.MIN_GAMES_THRESHOLD}
         GROUP BY primary_style_id, sub_style_id, perk_ids, stat_shards
@@ -741,7 +741,7 @@ export class BuildAggregationService {
         WHERE patch = ${patch}
           AND queue_id = 420
           AND rank_bracket = ${rankBracket}
-          AND role = ${normalizedRole}
+          ${roleFilter}
           AND champion_id = ${championId}
           AND games >= ${this.MIN_GAMES_THRESHOLD}
         GROUP BY primary_style_id, sub_style_id, perk_ids, stat_shards
@@ -797,7 +797,7 @@ export class BuildAggregationService {
           AND region = ${region}
           AND queue_id = 420
           AND rank_bracket = ${rankBracket}
-          AND role = ${normalizedRole}
+          ${roleFilter}
           AND champion_id = ${championId}
           AND games >= ${this.MIN_GAMES_THRESHOLD}
         ORDER BY games DESC
@@ -850,15 +850,20 @@ export class BuildAggregationService {
     }
 
     return runePages.map((rp) => {
+      // Convert BigInt to Number immediately to prevent serialization errors
       const games = Number(rp.games);
       const wins = Number(rp.wins);
       const smoothedWinRate = (wins + this.SMOOTHING_K * 0.5) / (games + this.SMOOTHING_K);
 
+      // Ensure all array elements are numbers (not BigInts) and all IDs are numbers
+      const perkIds = Array.isArray(rp.perk_ids) ? rp.perk_ids.map(id => Number(id)) : [];
+      const statShards = Array.isArray(rp.stat_shards) ? rp.stat_shards.map(id => Number(id)) : [];
+
       return {
-        primaryStyleId: rp.primary_style_id,
-        subStyleId: rp.sub_style_id,
-        perkIds: rp.perk_ids,
-        statShards: rp.stat_shards,
+        primaryStyleId: Number(rp.primary_style_id),
+        subStyleId: Number(rp.sub_style_id),
+        perkIds,
+        statShards,
         winRate: smoothedWinRate,
         games,
       };
@@ -925,7 +930,7 @@ export class BuildAggregationService {
         WHERE patch = ${patch}
           AND region = ${region}
           AND queue_id = 420
-          AND role = ${normalizedRole}
+          ${roleFilter}
           AND champion_id = ${championId}
           AND games >= ${this.MIN_GAMES_THRESHOLD}
         GROUP BY spell1_id, spell2_id
@@ -948,7 +953,7 @@ export class BuildAggregationService {
         WHERE patch = ${patch}
           AND queue_id = 420
           AND rank_bracket = ${rankBracket}
-          AND role = ${normalizedRole}
+          ${roleFilter}
           AND champion_id = ${championId}
           AND games >= ${this.MIN_GAMES_THRESHOLD}
         GROUP BY spell1_id, spell2_id
@@ -972,7 +977,7 @@ export class BuildAggregationService {
           AND region = ${region}
           AND queue_id = 420
           AND rank_bracket = ${rankBracket}
-          AND role = ${normalizedRole}
+          ${roleFilter}
           AND champion_id = ${championId}
           AND games >= ${this.MIN_GAMES_THRESHOLD}
         ORDER BY games DESC
@@ -1201,6 +1206,9 @@ export class BuildAggregationService {
     fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:1190',message:'getRecommendedItems entry',data:{championId,patch,rankBracket,role,region,limit,normalizedRole,isAllRanks,isWorld},timestamp:Date.now(),runId:'debug2',hypothesisId:'D'})}).catch(()=>{});
     // #endregion
 
+    // When role is 'ALL', we need to aggregate across all roles (don't filter by role)
+    const roleFilter = normalizedRole === 'ALL' ? Prisma.empty : Prisma.sql`AND role = ${normalizedRole}`;
+
     let itemBuilds;
     if (isAllRanks && isWorld) {
       itemBuilds = await this.prisma.$queryRaw<Array<{
@@ -1215,7 +1223,7 @@ export class BuildAggregationService {
         FROM champion_item_builds
         WHERE patch = ${patch}
           AND queue_id = 420
-          AND role = ${normalizedRole}
+          ${roleFilter}
           AND champion_id = ${championId}
           AND build_type = 'core'
           AND games >= ${this.MIN_GAMES_THRESHOLD}
@@ -1237,7 +1245,7 @@ export class BuildAggregationService {
         WHERE patch = ${patch}
           AND region = ${region}
           AND queue_id = 420
-          AND role = ${normalizedRole}
+          ${roleFilter}
           AND champion_id = ${championId}
           AND build_type = 'core'
           AND games >= ${this.MIN_GAMES_THRESHOLD}
@@ -1259,7 +1267,7 @@ export class BuildAggregationService {
         WHERE patch = ${patch}
           AND queue_id = 420
           AND rank_bracket = ${rankBracket}
-          AND role = ${normalizedRole}
+          ${roleFilter}
           AND champion_id = ${championId}
           AND build_type = 'core'
           AND games >= ${this.MIN_GAMES_THRESHOLD}
@@ -1282,7 +1290,7 @@ export class BuildAggregationService {
           AND region = ${region}
           AND queue_id = 420
           AND rank_bracket = ${rankBracket}
-          AND role = ${normalizedRole}
+          ${roleFilter}
           AND champion_id = ${championId}
           AND build_type = 'core'
           AND games >= ${this.MIN_GAMES_THRESHOLD}
