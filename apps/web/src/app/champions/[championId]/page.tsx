@@ -643,41 +643,52 @@ export default function ChampionBuildPage() {
                           className="w-10 h-10 rounded-lg bg-[#0F172A] border-2 border-[#334155] hover:border-blue-500/50 transition-colors flex items-center justify-center group relative overflow-visible"
                         >
                           {runeImg ? (
-                            <img
-                              key={`rune-img-${perkIdNum}-${idx}`}
-                              src={runeImg}
-                              alt={runeName}
-                              className="w-full h-full object-cover rounded-lg"
-                              onLoad={() => {
-                                console.log(`[RuneImage] Successfully loaded rune image for perk ${perkIdNum}: ${runeImg}`);
-                                // #region agent log
-                                fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:647',message:'Rune image loaded successfully',data:{perkIdNum,runeImg},timestamp:Date.now(),runId:'debug2',hypothesisId:'O'})}).catch(()=>{});
-                                // #endregion
-                              }}
-                              onError={async (e) => {
-                                console.error(`[RuneImage] Failed to load rune image for perk ${perkIdNum}: ${runeImg}`);
-                                // #region agent log
-                                fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:640',message:'Rune image failed to load',data:{perkIdNum,runeImg,perkId},timestamp:Date.now(),runId:'debug1',hypothesisId:'L'})}).catch(()=>{});
-                                // #endregion
-                                // Try to reload the rune image
-                                try {
-                                  const { getRuneImageUrl } = await import('@/utils/runeData');
-                                  const newUrl = await getRuneImageUrl(perkIdNum);
-                                  if (newUrl && newUrl !== runeImg) {
-                                    console.log(`[RuneImage] Retrying with new URL for perk ${perkIdNum}: ${newUrl}`);
-                                    (e.target as HTMLImageElement).src = newUrl;
-                                  } else {
-                                    console.warn(`[RuneImage] No alternative URL found for perk ${perkIdNum}, hiding image`);
+                            <>
+                              <img
+                                key={`rune-img-${perkIdNum}-${idx}`}
+                                src={runeImg}
+                                alt={runeName}
+                                className="w-full h-full object-cover rounded-lg"
+                                style={{ display: 'block' }}
+                                onLoad={() => {
+                                  console.log(`[RuneImage] Successfully loaded rune image for perk ${perkIdNum}: ${runeImg}`);
+                                  // #region agent log
+                                  fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:647',message:'Rune image loaded successfully',data:{perkIdNum,runeImg},timestamp:Date.now(),runId:'debug2',hypothesisId:'O'})}).catch(()=>{});
+                                  // #endregion
+                                }}
+                                onError={async (e) => {
+                                  console.error(`[RuneImage] Failed to load rune image for perk ${perkIdNum}: ${runeImg}`);
+                                  // #region agent log
+                                  fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:650',message:'Rune image failed to load',data:{perkIdNum,runeImg,perkId,error:'Image failed to load'},timestamp:Date.now(),runId:'debug2',hypothesisId:'P'})}).catch(()=>{});
+                                  // #endregion
+                                  // Try to reload the rune image
+                                  try {
+                                    const { getRuneImageUrl } = await import('@/utils/runeData');
+                                    const newUrl = await getRuneImageUrl(perkIdNum);
+                                    if (newUrl && newUrl !== runeImg) {
+                                      console.log(`[RuneImage] Retrying with new URL for perk ${perkIdNum}: ${newUrl}`);
+                                      (e.target as HTMLImageElement).src = newUrl;
+                                    } else {
+                                      console.warn(`[RuneImage] No alternative URL found for perk ${perkIdNum}, showing fallback`);
+                                      (e.target as HTMLImageElement).style.display = 'none';
+                                      const parent = (e.target as HTMLImageElement).parentElement;
+                                      if (parent) {
+                                        parent.innerHTML = `<span class="text-xs text-[#94A3B8]">${perkIdNum}</span>`;
+                                      }
+                                    }
+                                  } catch (err) {
+                                    console.error(`[RuneImage] Error reloading rune ${perkIdNum}:`, err);
                                     (e.target as HTMLImageElement).style.display = 'none';
-                                    (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${perkIdNum}</span>`;
+                                    const parent = (e.target as HTMLImageElement).parentElement;
+                                    if (parent) {
+                                      parent.innerHTML = `<span class="text-xs text-[#94A3B8]">${perkIdNum}</span>`;
+                                    }
                                   }
-                                } catch (err) {
-                                  console.error(`[RuneImage] Error reloading rune ${perkIdNum}:`, err);
-                                  (e.target as HTMLImageElement).style.display = 'none';
-                                  (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${perkIdNum}</span>`;
-                                }
-                              }}
-                            />
+                                }}
+                              />
+                              {/* Fallback text that shows if image fails */}
+                              <span className="text-xs text-[#94A3B8] group-hover:text-blue-400 transition-colors" style={{ display: 'none' }}>{perkIdNum}</span>
+                            </>
                           ) : (
                             <span className="text-xs text-[#94A3B8] group-hover:text-blue-400 transition-colors">{perkIdNum}</span>
                           )}
