@@ -604,9 +604,9 @@ export default function ChampionBuildPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 overflow-visible">
               {/* Primary Runes */}
-              <div className="bg-[#1E293B]/50 rounded-xl p-4 border border-[#334155]">
+              <div className="bg-[#1E293B]/50 rounded-xl p-4 border border-[#334155] overflow-visible">
                 <div className="text-xs text-[#64748B] mb-3 font-semibold uppercase tracking-wider">Primary</div>
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-12 h-12 rounded-lg bg-[#0F172A] border border-[#334155] flex items-center justify-center overflow-hidden">
@@ -755,10 +755,10 @@ export default function ChampionBuildPage() {
               </div>
 
               {/* Secondary Runes */}
-              <div className="bg-[#1E293B]/50 rounded-xl p-4 border border-[#334155]">
+              <div className="bg-[#1E293B]/50 rounded-xl p-4 border border-[#334155] overflow-visible">
                 <div className="text-xs text-[#64748B] mb-3 font-semibold uppercase tracking-wider">Secondary</div>
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 rounded-lg bg-[#0F172A] border border-[#334155] flex items-center justify-center overflow-hidden">
+                  <div className="w-12 h-12 rounded-lg bg-[#0F172A] border border-[#334155] flex items-center justify-center overflow-visible">
                     {runeStyleImages.get(selectedBuild.runes.subStyleId) ? (
                       <img
                         src={runeStyleImages.get(selectedBuild.runes.subStyleId)!}
@@ -966,9 +966,9 @@ export default function ChampionBuildPage() {
                                     }}
                                   />
                                   {itemInfo && (
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#0F172A] border border-[#334155] rounded-lg text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-pre-line max-w-xs z-50 shadow-xl">
-                                      <div className="font-semibold text-amber-400 mb-1">{itemInfo.name}</div>
-                                      <div className="text-[#94A3B8]">{itemInfo.description}</div>
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-4 py-3 bg-[#0F172A] border border-[#334155] rounded-lg text-sm text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-pre-line max-w-sm z-50 shadow-xl">
+                                      <div className="font-bold text-base text-amber-400 mb-2">{itemInfo.name}</div>
+                                      <div className="text-[#94A3B8] leading-relaxed">{itemInfo.description}</div>
                                     </div>
                                   )}
                                 </div>
@@ -1010,9 +1010,9 @@ export default function ChampionBuildPage() {
                                     }}
                                   />
                                   {itemInfo && (
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#0F172A] border border-[#334155] rounded-lg text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-pre-line max-w-xs z-50 shadow-xl">
-                                      <div className="font-semibold text-amber-400 mb-1">{itemInfo.name}</div>
-                                      <div className="text-[#94A3B8]">{itemInfo.description}</div>
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-4 py-3 bg-[#0F172A] border border-[#334155] rounded-lg text-sm text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-pre-line max-w-sm z-50 shadow-xl">
+                                      <div className="font-bold text-base text-amber-400 mb-2">{itemInfo.name}</div>
+                                      <div className="text-[#94A3B8] leading-relaxed">{itemInfo.description}</div>
                                     </div>
                                   )}
                                 </div>
@@ -1054,9 +1054,9 @@ export default function ChampionBuildPage() {
                                       }}
                                     />
                                     {itemInfo && (
-                                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#0F172A] border border-[#334155] rounded-lg text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-pre-line max-w-xs z-50 shadow-xl">
-                                        <div className="font-semibold text-amber-400 mb-1">{itemInfo.name}</div>
-                                        <div className="text-[#94A3B8]">{itemInfo.description}</div>
+                                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-4 py-3 bg-[#0F172A] border border-[#334155] rounded-lg text-sm text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-pre-line max-w-sm z-50 shadow-xl">
+                                        <div className="font-bold text-base text-amber-400 mb-2">{itemInfo.name}</div>
+                                        <div className="text-[#94A3B8] leading-relaxed">{itemInfo.description}</div>
                                       </div>
                                     )}
                                   </div>
@@ -1097,9 +1097,9 @@ export default function ChampionBuildPage() {
                                     }}
                                   />
                                   {itemInfo && (
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#0F172A] border border-[#334155] rounded-lg text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-pre-line max-w-xs z-50 shadow-xl">
-                                      <div className="font-semibold text-amber-400 mb-1">{itemInfo.name}</div>
-                                      <div className="text-[#94A3B8]">{itemInfo.description}</div>
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-4 py-3 bg-[#0F172A] border border-[#334155] rounded-lg text-sm text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-pre-line max-w-sm z-50 shadow-xl">
+                                      <div className="font-bold text-base text-amber-400 mb-2">{itemInfo.name}</div>
+                                      <div className="text-[#94A3B8] leading-relaxed">{itemInfo.description}</div>
                                     </div>
                                   )}
                                 </div>
@@ -1139,9 +1139,9 @@ export default function ChampionBuildPage() {
                                     }}
                                   />
                                   {itemInfo && (
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#0F172A] border border-[#334155] rounded-lg text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-pre-line max-w-xs z-50 shadow-xl">
-                                      <div className="font-semibold text-amber-400 mb-1">{itemInfo.name}</div>
-                                      <div className="text-[#94A3B8]">{itemInfo.description}</div>
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-4 py-3 bg-[#0F172A] border border-[#334155] rounded-lg text-sm text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-pre-line max-w-sm z-50 shadow-xl">
+                                      <div className="font-bold text-base text-amber-400 mb-2">{itemInfo.name}</div>
+                                      <div className="text-[#94A3B8] leading-relaxed">{itemInfo.description}</div>
                                     </div>
                                   )}
                                 </div>
