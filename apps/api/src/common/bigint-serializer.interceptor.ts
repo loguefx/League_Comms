@@ -44,6 +44,8 @@ export class BigIntSerializerInterceptor implements NestInterceptor {
           console.log('[DEBUG] Before interceptor JSON.stringify', { convertedType: typeof converted });
           fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'bigint-serializer.interceptor.ts:30',message:'Before interceptor JSON.stringify',data:{convertedType:typeof converted},timestamp:Date.now(),runId:'debug1',hypothesisId:'C'})}).catch(()=>{});
           // #endregion
+          
+          // Use a more aggressive replacer that handles all edge cases
           const testString = JSON.stringify(converted, (key, value) => {
             if (typeof value === 'bigint') {
               // #region agent log
@@ -52,6 +54,11 @@ export class BigIntSerializerInterceptor implements NestInterceptor {
               // #endregion
               this.logger.warn(`[BigIntSerializerInterceptor] ⚠️ Found BigInt at path: ${key} during stringify, converting to number`);
               return Number(value);
+            }
+            // Handle invalid numbers
+            if (typeof value === 'number' && (value === Infinity || value === -Infinity || isNaN(value))) {
+              this.logger.warn(`[BigIntSerializerInterceptor] ⚠️ Found invalid number at path: ${key}, converting to null`);
+              return null;
             }
             return value;
           });
