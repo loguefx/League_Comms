@@ -44,8 +44,7 @@ export class AggregationService implements OnModuleInit {
     const participantsCount = await this.prisma.matchParticipant.count();
     const perksCount = await this.prisma.participantPerk.count();
     const itemsCount = await this.prisma.participantFinalItem.count();
-    console.log(`[aggregateChampionStats] Starting aggregation: ${matchesCount} matches, ${participantsCount} participants, ${perksCount} perks, ${itemsCount} items`);
-    fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'aggregation.service.ts:40',message:'Starting aggregation',data:{matchesCount,participantsCount,perksCount,itemsCount},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+    console.log(`[DEBUG] Starting aggregation - Matches: ${matchesCount}, Participants: ${participantsCount}, Perks: ${perksCount}, Items: ${itemsCount}`);
     // #endregion
     
     this.logger.log('═══════════════════════════════════════════════════════════');
@@ -87,8 +86,7 @@ export class AggregationService implements OnModuleInit {
       const finalItemBuildsCount = await this.prisma.championItemBuild.count();
       const finalRunePagesCount = await this.prisma.championRunePage.count();
       const finalSpellSetsCount = await this.prisma.championSpellSet.count();
-      console.log(`[aggregateChampionStats] Aggregation complete: ${finalChampionStatsCount} champion stats, ${finalItemBuildsCount} item builds, ${finalRunePagesCount} rune pages, ${finalSpellSetsCount} spell sets, took ${duration}ms`);
-      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'aggregation.service.ts:69',message:'Aggregation complete',data:{finalChampionStatsCount,finalItemBuildsCount,finalRunePagesCount,finalSpellSetsCount,durationMs:duration},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+      console.log(`[DEBUG] Aggregation complete - Champion stats: ${finalChampionStatsCount}, Item builds: ${finalItemBuildsCount}, Rune pages: ${finalRunePagesCount}, Spell sets: ${finalSpellSetsCount}, Duration: ${duration}ms`);
       // #endregion
       
       this.logger.log('═══════════════════════════════════════════════════════════');

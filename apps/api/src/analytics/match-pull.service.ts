@@ -102,8 +102,7 @@ export class MatchPullService implements OnModuleInit {
         totalMatchesIngested += newMatches;
         
         // #region agent log
-        console.log(`[pullMatchesFromAllRegions] Region ${region}: ${newMatches} new matches ingested`);
-        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'match-pull.service.ts:93',message:'Region match pull complete',data:{region,newMatches,matchesBefore,matchesAfter},timestamp:Date.now(),runId:'debug1',hypothesisId:'A'})}).catch(()=>{});
+        console.log(`[DEBUG] Region ${region} match pull complete - New matches: ${newMatches}, Before: ${matchesBefore}, After: ${matchesAfter}`);
         // #endregion
         
         // Small delay between regions to respect rate limits
@@ -122,8 +121,7 @@ export class MatchPullService implements OnModuleInit {
     const endTime = Date.now();
     const duration = endTime - startTime;
     const totalMatchesInDb = await this.prisma.match.count();
-    console.log(`[pullMatchesFromAllRegions] Complete: ${totalMatchesIngested} new matches ingested, ${totalMatchesInDb} total matches in DB, took ${duration}ms`);
-    fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'match-pull.service.ts:114',message:'Match pull complete summary',data:{totalMatchesIngested,totalMatchesInDb,durationMs:duration},timestamp:Date.now(),runId:'debug1',hypothesisId:'A'})}).catch(()=>{});
+    console.log(`[DEBUG] Match pull complete - New matches ingested: ${totalMatchesIngested}, Total in DB: ${totalMatchesInDb}, Duration: ${duration}ms`);
     // #endregion
 
     // Run aggregation after pulling matches
@@ -143,8 +141,7 @@ export class MatchPullService implements OnModuleInit {
     try {
       // #region agent log
       const aggStartTime = Date.now();
-      console.log('[pullMatchesFromAllRegions] Starting aggregation...');
-      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'match-pull.service.ts:130',message:'Starting aggregation after match pull',data:{totalMatchesInDb},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+      console.log(`[DEBUG] Starting aggregation after match pull - Total matches in DB: ${totalMatchesInDb}`);
       // #endregion
       
       await this.aggregationService.aggregateChampionStats();
@@ -155,16 +152,14 @@ export class MatchPullService implements OnModuleInit {
       const championStatsCount = await this.prisma.championStat.count();
       const itemBuildsCount = await this.prisma.championItemBuild.count();
       const runePagesCount = await this.prisma.championRunePage.count();
-      console.log(`[pullMatchesFromAllRegions] Aggregation complete: ${championStatsCount} champion stats, ${itemBuildsCount} item builds, ${runePagesCount} rune pages, took ${aggDuration}ms`);
-      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'match-pull.service.ts:138',message:'Aggregation complete after match pull',data:{championStatsCount,itemBuildsCount,runePagesCount,aggDurationMs:aggDuration},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+      console.log(`[DEBUG] Aggregation complete after match pull - Champion stats: ${championStatsCount}, Item builds: ${itemBuildsCount}, Rune pages: ${runePagesCount}, Duration: ${aggDuration}ms`);
       // #endregion
       
       this.logger.log('✅ Automatic aggregation completed successfully after match pull');
     } catch (error) {
       this.logger.error('❌ Aggregation after match pull failed:', error);
       // #region agent log
-      console.error('[pullMatchesFromAllRegions] Aggregation error:', error);
-      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'match-pull.service.ts:145',message:'Aggregation error after match pull',data:{errorMessage:error instanceof Error ? error.message : String(error)},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+      console.error(`[DEBUG] Aggregation error after match pull:`, error instanceof Error ? error.message : String(error));
       // #endregion
       // Don't throw - allow match pulling to complete even if aggregation fails
       // Aggregation will retry on next scheduled run (every 2 minutes)
@@ -181,8 +176,7 @@ export class MatchPullService implements OnModuleInit {
   ): Promise<void> {
     try {
       // #region agent log
-      console.log(`[pullMatchesFromRegion] Starting match pull for region ${region}`);
-      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'match-pull.service.ts:183',message:'Starting region match pull',data:{region,playersPerRegion,matchesPerPlayer},timestamp:Date.now(),runId:'debug1',hypothesisId:'A'})}).catch(()=>{});
+      console.log(`[DEBUG] Starting region match pull - Region: ${region}, Players per region: ${playersPerRegion}, Matches per player: ${matchesPerPlayer}`);
       // #endregion
       
       // Get challenger league entries
@@ -192,8 +186,7 @@ export class MatchPullService implements OnModuleInit {
       if (players.length === 0) {
         this.logger.warn(`No challenger players found in ${region}`);
         // #region agent log
-        console.warn(`[pullMatchesFromRegion] No challenger players found in ${region}`);
-        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'match-pull.service.ts:192',message:'No challenger players found',data:{region},timestamp:Date.now(),runId:'debug1',hypothesisId:'A'})}).catch(()=>{});
+        console.warn(`[DEBUG] No challenger players found in region: ${region}`);
         // #endregion
         return;
       }
@@ -201,8 +194,7 @@ export class MatchPullService implements OnModuleInit {
       this.logger.log(`Found ${players.length} challenger players in ${region}`);
       
       // #region agent log
-      console.log(`[pullMatchesFromRegion] Found ${players.length} challenger players in ${region}`);
-      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'match-pull.service.ts:198',message:'Challenger players found',data:{region,playersCount:players.length},timestamp:Date.now(),runId:'debug1',hypothesisId:'A'})}).catch(()=>{});
+      console.log(`[DEBUG] Found ${players.length} challenger players in region: ${region}`);
       // #endregion
 
       let totalMatchesIngested = 0;
@@ -210,8 +202,7 @@ export class MatchPullService implements OnModuleInit {
       
       // #region agent log
       const dbCountAtStart = await this.prisma.match.count();
-      console.log(`[pullMatchesFromRegion] Starting match pull for ${region}, DB count at start: ${dbCountAtStart}`);
-      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'match-pull.service.ts:210',message:'Starting region match pull',data:{region,dbCountAtStart},timestamp:Date.now(),runId:'debug2',hypothesisId:'C'})}).catch(()=>{});
+      console.log(`[DEBUG] Starting match pull for ${region} - DB count at start: ${dbCountAtStart}`);
       // #endregion
 
       for (const player of players) {
@@ -239,20 +230,15 @@ export class MatchPullService implements OnModuleInit {
           });
 
           // #region agent log
-          console.log(`[pullMatchesFromRegion] Player ${player.summonerName || puuid}: Got ${matchIds.length} match IDs`);
           const duplicateCount = matchIds.filter(id => processedMatchIds.has(id)).length;
-          if (duplicateCount > 0) {
-            console.log(`[pullMatchesFromRegion] Player ${player.summonerName || puuid}: ${duplicateCount} match IDs already in processedMatchIds Set`);
-          }
-          fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'match-pull.service.ts:234',message:'Got match IDs from player',data:{region,playerName:player.summonerName,puuid,matchIdsCount:matchIds.length,duplicateCount,processedMatchIdsSize:processedMatchIds.size},timestamp:Date.now(),runId:'debug2',hypothesisId:'C'})}).catch(()=>{});
+          console.log(`[DEBUG] Got ${matchIds.length} match IDs from player ${player.summonerName || puuid} in ${region} - Duplicates: ${duplicateCount}, Processed set size: ${processedMatchIds.size}`);
           // #endregion
 
           // Ingest each match (dedupe by match ID)
           for (const matchId of matchIds) {
             if (processedMatchIds.has(matchId)) {
               // #region agent log
-              console.log(`[pullMatchesFromRegion] Match ${matchId} already in processedMatchIds Set, skipping`);
-              fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'match-pull.service.ts:240',message:'Match already in processedMatchIds Set',data:{matchId,region},timestamp:Date.now(),runId:'debug2',hypothesisId:'C'})}).catch(()=>{});
+              console.log(`[DEBUG] Match ${matchId} already in processedMatchIds Set, skipping`);
               // #endregion
               continue; // Skip already processed matches
             }
@@ -265,15 +251,13 @@ export class MatchPullService implements OnModuleInit {
               // #region agent log
               if (totalMatchesIngested % 10 === 0) {
                 const currentDbCount = await this.prisma.match.count();
-                console.log(`[pullMatchesFromRegion] Progress: ${totalMatchesIngested} matches ingested from ${region}, DB count: ${currentDbCount}`);
-                fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'match-pull.service.ts:252',message:'Match ingestion progress',data:{region,totalMatchesIngested,currentDbCount},timestamp:Date.now(),runId:'debug2',hypothesisId:'A'})}).catch(()=>{});
+                console.log(`[DEBUG] Match ingestion progress - Region: ${region}, Ingested: ${totalMatchesIngested}, DB count: ${currentDbCount}`);
               }
               // #endregion
             } catch (error) {
               this.logger.debug(`Failed to ingest match ${matchId}: ${error}`);
               // #region agent log
-              console.error(`[pullMatchesFromRegion] Failed to ingest match ${matchId}:`, error);
-              fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'match-pull.service.ts:258',message:'Match ingestion failed',data:{matchId,region,errorMessage:error instanceof Error ? error.message : String(error)},timestamp:Date.now(),runId:'debug2',hypothesisId:'A'})}).catch(()=>{});
+              console.error(`[DEBUG] Failed to ingest match ${matchId} in ${region}:`, error instanceof Error ? error.message : String(error));
               // #endregion
             }
           }
@@ -288,8 +272,7 @@ export class MatchPullService implements OnModuleInit {
       this.logger.log(`Ingested ${totalMatchesIngested} new matches from ${region}`);
       
       // #region agent log
-      console.log(`[pullMatchesFromRegion] Region ${region}: ${totalMatchesIngested} matches ingested`);
-      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'match-pull.service.ts:185',message:'Region match ingestion complete',data:{region,totalMatchesIngested},timestamp:Date.now(),runId:'debug1',hypothesisId:'A'})}).catch(()=>{});
+      console.log(`[DEBUG] Region ${region} match ingestion complete - Total ingested: ${totalMatchesIngested}`);
       // #endregion
     } catch (error: any) {
       // Handle various error cases gracefully

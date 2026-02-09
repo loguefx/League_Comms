@@ -23,7 +23,7 @@ export class BuildAggregationService {
     this.logger.log(`Starting build aggregation${patch ? ` for patch ${patch}` : ''}...`);
     // #region agent log
     const aggStartTime = Date.now();
-    fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:22',message:'aggregateBuilds called',data:{patch:patch||'all'},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+    console.log(`[DEBUG] aggregateBuilds called - patch: ${patch || 'all'}`);
     // #endregion
 
     try {
@@ -37,13 +37,13 @@ export class BuildAggregationService {
           `.then((results) => results.map((r) => r.patch));
 
       // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:29',message:'Patches found for aggregation',data:{patchesCount:patches.length,patches:patches},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+      console.log(`[DEBUG] Patches found for aggregation: ${patches.length} patches - ${patches.join(', ')}`);
       // #endregion
 
       if (patches.length === 0) {
         this.logger.warn('No patches found in database for build aggregation');
         // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:35',message:'No patches found - early return',data:{},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+        console.log(`[DEBUG] No patches found - early return from aggregateBuilds`);
         // #endregion
         return;
       }
@@ -54,7 +54,7 @@ export class BuildAggregationService {
         this.logger.log(`Aggregating builds for patch ${p}...`);
         // #region agent log
         const patchStartTime = Date.now();
-        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:42',message:'Starting patch aggregation',data:{patch:p},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+        console.log(`[DEBUG] Starting patch aggregation for patch: ${p}`);
         // #endregion
         try {
           await this.aggregateRunePages(p);
@@ -63,12 +63,12 @@ export class BuildAggregationService {
           this.logger.log(`✓ Build aggregation complete for patch ${p}`);
           // #region agent log
           const patchDuration = Date.now() - patchStartTime;
-          fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:47',message:'Patch aggregation complete',data:{patch:p,durationMs:patchDuration},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+          console.log(`[DEBUG] Patch aggregation complete for ${p} - took ${patchDuration}ms`);
           // #endregion
         } catch (error) {
           this.logger.error(`✗ Build aggregation failed for patch ${p}:`, error);
           // #region agent log
-          fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:50',message:'Patch aggregation error',data:{patch:p,errorMessage:error instanceof Error ? error.message : String(error)},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+          console.error(`[DEBUG] Patch aggregation error for ${p}:`, error instanceof Error ? error.message : String(error));
           // #endregion
           // Continue with next patch even if one fails
         }
@@ -90,12 +90,12 @@ export class BuildAggregationService {
       this.logger.log(`Build aggregation complete. Total aggregated: ${Number(runePageCount[0]?.count || 0)} rune pages, ${Number(itemBuildCount[0]?.count || 0)} item builds, ${Number(spellSetCount[0]?.count || 0)} spell sets`);
       // #region agent log
       const aggDuration = Date.now() - aggStartTime;
-      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:68',message:'Build aggregation complete',data:{runePages:Number(runePageCount[0]?.count || 0),itemBuilds:Number(itemBuildCount[0]?.count || 0),spellSets:Number(spellSetCount[0]?.count || 0),durationMs:aggDuration},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+      console.log(`[DEBUG] Build aggregation complete - Rune pages: ${Number(runePageCount[0]?.count || 0)}, Item builds: ${Number(itemBuildCount[0]?.count || 0)}, Spell sets: ${Number(spellSetCount[0]?.count || 0)}, Duration: ${aggDuration}ms`);
       // #endregion
     } catch (error) {
       this.logger.error('Build aggregation failed:', error);
       // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:70',message:'Build aggregation failed',data:{errorMessage:error instanceof Error ? error.message : String(error)},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+      console.error(`[DEBUG] Build aggregation failed:`, error instanceof Error ? error.message : String(error));
       // #endregion
       throw error;
     }
@@ -364,7 +364,7 @@ export class BuildAggregationService {
         AND array_length(array_remove((pfi.items[1:6])::int[], 0), 1) >= 6
         AND (SELECT COUNT(*) FROM unnest((pfi.items[1:6])::int[]) AS item WHERE item >= 3000 AND item > 0) >= 6
     `;
-    fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:320',message:'Starting item build aggregation',data:{patch,totalItems:Number(totalItemsBefore[0]?.count || 0),itemsWith6Full:Number(itemsWith6Full[0]?.count || 0)},timestamp:Date.now(),runId:'debug1',hypothesisId:'C'})}).catch(()=>{});
+    console.log(`[DEBUG] Starting item build aggregation for patch ${patch} - Total items: ${Number(totalItemsBefore[0]?.count || 0)}, Items with 6+ full items: ${Number(itemsWith6Full[0]?.count || 0)}`);
     // #endregion
 
     // Extract items by position in the array (PostgreSQL arrays are 1-indexed)
@@ -501,7 +501,7 @@ export class BuildAggregationService {
           )
           SELECT COUNT(*)::bigint as count FROM filtered_items
         `;
-        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:343',message:'Single item aggregation query executed',data:{buildType,patch,startPos,filteredCount:Number(filteredCountResult[0]?.count || 0),roleFilter:roleFilter||'ALL'},timestamp:Date.now(),runId:'debug1',hypothesisId:'C'})}).catch(()=>{});
+        console.log(`[DEBUG] Single item aggregation query executed - Build type: ${buildType}, Patch: ${patch}, Position: ${startPos}, Filtered count: ${Number(filteredCountResult[0]?.count || 0)}, Role filter: ${roleFilter || 'ALL'}`);
         // #endregion
       } else {
         // Multiple items: extract slice and aggregate combinations
@@ -622,7 +622,7 @@ export class BuildAggregationService {
           )
           SELECT COUNT(*)::bigint as count FROM filtered_items
         `;
-        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:432',message:'Multiple item aggregation query executed',data:{buildType,patch,startPos,endPos,filteredCount:Number(filteredCountResult[0]?.count || 0),roleFilter:roleFilter||'ALL'},timestamp:Date.now(),runId:'debug1',hypothesisId:'C'})}).catch(()=>{});
+        console.log(`[DEBUG] Multiple item aggregation query executed - Build type: ${buildType}, Patch: ${patch}, Positions: ${startPos}-${endPos}, Filtered count: ${Number(filteredCountResult[0]?.count || 0)}, Role filter: ${roleFilter || 'ALL'}`);
         // #endregion
       }
     };
@@ -686,7 +686,7 @@ export class BuildAggregationService {
     // #region agent log
     const itemBuildDuration = Date.now() - itemBuildStartTime;
     const summaryData = summary.map(s => ({ buildType: s.build_type, role: s.role, count: Number(s.count) }));
-    fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:578',message:'Item build aggregation complete',data:{patch,summary:summaryData,durationMs:itemBuildDuration},timestamp:Date.now(),runId:'debug1',hypothesisId:'C'})}).catch(()=>{});
+    console.log(`[DEBUG] Item build aggregation complete for patch ${patch} - Duration: ${itemBuildDuration}ms, Summary:`, JSON.stringify(summaryData, null, 2));
     // #endregion
   }
 
