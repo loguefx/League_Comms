@@ -897,6 +897,9 @@ export class BuildAggregationService {
     const isAllRanks = rankBracket === 'all_ranks';
     const isWorld = !region;
 
+    // When role is 'ALL', we need to aggregate across all roles (don't filter by role)
+    const roleFilter = normalizedRole === 'ALL' ? Prisma.empty : Prisma.sql`AND role = ${normalizedRole}`;
+
     let spellSets;
     if (isAllRanks && isWorld) {
       spellSets = await this.prisma.$queryRaw<Array<{
