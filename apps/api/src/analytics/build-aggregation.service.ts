@@ -415,6 +415,16 @@ export class BuildAggregationService {
     const isAllRanks = rankBracket === 'all_ranks';
     const isWorld = !region;
 
+    this.logger.log(`[getRecommendedRunes] Querying for championId=${championId}, patch=${patch}, rankBracket=${rankBracket}, role=${normalizedRole}, region=${region || 'world'}`);
+
+    // First, check if any data exists at all for this champion
+    const totalRunePages = await this.prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*)::bigint as count
+      FROM champion_rune_pages
+      WHERE champion_id = ${championId}
+    `;
+    this.logger.log(`[getRecommendedRunes] Total rune pages for champion ${championId}: ${Number(totalRunePages[0]?.count || 0)}`);
+
     let runePages;
     if (isAllRanks && isWorld) {
       runePages = await this.prisma.$queryRaw<Array<{
@@ -442,6 +452,35 @@ export class BuildAggregationService {
         ORDER BY SUM(games) DESC
         LIMIT ${limit}
       `;
+      
+      // If no results with threshold, try without threshold
+      if (runePages.length === 0) {
+        this.logger.warn(`[getRecommendedRunes] No rune pages found with threshold ${this.MIN_GAMES_THRESHOLD}, trying without threshold...`);
+        runePages = await this.prisma.$queryRaw<Array<{
+          primary_style_id: number;
+          sub_style_id: number;
+          perk_ids: number[];
+          stat_shards: number[];
+          games: bigint;
+          wins: bigint;
+        }>>`
+          SELECT
+            primary_style_id,
+            sub_style_id,
+            perk_ids,
+            stat_shards,
+            SUM(games)::bigint AS games,
+            SUM(wins)::bigint AS wins
+          FROM champion_rune_pages
+          WHERE patch = ${patch}
+            AND queue_id = 420
+            AND role = ${normalizedRole}
+            AND champion_id = ${championId}
+          GROUP BY primary_style_id, sub_style_id, perk_ids, stat_shards
+          ORDER BY SUM(games) DESC
+          LIMIT ${limit}
+        `;
+      }
     } else if (isAllRanks) {
       runePages = await this.prisma.$queryRaw<Array<{
         primary_style_id: number;
@@ -469,6 +508,34 @@ export class BuildAggregationService {
         ORDER BY SUM(games) DESC
         LIMIT ${limit}
       `;
+      
+      if (runePages.length === 0) {
+        runePages = await this.prisma.$queryRaw<Array<{
+          primary_style_id: number;
+          sub_style_id: number;
+          perk_ids: number[];
+          stat_shards: number[];
+          games: bigint;
+          wins: bigint;
+        }>>`
+          SELECT
+            primary_style_id,
+            sub_style_id,
+            perk_ids,
+            stat_shards,
+            SUM(games)::bigint AS games,
+            SUM(wins)::bigint AS wins
+          FROM champion_rune_pages
+          WHERE patch = ${patch}
+            AND region = ${region}
+            AND queue_id = 420
+            AND role = ${normalizedRole}
+            AND champion_id = ${championId}
+          GROUP BY primary_style_id, sub_style_id, perk_ids, stat_shards
+          ORDER BY SUM(games) DESC
+          LIMIT ${limit}
+        `;
+      }
     } else if (isWorld) {
       runePages = await this.prisma.$queryRaw<Array<{
         primary_style_id: number;
@@ -496,6 +563,34 @@ export class BuildAggregationService {
         ORDER BY SUM(games) DESC
         LIMIT ${limit}
       `;
+      
+      if (runePages.length === 0) {
+        runePages = await this.prisma.$queryRaw<Array<{
+          primary_style_id: number;
+          sub_style_id: number;
+          perk_ids: number[];
+          stat_shards: number[];
+          games: bigint;
+          wins: bigint;
+        }>>`
+          SELECT
+            primary_style_id,
+            sub_style_id,
+            perk_ids,
+            stat_shards,
+            SUM(games)::bigint AS games,
+            SUM(wins)::bigint AS wins
+          FROM champion_rune_pages
+          WHERE patch = ${patch}
+            AND queue_id = 420
+            AND rank_bracket = ${rankBracket}
+            AND role = ${normalizedRole}
+            AND champion_id = ${championId}
+          GROUP BY primary_style_id, sub_style_id, perk_ids, stat_shards
+          ORDER BY SUM(games) DESC
+          LIMIT ${limit}
+        `;
+      }
     } else {
       runePages = await this.prisma.$queryRaw<Array<{
         primary_style_id: number;
@@ -523,9 +618,40 @@ export class BuildAggregationService {
         ORDER BY games DESC
         LIMIT ${limit}
       `;
+      
+      if (runePages.length === 0) {
+        runePages = await this.prisma.$queryRaw<Array<{
+          primary_style_id: number;
+          sub_style_id: number;
+          perk_ids: number[];
+          stat_shards: number[];
+          games: bigint;
+          wins: bigint;
+        }>>`
+          SELECT
+            primary_style_id,
+            sub_style_id,
+            perk_ids,
+            stat_shards,
+            games,
+            wins
+          FROM champion_rune_pages
+          WHERE patch = ${patch}
+            AND region = ${region}
+            AND queue_id = 420
+            AND rank_bracket = ${rankBracket}
+            AND role = ${normalizedRole}
+            AND champion_id = ${championId}
+          ORDER BY games DESC
+          LIMIT ${limit}
+        `;
+      }
     }
 
+    this.logger.log(`[getRecommendedRunes] Found ${runePages.length} rune pages for champion ${championId}`);
+
     if (!runePages || runePages.length === 0) {
+      this.logger.warn(`[getRecommendedRunes] No rune pages found for champion ${championId} with filters: patch=${patch}, role=${normalizedRole}, rank=${rankBracket}, region=${region || 'world'}`);
       return [];
     }
 
@@ -852,10 +978,37 @@ export class BuildAggregationService {
       this.getRecommendedSpells(championId, patch, rankBracket, role, region, limit * 2),
     ]);
 
-    this.logger.log(`[getBuildArchetypes] Found ${runePages.length} rune pages, ${itemBuilds.length} item builds, ${spellSets.length} spell sets for champion ${championId}`);
+    this.logger.log(`[getBuildArchetypes] Found ${runePages.length} rune pages, ${itemBuilds.length} item builds, ${spellSets.length} spell sets for champion ${championId} (patch=${patch}, role=${normalizedRole}, rank=${rankBracket}, region=${region || 'world'})`);
 
     if (runePages.length === 0 || itemBuilds.length === 0) {
       this.logger.warn(`[getBuildArchetypes] No build data found for champion ${championId} - runes: ${runePages.length}, items: ${itemBuilds.length}`);
+      
+      // Check if data exists in the database at all
+      const [totalRunePages, totalItemBuilds] = await Promise.all([
+        this.prisma.$queryRaw<Array<{ count: bigint }>>`
+          SELECT COUNT(*)::bigint as count
+          FROM champion_rune_pages
+          WHERE champion_id = ${championId}
+        `,
+        this.prisma.$queryRaw<Array<{ count: bigint }>>`
+          SELECT COUNT(*)::bigint as count
+          FROM champion_item_builds
+          WHERE champion_id = ${championId}
+        `,
+      ]);
+      
+      this.logger.warn(`[getBuildArchetypes] Total rune pages in DB for champion ${championId}: ${Number(totalRunePages[0]?.count || 0)}, total item builds: ${Number(totalItemBuilds[0]?.count || 0)}`);
+      
+      // Check what patches are available
+      const availablePatches = await this.prisma.$queryRaw<Array<{ patch: string }>>`
+        SELECT DISTINCT patch
+        FROM champion_rune_pages
+        WHERE champion_id = ${championId}
+        ORDER BY patch DESC
+        LIMIT 5
+      `;
+      this.logger.warn(`[getBuildArchetypes] Available patches for champion ${championId}: ${availablePatches.map(p => p.patch).join(', ') || 'none'}`);
+      
       return [];
     }
 
