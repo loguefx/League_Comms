@@ -473,12 +473,26 @@ export class AnalyticsController {
       const normalizedRegion = region === 'world' || !region ? null : region;
 
       // Get tier stats for this champion
-      const tierStats = await this.analyticsService.getChampionStats({
-        rank: rankBracket,
-        role: normalizedRole,
-        patch: actualPatch,
-        region: normalizedRegion,
-      });
+      // #region agent log
+      console.log('[DEBUG] Before calling getChampionStats');
+      // #endregion
+      let tierStats;
+      try {
+        tierStats = await this.analyticsService.getChampionStats({
+          rank: rankBracket,
+          role: normalizedRole,
+          patch: actualPatch,
+          region: normalizedRegion,
+        });
+        // #region agent log
+        console.log('[DEBUG] After getChampionStats', { tierStatsLength: tierStats.length });
+        // #endregion
+      } catch (error: any) {
+        // #region agent log
+        console.log('[DEBUG] Error in getChampionStats', { errorMessage: error.message });
+        // #endregion
+        throw error;
+      }
       const foundStats = tierStats.find((s: any) => s.championId === champId);
       // Sanitize championStats to ensure no BigInt values
       const championStats = foundStats ? {
