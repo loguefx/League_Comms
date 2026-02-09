@@ -15,6 +15,7 @@ export class BigIntSerializerInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> | Promise<Observable<any>> {
     const request = context.switchToHttp().getRequest();
     // #region agent log
+    console.log('[DEBUG] Interceptor entry', { method: request.method, url: request.url });
     fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'bigint-serializer.interceptor.ts:15',message:'Interceptor entry',data:{method:request.method,url:request.url},timestamp:Date.now(),runId:'debug1',hypothesisId:'C'})}).catch(()=>{});
     // #endregion
     this.logger.log(`[BigIntSerializerInterceptor] ⚡ Processing ${request.method} ${request.url}`);
@@ -24,6 +25,7 @@ export class BigIntSerializerInterceptor implements NestInterceptor {
       // @ts-ignore - RxJS type conflicts in monorepo
       map((data: any) => {
         // #region agent log
+        console.log('[DEBUG] Interceptor received data', { dataType: typeof data, isObject: typeof data === 'object', hasKeys: data && typeof data === 'object' ? Object.keys(data).length : 0 });
         fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'bigint-serializer.interceptor.ts:22',message:'Interceptor received data',data:{dataType:typeof data,isObject:typeof data==='object',hasKeys:data&&typeof data==='object'?Object.keys(data).length:0},timestamp:Date.now(),runId:'debug1',hypothesisId:'C'})}).catch(()=>{});
         // #endregion
         this.logger.log(`[BigIntSerializerInterceptor] 📦 Received data for ${request.method} ${request.url}, type: ${typeof data}`);
@@ -31,6 +33,7 @@ export class BigIntSerializerInterceptor implements NestInterceptor {
         // First, aggressively convert ALL BigInt values
         let converted = this.convertBigIntRecursive(data);
         // #region agent log
+        console.log('[DEBUG] After convertBigIntRecursive', { convertedType: typeof converted });
         fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'bigint-serializer.interceptor.ts:26',message:'After convertBigIntRecursive',data:{convertedType:typeof converted},timestamp:Date.now(),runId:'debug1',hypothesisId:'C'})}).catch(()=>{});
         // #endregion
         this.logger.log(`[BigIntSerializerInterceptor] ✅ Converted BigInt values`);
@@ -38,11 +41,13 @@ export class BigIntSerializerInterceptor implements NestInterceptor {
         // Then try to serialize with a replacer function as a safety net
         try {
           // #region agent log
+          console.log('[DEBUG] Before interceptor JSON.stringify', { convertedType: typeof converted });
           fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'bigint-serializer.interceptor.ts:30',message:'Before interceptor JSON.stringify',data:{convertedType:typeof converted},timestamp:Date.now(),runId:'debug1',hypothesisId:'C'})}).catch(()=>{});
           // #endregion
           const testString = JSON.stringify(converted, (key, value) => {
             if (typeof value === 'bigint') {
               // #region agent log
+              console.log('[DEBUG] Found BigInt in interceptor stringify replacer', { key });
               fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'bigint-serializer.interceptor.ts:32',message:'Found BigInt in interceptor stringify replacer',data:{key},timestamp:Date.now(),runId:'debug1',hypothesisId:'C'})}).catch(()=>{});
               // #endregion
               this.logger.warn(`[BigIntSerializerInterceptor] ⚠️ Found BigInt at path: ${key} during stringify, converting to number`);
@@ -51,12 +56,14 @@ export class BigIntSerializerInterceptor implements NestInterceptor {
             return value;
           });
           // #region agent log
+          console.log('[DEBUG] Interceptor JSON.stringify succeeded', { testStringLength: testString.length });
           fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'bigint-serializer.interceptor.ts:38',message:'Interceptor JSON.stringify succeeded',data:{testStringLength:testString.length},timestamp:Date.now(),runId:'debug1',hypothesisId:'C'})}).catch(()=>{});
           // #endregion
           this.logger.log(`[BigIntSerializerInterceptor] ✅ Successfully serialized response for ${request.method} ${request.url}`);
           return converted;
         } catch (error: any) {
           // #region agent log
+          console.log('[DEBUG] Interceptor JSON.stringify failed', { errorMessage: error.message, errorName: error.name, errorStack: error.stack?.substring(0, 500) });
           fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'bigint-serializer.interceptor.ts:41',message:'Interceptor JSON.stringify failed',data:{errorMessage:error.message,errorName:error.name},timestamp:Date.now(),runId:'debug1',hypothesisId:'C'})}).catch(()=>{});
           // #endregion
           this.logger.error(`[BigIntSerializerInterceptor] ❌ Failed to serialize response for ${request.method} ${request.url}`);
@@ -154,6 +161,7 @@ export class BigIntSerializerInterceptor implements NestInterceptor {
     
     if (typeof obj === 'bigint') {
       // #region agent log
+      console.log('[DEBUG] Found BigInt in convertBigIntRecursive', { depth, value: String(obj) });
       fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'bigint-serializer.interceptor.ts:123',message:'Found BigInt in convertBigIntRecursive',data:{depth,value:String(obj)},timestamp:Date.now(),runId:'debug1',hypothesisId:'D'})}).catch(()=>{});
       // #endregion
       this.logger.warn(`[convertBigIntRecursive] Found BigInt at depth ${depth}, converting to number`);
