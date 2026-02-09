@@ -700,7 +700,23 @@ export class AnalyticsController {
 
       // #region agent log
       console.log('[DEBUG] Before building responseData', { buildArchetypesLength: buildArchetypes.length, allItemBuildsKeys: Object.keys(allItemBuilds) });
-      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'analytics.controller.ts:647',message:'Before building responseData',data:{buildArchetypesLength:buildArchetypes.length,allItemBuildsKeys:Object.keys(allItemBuilds)},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+      // Safely serialize for fetch - only include safe primitive values
+      try {
+        const safeLogData = {
+          location: 'analytics.controller.ts:647',
+          message: 'Before building responseData',
+          data: {
+            buildArchetypesLength: Number(buildArchetypes.length) || 0,
+            allItemBuildsKeys: Array.isArray(Object.keys(allItemBuilds)) ? Object.keys(allItemBuilds) : []
+          },
+          timestamp: Date.now(),
+          runId: 'debug1',
+          hypothesisId: 'B'
+        };
+        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(safeLogData)}).catch(()=>{});
+      } catch (fetchError) {
+        // Ignore fetch logging errors
+      }
       // #endregion
       
       // Build the response object
@@ -766,7 +782,23 @@ export class AnalyticsController {
       
       // #region agent log
       console.log('[DEBUG] After building responseData', { responseDataKeys: Object.keys(responseData), buildsLength: responseData.builds.length });
-      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'analytics.controller.ts:705',message:'After building responseData',data:{responseDataKeys:Object.keys(responseData),buildsLength:responseData.builds.length},timestamp:Date.now(),runId:'debug1',hypothesisId:'C'})}).catch(()=>{});
+      // Safely serialize for fetch - only include safe primitive values
+      try {
+        const safeLogData = {
+          location: 'analytics.controller.ts:705',
+          message: 'After building responseData',
+          data: {
+            responseDataKeys: Array.isArray(Object.keys(responseData)) ? Object.keys(responseData) : [],
+            buildsLength: Number(responseData.builds.length) || 0
+          },
+          timestamp: Date.now(),
+          runId: 'debug1',
+          hypothesisId: 'C'
+        };
+        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(safeLogData)}).catch(()=>{});
+      } catch (fetchError) {
+        // Ignore fetch logging errors
+      }
       // #endregion
 
       // Final sanitization pass - recursively convert any remaining BigInt values
