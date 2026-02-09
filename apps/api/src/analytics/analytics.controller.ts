@@ -914,36 +914,41 @@ export class AnalyticsController {
         };
       }
     } catch (error: any) {
+      // Safely extract error information without serializing the error object itself
+      const safeErrorInfo = {
+        message: String(error?.message || 'Unknown error'),
+        name: String(error?.name || 'Error'),
+        stack: String(error?.stack || '').substring(0, 1000),
+      };
+      
       // #region agent log
       console.log('[DEBUG] ========== ERROR CAUGHT IN getChampionBuild ==========');
-      console.log('[DEBUG] Error message:', error.message);
-      console.log('[DEBUG] Error name:', error.name);
-      console.log('[DEBUG] Error stack:', error.stack);
-      console.log('[DEBUG] Error toString:', String(error));
-      console.log('[DEBUG] Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+      console.log('[DEBUG] Error message:', safeErrorInfo.message);
+      console.log('[DEBUG] Error name:', safeErrorInfo.name);
+      console.log('[DEBUG] Error stack:', safeErrorInfo.stack);
       console.log('[DEBUG] =======================================================');
-      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'analytics.controller.ts:770',message:'Caught error in getChampionBuild',data:{errorMessage:error.message,errorName:error.name,errorStack:error.stack?.substring(0,500)},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'analytics.controller.ts:770',message:'Caught error in getChampionBuild',data:safeErrorInfo,timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
       // #endregion
-      console.error('[AnalyticsController] Error getting champion build:', error);
+      console.error('[AnalyticsController] Error getting champion build:', safeErrorInfo.message);
       
       // If it's a BigInt serialization error, return a safe fallback response
-      const isBigIntError = error.message && (
-        error.message.includes('BigInt') || 
-        error.message.includes('serialize') ||
-        error.message.includes('Do not know how to serialize')
+      const isBigIntError = safeErrorInfo.message && (
+        safeErrorInfo.message.includes('BigInt') || 
+        safeErrorInfo.message.includes('serialize') ||
+        safeErrorInfo.message.includes('Do not know how to serialize')
       );
       
       if (isBigIntError) {
         // #region agent log
         console.log('[DEBUG] ========== BIGINT ERROR DETECTED ==========');
         console.log('[DEBUG] Champion ID:', championId);
-        console.log('[DEBUG] Error message:', error.message);
-        console.log('[DEBUG] Error name:', error.name);
+        console.log('[DEBUG] Error message:', safeErrorInfo.message);
+        console.log('[DEBUG] Error name:', safeErrorInfo.name);
         console.log('[DEBUG] ===========================================');
-        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'analytics.controller.ts:775',message:'BigInt serialization error detected',data:{championId,errorMessage:error.message},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'analytics.controller.ts:775',message:'BigInt serialization error detected',data:{championId,errorMessage:safeErrorInfo.message},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
         // #endregion
         console.error(`[getChampionBuild] BigInt serialization error detected for champion ${championId}`);
-        console.error(`[getChampionBuild] Error details:`, error.message);
+        console.error(`[getChampionBuild] Error details:`, safeErrorInfo.message);
         
         // Return a minimal safe response that won't cause serialization errors
         return {
