@@ -252,9 +252,33 @@ export class AnalyticsController {
         LIMIT 50
       `;
 
+      // Fetch champion names from Data Dragon
+      let championNameMap: Record<number, string> = {};
+      try {
+        const versionResponse = await fetch('https://ddragon.leagueoflegends.com/api/versions.json');
+        const versions: string[] = await versionResponse.json();
+        const latestVersion = versions[0] || '14.1.1';
+        
+        const championResponse = await fetch(
+          `https://ddragon.leagueoflegends.com/cdn/${latestVersion}/data/en_US/champion.json`
+        );
+        const championData: any = await championResponse.json();
+        
+        // Map champion IDs to names
+        Object.values(championData.data || {}).forEach((champ: any) => {
+          const championId = parseInt(champ.key, 10);
+          if (!isNaN(championId)) {
+            championNameMap[championId] = champ.name;
+          }
+        });
+      } catch (error) {
+        console.error('[AnalyticsController] Failed to fetch champion names:', error);
+      }
+
       return {
         champions: championsWithRunes.map((c) => ({
           championId: Number(c.champion_id),
+          championName: championNameMap[Number(c.champion_id)] || `Champion ${c.champion_id}`,
           runePages: Number(c.rune_pages),
           itemBuilds: Number(c.item_builds),
           spellSets: Number(c.spell_sets),
