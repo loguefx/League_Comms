@@ -192,9 +192,11 @@ export async function getRuneName(perkId: number): Promise<string> {
 /**
  * Get rune style image URL by style ID
  */
-export function getRuneStyleImageUrl(styleId: number): string {
+export async function getRuneStyleImageUrl(styleId: number): Promise<string> {
+  // Ensure rune data is loaded first
+  await fetchRuneData();
+  
   // Data Dragon rune style images are in the rune tree data
-  // If we have cached data, use the icon from there, otherwise use fallback
   if (runeDataCache && runeDataCache.runeTree.length > 0) {
     const style = runeDataCache.runeTree.find(s => s.id === styleId);
     if (style && style.icon) {
@@ -202,7 +204,7 @@ export function getRuneStyleImageUrl(styleId: number): string {
     }
   }
   
-  // Fallback: use direct CDN path (these might not work, but worth trying)
+  // Fallback: use direct CDN path
   const styleMap: Record<number, string> = {
     8000: 'perk-images/Styles/7201_Precision/7201_Precision.png',
     8100: 'perk-images/Styles/7200_Domination/7200_Domination.png',

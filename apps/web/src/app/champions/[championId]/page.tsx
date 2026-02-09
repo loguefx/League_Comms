@@ -10,6 +10,7 @@ import {
   getRuneName, 
   getRuneStyleImageUrl
 } from '@/utils/runeData';
+import { getLatestDataDragonVersion } from '@/utils/championData';
 
 interface BuildArchetype {
   archetype: string;
@@ -67,15 +68,20 @@ interface ChampionBuild {
 }
 
 // Get spell image URL
-function getSpellImageUrl(spellId: number): string {
+function getSpellImageUrl(spellId: number, version: string = '14.1.1'): string {
   const spellMap: Record<number, string> = {
-    1: 'Cleanse', 3: 'Exhaust', 4: 'Flash', 6: 'Ghost',
-    7: 'Heal', 11: 'Smite', 12: 'Teleport', 13: 'Clarity',
-    14: 'Ignite', 21: 'Barrier',
+    1: 'SummonerBoost', // Cleanse
+    3: 'SummonerExhaust', // Exhaust
+    4: 'SummonerFlash', // Flash
+    6: 'SummonerHaste', // Ghost
+    7: 'SummonerHeal', // Heal
+    11: 'SummonerSmite', // Smite
+    12: 'SummonerTeleport', // Teleport
+    13: 'SummonerMana', // Clarity
+    14: 'SummonerIgnite', // Ignite
+    21: 'SummonerBarrier', // Barrier
   };
-  const spellName = spellMap[spellId] || 'SummonerSpell';
-  // Use latest version from runeData cache if available, otherwise fallback
-  const version = typeof window !== 'undefined' && (window as any).__DD_VERSION__ || '14.1.1';
+  const spellName = spellMap[spellId] || 'SummonerFlash';
   return `https://ddragon.leagueoflegends.com/cdn/${version}/img/spell/${spellName}.png`;
 }
 
@@ -94,10 +100,13 @@ export default function ChampionBuildPage() {
   const [build, setBuild] = useState<ChampionBuild | null>(null);
   const [loading, setLoading] = useState(true);
   const [championDataLoaded, setChampionDataLoaded] = useState(false);
+  const [runeDataLoaded, setRuneDataLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedBuildIndex, setSelectedBuildIndex] = useState(0);
   const [runeImages, setRuneImages] = useState<Map<number, string>>(new Map());
   const [runeNames, setRuneNames] = useState<Map<number, string>>(new Map());
+  const [runeStyleImages, setRuneStyleImages] = useState<Map<number, string>>(new Map());
+  const [ddVersion, setDdVersion] = useState<string>('14.1.1');
 
   const rank = searchParams.get('rank') || 'ALL_RANKS';
   const role = searchParams.get('role') || 'ALL';
@@ -145,15 +154,47 @@ export default function ChampionBuildPage() {
         if (data.builds && data.builds.length > 0) {
           setSelectedBuildIndex(0);
           
-          // Load rune images - ensure rune data is preloaded first
+          // Load rune images and style images - ensure rune data is preloaded first
           const loadRuneImages = async () => {
             // Ensure rune data is loaded
             await preloadRuneData();
             
+            // Get Data Dragon version for spell/item images
+            try {
+              const version = await getLatestDataDragonVersion();
+              if (version) {
+                setDdVersion(version);
+                if (typeof window !== 'undefined') {
+                  (window as any).__DD_VERSION__ = version;
+                }
+              }
+            } catch (err) {
+              console.warn('Failed to get Data Dragon version:', err);
+            }
+            
             const runeImgMap = new Map<number, string>();
             const runeNameMap = new Map<number, string>();
+            const styleImgMap = new Map<number, string>();
             
             for (const buildArchetype of data.builds) {
+              // Load rune style images
+              if (!styleImgMap.has(buildArchetype.runes.primaryStyleId)) {
+                try {
+                  const primaryStyleUrl = await getRuneStyleImageUrl(buildArchetype.runes.primaryStyleId);
+                  styleImgMap.set(buildArchetype.runes.primaryStyleId, primaryStyleUrl);
+                } catch (err) {
+                  console.warn(`Failed to load primary style ${buildArchetype.runes.primaryStyleId}:`, err);
+                }
+              }
+              if (!styleImgMap.has(buildArchetype.runes.subStyleId)) {
+                try {
+                  const subStyleUrl = await getRuneStyleImageUrl(buildArchetype.runes.subStyleId);
+                  styleImgMap.set(buildArchetype.runes.subStyleId, subStyleUrl);
+                } catch (err) {
+                  console.warn(`Failed to load sub style ${buildArchetype.runes.subStyleId}:`, err);
+                }
+              }
+              
               // Load rune images
               for (const perkId of buildArchetype.runes.perkIds) {
                 if (!runeImgMap.has(perkId)) {
@@ -173,6 +214,8 @@ export default function ChampionBuildPage() {
             
             setRuneImages(runeImgMap);
             setRuneNames(runeNameMap);
+            setRuneStyleImages(styleImgMap);
+            setRuneDataLoaded(true);
           };
           
           loadRuneImages();
@@ -188,7 +231,7 @@ export default function ChampionBuildPage() {
     loadBuild();
   }, [championId, rank, role, patch, region, championDataLoaded]);
 
-  if (loading || !championDataLoaded) {
+  if (loading || !championDataLoaded || !runeDataLoaded) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#0A0E1A] via-[#0F172A] to-[#0A0E1A] flex items-center justify-center">
         <div className="text-center">
@@ -358,15 +401,19 @@ export default function ChampionBuildPage() {
                 <div className="text-xs text-[#64748B] mb-3 font-semibold uppercase tracking-wider">Primary</div>
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-12 h-12 rounded-lg bg-[#0F172A] border border-[#334155] flex items-center justify-center overflow-hidden">
-                    <img
-                      src={getRuneStyleImageUrl(selectedBuild.runes.primaryStyleId)}
-                      alt={`Style ${selectedBuild.runes.primaryStyleId}`}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                        (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">Style ${selectedBuild.runes.primaryStyleId}</span>`;
-                      }}
-                    />
+                    {runeStyleImages.get(selectedBuild.runes.primaryStyleId) ? (
+                      <img
+                        src={runeStyleImages.get(selectedBuild.runes.primaryStyleId)!}
+                        alt={`Style ${selectedBuild.runes.primaryStyleId}`}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                          (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">Style ${selectedBuild.runes.primaryStyleId}</span>`;
+                        }}
+                      />
+                    ) : (
+                      <span className="text-xs text-[#94A3B8]">Style {selectedBuild.runes.primaryStyleId}</span>
+                    )}
                   </div>
                   <div className="flex gap-2">
                     {selectedBuild.runes.perkIds.slice(0, 4).map((perkId, idx) => {
@@ -406,15 +453,19 @@ export default function ChampionBuildPage() {
                 <div className="text-xs text-[#64748B] mb-3 font-semibold uppercase tracking-wider">Secondary</div>
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-12 h-12 rounded-lg bg-[#0F172A] border border-[#334155] flex items-center justify-center overflow-hidden">
-                    <img
-                      src={getRuneStyleImageUrl(selectedBuild.runes.subStyleId)}
-                      alt={`Style ${selectedBuild.runes.subStyleId}`}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                        (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">Style ${selectedBuild.runes.subStyleId}</span>`;
-                      }}
-                    />
+                    {runeStyleImages.get(selectedBuild.runes.subStyleId) ? (
+                      <img
+                        src={runeStyleImages.get(selectedBuild.runes.subStyleId)!}
+                        alt={`Style ${selectedBuild.runes.subStyleId}`}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                          (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">Style ${selectedBuild.runes.subStyleId}</span>`;
+                        }}
+                      />
+                    ) : (
+                      <span className="text-xs text-[#94A3B8]">Style {selectedBuild.runes.subStyleId}</span>
+                    )}
                   </div>
                   <div className="flex gap-2">
                     {selectedBuild.runes.perkIds.slice(4, 6).map((perkId, idx) => {
@@ -481,7 +532,7 @@ export default function ChampionBuildPage() {
                   </div>
                   <div className="w-16 h-16 rounded-xl bg-[#1E293B] border-2 border-[#334155] hover:border-blue-500/50 transition-all hover:scale-110 flex items-center justify-center group relative overflow-hidden">
                     <img
-                      src={getSpellImageUrl(selectedBuild.spells.spell2Id)}
+                      src={getSpellImageUrl(selectedBuild.spells.spell2Id, ddVersion)}
                       alt={`Spell ${selectedBuild.spells.spell2Id}`}
                       className="w-full h-full object-cover"
                       onError={(e) => {
@@ -516,7 +567,7 @@ export default function ChampionBuildPage() {
                                 title={`Item ${itemId}`}
                               >
                                 <img
-                                  src={getItemImageUrl(itemId)}
+                                  src={getItemImageUrl(itemId, ddVersion)}
                                   alt={`Item ${itemId}`}
                                   className="w-full h-full object-cover"
                                   onError={(e) => {
@@ -550,7 +601,7 @@ export default function ChampionBuildPage() {
                                 title={`Item ${itemId}`}
                               >
                                 <img
-                                  src={getItemImageUrl(itemId)}
+                                  src={getItemImageUrl(itemId, ddVersion)}
                                   alt={`Item ${itemId}`}
                                   className="w-full h-full object-cover"
                                   onError={(e) => {
@@ -584,7 +635,7 @@ export default function ChampionBuildPage() {
                                 title={`Item ${itemId}`}
                               >
                                 <img
-                                  src={getItemImageUrl(itemId)}
+                                  src={getItemImageUrl(itemId, ddVersion)}
                                   alt={`Item ${itemId}`}
                                   className="w-full h-full object-cover"
                                   onError={(e) => {
@@ -618,7 +669,7 @@ export default function ChampionBuildPage() {
                                 title={`Item ${itemId}`}
                               >
                                 <img
-                                  src={getItemImageUrl(itemId)}
+                                  src={getItemImageUrl(itemId, ddVersion)}
                                   alt={`Item ${itemId}`}
                                   className="w-full h-full object-cover"
                                   onError={(e) => {
@@ -652,7 +703,7 @@ export default function ChampionBuildPage() {
                                 title={`Item ${itemId}`}
                               >
                                 <img
-                                  src={getItemImageUrl(itemId)}
+                                  src={getItemImageUrl(itemId, ddVersion)}
                                   alt={`Item ${itemId}`}
                                   className="w-full h-full object-cover"
                                   onError={(e) => {

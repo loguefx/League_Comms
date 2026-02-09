@@ -319,156 +319,168 @@ export class BuildAggregationService {
   private async aggregateItemBuilds(patch: string): Promise<void> {
     this.logger.log(`Aggregating item builds for patch ${patch}...`);
 
-    // For now, we'll compute "core items" as the top 3 most frequent items from winning games
-    // TODO: Implement full build type aggregation (starting, core, fourth, fifth, sixth)
-    // This requires extracting items by position in the array
+    // Extract items by position in the array (PostgreSQL arrays are 1-indexed)
+    // Starting items: items[1:2] (first 2 items)
+    // Core items: items[3:5] (next 3 items)
+    // Fourth item: items[6] (if exists)
+    // Fifth item: items[7] (if exists)
+    // Sixth item: items[8] (if exists, though rare)
     
-    // Core items: top 3 items by frequency in winning games
-    await this.prisma.$executeRaw`
-      WITH item_frequency AS (
-        SELECT
-          m.patch,
-          m.region,
-          m.queue_id,
-          m.rank_bracket,
-          pfi.role,
-          pfi.champion_id,
-          UNNEST(pfi.items) AS item_id,
-          COUNT(*)::bigint AS frequency
-        FROM participant_final_items pfi
-        JOIN matches m ON m.match_id = pfi.match_id
-        WHERE m.patch = ${patch}
-          AND m.queue_id = 420
-          AND pfi.win = true
-          AND array_length(pfi.items, 1) >= 3
-        GROUP BY
-          m.patch, m.region, m.queue_id, m.rank_bracket,
-          pfi.role, pfi.champion_id, item_id
-      ),
-      top_items AS (
-        SELECT
-          patch, region, queue_id, rank_bracket, role, champion_id,
-          array_agg(item_id ORDER BY frequency DESC) FILTER (WHERE row_number <= 3) AS core_items
-        FROM (
-          SELECT *,
-            ROW_NUMBER() OVER (PARTITION BY patch, region, queue_id, rank_bracket, role, champion_id ORDER BY frequency DESC) AS row_number
-          FROM item_frequency
-        ) ranked
-        WHERE row_number <= 3
-        GROUP BY patch, region, queue_id, rank_bracket, role, champion_id
-      )
-      INSERT INTO champion_item_builds (
-        patch, region, queue_id, rank_bracket, role, champion_id,
-        build_type, items, games, wins, updated_at
-      )
-      SELECT
-        ti.patch,
-        ti.region,
-        ti.queue_id,
-        ti.rank_bracket,
-        ti.role,
-        ti.champion_id,
-        'core' AS build_type,
-        ti.core_items,
-        COUNT(DISTINCT pfi.match_id)::bigint AS games,
-        SUM(CASE WHEN pfi.win THEN 1 ELSE 0 END)::bigint AS wins,
-        NOW() AS updated_at
-      FROM top_items ti
-      JOIN participant_final_items pfi ON
-        pfi.champion_id = ti.champion_id
-        AND pfi.items && ti.core_items  -- Items overlap
-      JOIN matches m ON m.match_id = pfi.match_id
-        AND m.patch = ti.patch
-        AND m.region = ti.region
-        AND m.queue_id = ti.queue_id
-        AND m.rank_bracket = ti.rank_bracket
-      WHERE array_length(ti.core_items, 1) = 3
-      GROUP BY
-        ti.patch, ti.region, ti.queue_id, ti.rank_bracket,
-        ti.role, ti.champion_id, ti.core_items
-      ON CONFLICT (
-        patch, region, queue_id, rank_bracket, role, champion_id, build_type
-      )
-      DO UPDATE SET
-        items = EXCLUDED.items,
-        games = EXCLUDED.games,
-        wins = EXCLUDED.wins,
-        updated_at = NOW()
-    `;
+    // Helper function to aggregate items at specific array positions
+    // PostgreSQL arrays are 1-indexed, so items[1] is the first item
+    const aggregateByPosition = async (
+      buildType: string,
+      startPos: number,
+      endPos: number | null,
+      expectedCount: number,
+      roleFilter: string | null = null
+    ) => {
+      // For single item (fourth, fifth, sixth), extract that position
+      // For multiple items (starting, core), extract the slice
+      if (endPos === null) {
+        // Single item at position startPos
+        await this.prisma.$executeRaw`
+          WITH item_at_position AS (
+            SELECT
+              m.patch,
+              m.region,
+              m.queue_id,
+              m.rank_bracket,
+              pfi.role,
+              pfi.champion_id,
+              pfi.items[${startPos}] AS item_id,
+              COUNT(*)::bigint AS frequency
+            FROM participant_final_items pfi
+            JOIN matches m ON m.match_id = pfi.match_id
+            WHERE m.patch = ${patch}
+              AND m.queue_id = 420
+              AND pfi.win = true
+              AND array_length(pfi.items, 1) >= ${startPos}
+              AND pfi.items[${startPos}] > 0
+              ${roleFilter ? Prisma.sql`AND pfi.role = ${roleFilter}` : Prisma.empty}
+            GROUP BY
+              m.patch, m.region, m.queue_id, m.rank_bracket,
+              pfi.role, pfi.champion_id, pfi.items[${startPos}]
+          ),
+          ranked_items AS (
+            SELECT *,
+              ROW_NUMBER() OVER (
+                PARTITION BY patch, region, queue_id, rank_bracket, role, champion_id 
+                ORDER BY frequency DESC
+              ) AS rn
+            FROM item_at_position
+          )
+          INSERT INTO champion_item_builds (
+            patch, region, queue_id, rank_bracket, role, champion_id,
+            build_type, items, games, wins, updated_at
+          )
+          SELECT
+            patch,
+            region,
+            queue_id,
+            rank_bracket,
+            role,
+            champion_id,
+            ${buildType} AS build_type,
+            ARRAY[item_id] AS items,
+            frequency AS games,
+            frequency AS wins, -- All are from winning games
+            NOW() AS updated_at
+          FROM ranked_items
+          WHERE rn <= 5
+          ON CONFLICT (
+            patch, region, queue_id, rank_bracket, role, champion_id, build_type
+          )
+          DO UPDATE SET
+            items = EXCLUDED.items,
+            games = EXCLUDED.games,
+            wins = EXCLUDED.wins,
+            updated_at = NOW()
+        `;
+      } else {
+        // Multiple items: extract slice and aggregate combinations
+        await this.prisma.$executeRaw`
+          WITH item_combinations AS (
+            SELECT
+              m.patch,
+              m.region,
+              m.queue_id,
+              m.rank_bracket,
+              pfi.role,
+              pfi.champion_id,
+              pfi.items[${startPos}:${endPos}] AS item_slice,
+              COUNT(*)::bigint AS frequency
+            FROM participant_final_items pfi
+            JOIN matches m ON m.match_id = pfi.match_id
+            WHERE m.patch = ${patch}
+              AND m.queue_id = 420
+              AND pfi.win = true
+              AND array_length(pfi.items, 1) >= ${endPos}
+              AND array_length(pfi.items[${startPos}:${endPos}], 1) = ${expectedCount}
+              ${roleFilter ? Prisma.sql`AND pfi.role = ${roleFilter}` : Prisma.empty}
+            GROUP BY
+              m.patch, m.region, m.queue_id, m.rank_bracket,
+              pfi.role, pfi.champion_id, pfi.items[${startPos}:${endPos}]
+          ),
+          ranked_combinations AS (
+            SELECT *,
+              ROW_NUMBER() OVER (
+                PARTITION BY patch, region, queue_id, rank_bracket, role, champion_id 
+                ORDER BY frequency DESC
+              ) AS rn
+            FROM item_combinations
+          )
+          INSERT INTO champion_item_builds (
+            patch, region, queue_id, rank_bracket, role, champion_id,
+            build_type, items, games, wins, updated_at
+          )
+          SELECT
+            patch,
+            region,
+            queue_id,
+            rank_bracket,
+            role,
+            champion_id,
+            ${buildType} AS build_type,
+            item_slice AS items,
+            frequency AS games,
+            frequency AS wins,
+            NOW() AS updated_at
+          FROM ranked_combinations
+          WHERE rn <= 5
+          ON CONFLICT (
+            patch, region, queue_id, rank_bracket, role, champion_id, build_type
+          )
+          DO UPDATE SET
+            items = EXCLUDED.items,
+            games = EXCLUDED.games,
+            wins = EXCLUDED.wins,
+            updated_at = NOW()
+        `;
+      }
+    };
 
-    // Also aggregate "ALL" role
-    await this.prisma.$executeRaw`
-      WITH item_frequency AS (
-        SELECT
-          m.patch,
-          m.region,
-          m.queue_id,
-          m.rank_bracket,
-          pfi.champion_id,
-          UNNEST(pfi.items) AS item_id,
-          COUNT(*)::bigint AS frequency
-        FROM participant_final_items pfi
-        JOIN matches m ON m.match_id = pfi.match_id
-        WHERE m.patch = ${patch}
-          AND m.queue_id = 420
-          AND pfi.win = true
-          AND array_length(pfi.items, 1) >= 3
-        GROUP BY
-          m.patch, m.region, m.queue_id, m.rank_bracket,
-          pfi.champion_id, item_id
-      ),
-      top_items AS (
-        SELECT
-          patch, region, queue_id, rank_bracket, champion_id,
-          array_agg(item_id ORDER BY frequency DESC) FILTER (WHERE row_number <= 3) AS core_items
-        FROM (
-          SELECT *,
-            ROW_NUMBER() OVER (PARTITION BY patch, region, queue_id, rank_bracket, champion_id ORDER BY frequency DESC) AS row_number
-          FROM item_frequency
-        ) ranked
-        WHERE row_number <= 3
-        GROUP BY patch, region, queue_id, rank_bracket, champion_id
-      )
-      INSERT INTO champion_item_builds (
-        patch, region, queue_id, rank_bracket, role, champion_id,
-        build_type, items, games, wins, updated_at
-      )
-      SELECT
-        ti.patch,
-        ti.region,
-        ti.queue_id,
-        ti.rank_bracket,
-        'ALL' AS role,
-        ti.champion_id,
-        'core' AS build_type,
-        ti.core_items,
-        COUNT(DISTINCT pfi.match_id)::bigint AS games,
-        SUM(CASE WHEN pfi.win THEN 1 ELSE 0 END)::bigint AS wins,
-        NOW() AS updated_at
-      FROM top_items ti
-      JOIN participant_final_items pfi ON
-        pfi.champion_id = ti.champion_id
-        AND pfi.items && ti.core_items
-      JOIN matches m ON m.match_id = pfi.match_id
-        AND m.patch = ti.patch
-        AND m.region = ti.region
-        AND m.queue_id = ti.queue_id
-        AND m.rank_bracket = ti.rank_bracket
-      WHERE array_length(ti.core_items, 1) = 3
-      GROUP BY
-        ti.patch, ti.region, ti.queue_id, ti.rank_bracket,
-        ti.champion_id, ti.core_items
-      ON CONFLICT (
-        patch, region, queue_id, rank_bracket, role, champion_id, build_type
-      )
-      DO UPDATE SET
-        items = EXCLUDED.items,
-        games = EXCLUDED.games,
-        wins = EXCLUDED.wins,
-        updated_at = NOW()
-    `;
+    // Aggregate all build types for each role
+    const roles = ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY', null]; // null = ALL
+    
+    for (const role of roles) {
+      // Starting items: items[1:2] (first 2 items)
+      await aggregateByPosition('starting', 1, 2, 2, role);
+      
+      // Core items: items[3:5] (next 3 items)
+      await aggregateByPosition('core', 3, 5, 3, role);
+      
+      // Fourth item: items[6] (if exists)
+      await aggregateByPosition('fourth', 6, null, 1, role);
+      
+      // Fifth item: items[7] (if exists)
+      await aggregateByPosition('fifth', 7, null, 1, role);
+      
+      // Sixth item: items[8] (if exists)
+      await aggregateByPosition('sixth', 8, null, 1, role);
+    }
 
-    this.logger.log(`Item builds aggregated for patch ${patch}`);
+    this.logger.log(`Item builds aggregated for patch ${patch} (all build types)`);
   }
 
   /**

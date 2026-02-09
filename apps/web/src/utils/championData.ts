@@ -34,6 +34,17 @@ async function fetchLatestVersion(): Promise<string> {
 }
 
 /**
+ * Get latest Data Dragon version (exported for use in other modules)
+ */
+export async function getLatestDataDragonVersion(): Promise<string> {
+  if (latestVersion) {
+    return latestVersion;
+  }
+  latestVersion = await fetchLatestVersion();
+  return latestVersion;
+}
+
+/**
  * Fetch champion data from Data Dragon
  */
 async function fetchChampionData(): Promise<Record<number, ChampionData>> {
