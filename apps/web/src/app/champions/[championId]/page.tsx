@@ -618,14 +618,18 @@ export default function ChampionBuildPage() {
                   </div>
                   <div className="flex gap-2">
                     {selectedBuild.runes.perkIds.slice(0, 4).map((perkId, idx) => {
-                      const runeImg = runeImages.get(perkId);
-                      const runeName = runeNames.get(perkId) || `Perk ${perkId}`;
-                      console.log(`[RuneRender] Rendering primary rune ${perkId}:`, { runeImg, runeName, hasImage: !!runeImg, runeImagesSize: runeImages.size });
+                      const perkIdNum = Number(perkId);
+                      const runeImg = runeImages.get(perkIdNum);
+                      const runeName = runeNames.get(perkIdNum) || `Perk ${perkIdNum}`;
+                      const runeDesc = runeDescriptions.get(perkIdNum) || '';
+                      console.log(`[RuneRender] Rendering primary rune ${perkId} (as ${perkIdNum}):`, { runeImg, runeName, hasImage: !!runeImg, runeImagesSize: runeImages.size, runeImagesKeys: Array.from(runeImages.keys()) });
+                      // #region agent log
+                      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:620',message:'Rendering primary rune',data:{perkId,perkIdNum,runeImg,hasImage:!!runeImg,runeImagesSize:runeImages.size,runeImagesKeys:Array.from(runeImages.keys())},timestamp:Date.now(),runId:'debug1',hypothesisId:'K'})}).catch(()=>{});
+                      // #endregion
                       return (
                         <div
-                          key={`${perkId}-${idx}`}
-                          className="w-10 h-10 rounded-lg bg-[#0F172A] border-2 border-[#334155] hover:border-blue-500/50 transition-colors flex items-center justify-center group relative overflow-hidden"
-                          title={runeName}
+                          key={`${perkIdNum}-${idx}`}
+                          className="w-10 h-10 rounded-lg bg-[#0F172A] border-2 border-[#334155] hover:border-blue-500/50 transition-colors flex items-center justify-center group relative overflow-visible"
                         >
                           {runeImg ? (
                             <img
@@ -654,9 +658,16 @@ export default function ChampionBuildPage() {
                           ) : (
                             <span className="text-xs text-[#94A3B8] group-hover:text-blue-400 transition-colors">{perkIdNum}</span>
                           )}
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-[#0F172A] border border-[#334155] rounded text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20">
-                            {runeName}
-                          </div>
+                          {runeDesc ? (
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#0F172A] border border-[#334155] rounded-lg text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-pre-line max-w-xs z-50 shadow-xl">
+                              <div className="font-semibold text-blue-400 mb-1">{runeName}</div>
+                              <div className="text-[#94A3B8]">{runeDesc}</div>
+                            </div>
+                          ) : (
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-[#0F172A] border border-[#334155] rounded text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20">
+                              {runeName}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -700,13 +711,14 @@ export default function ChampionBuildPage() {
                   </div>
                   <div className="flex gap-2">
                     {selectedBuild.runes.perkIds.slice(4, 6).map((perkId, idx) => {
-                      const runeImg = runeImages.get(perkId);
-                      const runeName = runeNames.get(perkId) || `Perk ${perkId}`;
-                      const runeDesc = runeDescriptions.get(perkId) || '';
-                      console.log(`[RuneRender] Rendering secondary rune ${perkId}:`, { runeImg, runeName, hasImage: !!runeImg });
+                      const perkIdNum = Number(perkId);
+                      const runeImg = runeImages.get(perkIdNum);
+                      const runeName = runeNames.get(perkIdNum) || `Perk ${perkIdNum}`;
+                      const runeDesc = runeDescriptions.get(perkIdNum) || '';
+                      console.log(`[RuneRender] Rendering secondary rune ${perkId} (as ${perkIdNum}):`, { runeImg, runeName, hasImage: !!runeImg });
                       return (
                         <div
-                          key={`${perkId}-${idx}`}
+                          key={`${perkIdNum}-${idx}`}
                           className="w-10 h-10 rounded-lg bg-[#0F172A] border-2 border-[#334155] hover:border-purple-500/50 transition-colors flex items-center justify-center group relative overflow-visible"
                         >
                           {runeImg ? (
@@ -715,26 +727,26 @@ export default function ChampionBuildPage() {
                               alt={runeName}
                               className="w-full h-full object-cover rounded-lg"
                               onError={async (e) => {
-                                console.error(`[RuneImage] Failed to load rune image for perk ${perkId}: ${runeImg}`);
+                                console.error(`[RuneImage] Failed to load rune image for perk ${perkIdNum}: ${runeImg}`);
                                 // Try to reload the rune image
                                 try {
                                   const { getRuneImageUrl } = await import('@/utils/runeData');
-                                  const newUrl = await getRuneImageUrl(perkId);
+                                  const newUrl = await getRuneImageUrl(perkIdNum);
                                   if (newUrl && newUrl !== runeImg) {
                                     (e.target as HTMLImageElement).src = newUrl;
                                   } else {
                                     (e.target as HTMLImageElement).style.display = 'none';
-                                    (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${perkId}</span>`;
+                                    (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${perkIdNum}</span>`;
                                   }
                                 } catch (err) {
-                                  console.error(`[RuneImage] Error reloading rune ${perkId}:`, err);
+                                  console.error(`[RuneImage] Error reloading rune ${perkIdNum}:`, err);
                                   (e.target as HTMLImageElement).style.display = 'none';
-                                  (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${perkId}</span>`;
+                                  (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${perkIdNum}</span>`;
                                 }
                               }}
                             />
                           ) : (
-                            <span className="text-xs text-[#94A3B8] group-hover:text-purple-400 transition-colors">{perkId}</span>
+                            <span className="text-xs text-[#94A3B8] group-hover:text-purple-400 transition-colors">{perkIdNum}</span>
                           )}
                           {runeDesc ? (
                             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#0F172A] border border-[#334155] rounded-lg text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-pre-line max-w-xs z-50 shadow-xl">
