@@ -860,7 +860,8 @@ export default function ChampionBuildPage() {
                       {build.itemBuilds.starting.slice(0, 1).map((buildOption, optIdx) => {
                         // #region agent log
                         console.log(`[ItemBuildRender] Starting items buildOption[${optIdx}]:`, { items: buildOption.items, itemsLength: buildOption.items.length, winRate: buildOption.winRate, games: buildOption.games });
-                        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:852',message:'Starting items buildOption',data:{optIdx,items:buildOption.items,itemsLength:buildOption.items.length,winRate:buildOption.winRate,games:buildOption.games},timestamp:Date.now(),runId:'debug1',hypothesisId:'C'})}).catch(()=>{});
+                        console.log(`[ItemBuildRender] Starting items buildOption[${optIdx}] actual item IDs:`, buildOption.items);
+                        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:852',message:'Starting items buildOption',data:{optIdx,items:buildOption.items,itemsLength:buildOption.items.length,itemIds:buildOption.items,winRate:buildOption.winRate,games:buildOption.games},timestamp:Date.now(),runId:'debug2',hypothesisId:'C'})}).catch(()=>{});
                         // #endregion
                         return (
                         <div key={optIdx} className="mb-4">
@@ -908,7 +909,8 @@ export default function ChampionBuildPage() {
                       {build.itemBuilds.core.slice(0, 1).map((buildOption, optIdx) => {
                         // #region agent log
                         console.log(`[ItemBuildRender] Core items buildOption[${optIdx}]:`, { items: buildOption.items, itemsLength: buildOption.items.length, winRate: buildOption.winRate, games: buildOption.games });
-                        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:894',message:'Core items buildOption',data:{optIdx,items:buildOption.items,itemsLength:buildOption.items.length,winRate:buildOption.winRate,games:buildOption.games},timestamp:Date.now(),runId:'debug1',hypothesisId:'D'})}).catch(()=>{});
+                        console.log(`[ItemBuildRender] Core items buildOption[${optIdx}] actual item IDs:`, buildOption.items);
+                        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:894',message:'Core items buildOption',data:{optIdx,items:buildOption.items,itemsLength:buildOption.items.length,itemIds:buildOption.items,winRate:buildOption.winRate,games:buildOption.games},timestamp:Date.now(),runId:'debug2',hypothesisId:'D'})}).catch(()=>{});
                         // #endregion
                         return (
                         <div key={optIdx} className="mb-4">
@@ -956,7 +958,8 @@ export default function ChampionBuildPage() {
                       {build.itemBuilds.fourth.slice(0, 3).map((buildOption, optIdx) => {
                         // #region agent log
                         console.log(`[ItemBuildRender] Fourth items buildOption[${optIdx}]:`, { items: buildOption.items, itemsLength: buildOption.items.length, winRate: buildOption.winRate, games: buildOption.games });
-                        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:936',message:'Fourth items buildOption',data:{optIdx,items:buildOption.items,itemsLength:buildOption.items.length,winRate:buildOption.winRate,games:buildOption.games},timestamp:Date.now(),runId:'debug1',hypothesisId:'E'})}).catch(()=>{});
+                        console.log(`[ItemBuildRender] Fourth items buildOption[${optIdx}] actual item IDs:`, buildOption.items);
+                        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:936',message:'Fourth items buildOption',data:{optIdx,items:buildOption.items,itemsLength:buildOption.items.length,itemIds:buildOption.items,winRate:buildOption.winRate,games:buildOption.games},timestamp:Date.now(),runId:'debug2',hypothesisId:'E'})}).catch(()=>{});
                         // #endregion
                         return (
                           <div key={optIdx} className="mb-3">
