@@ -235,7 +235,7 @@ model ChampionRunePage {
   wins          BigInt
   updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
 
-  @@id([patch, region, queueId, rankBracket, role, championId, primaryStyleId, subStyleId])
+  @@id([patch, region, queueId, rankBracket, role, championId, primaryStyleId, subStyleId, perkIds, statShards])
   @@index([patch, region, queueId, rankBracket, role, championId], name: "idx_rune_pages_dims")
   @@map("champion_rune_pages")
 }
