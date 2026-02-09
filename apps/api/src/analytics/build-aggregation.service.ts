@@ -25,11 +25,11 @@ export class BuildAggregationService {
       // Get patches to process
       const patches = patch
         ? [patch]
-        : await this.prisma.match.findMany({
-            select: { patch: true },
-            distinct: ['patch'],
-            where: { patch: { not: null } },
-          }).then((matches) => [...new Set(matches.map((m) => m.patch))]);
+        : await this.prisma.$queryRaw<Array<{ patch: string }>>`
+            SELECT DISTINCT patch
+            FROM matches
+            WHERE patch IS NOT NULL
+          `.then((results) => results.map((r) => r.patch));
 
       for (const p of patches) {
         this.logger.log(`Aggregating builds for patch ${p}...`);
