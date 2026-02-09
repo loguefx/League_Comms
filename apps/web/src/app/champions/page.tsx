@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { getApiUrl } from '@/utils/api';
 import {
   preloadChampionData,
@@ -23,6 +24,7 @@ interface ChampionStats {
 }
 
 export default function ChampionsPage() {
+  const router = useRouter();
   const [champions, setChampions] = useState<ChampionStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [championDataLoaded, setChampionDataLoaded] = useState(false);
@@ -166,7 +168,18 @@ export default function ChampionsPage() {
                     #{index + 1}
                   </td>
                   <td className="px-4 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
+                    <div 
+                      className="flex items-center cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() => {
+                        const params = new URLSearchParams({
+                          rank: filters.rank,
+                          role: filters.role || 'ALL',
+                          patch: filters.patch,
+                          region: filters.region,
+                        });
+                        router.push(`/champions/${champ.championId}?${params}`);
+                      }}
+                    >
                       <div className="w-10 h-10 rounded-lg mr-3 overflow-hidden flex-shrink-0">
                         <img
                           src={championImageUrl}

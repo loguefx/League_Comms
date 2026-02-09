@@ -1,7 +1,8 @@
-import { Controller, Get, Query, Post } from '@nestjs/common';
+import { Controller, Get, Query, Post, Param } from '@nestjs/common';
 import { AnalyticsService } from './analytics.service';
 import { IngestionService } from './ingestion.service';
 import { AggregationService } from './aggregation.service';
+import { BuildAggregationService } from './build-aggregation.service';
 import { PublicChampionSeedService } from './public-champion-seed.service';
 import { BatchSeedService } from './batch-seed.service';
 
@@ -11,6 +12,7 @@ export class AnalyticsController {
     private analyticsService: AnalyticsService,
     private ingestionService: IngestionService,
     private aggregationService: AggregationService,
+    private buildAggregationService: BuildAggregationService,
     private seedService: PublicChampionSeedService,
     private batchSeedService: BatchSeedService
   ) {}
@@ -220,6 +222,120 @@ export class AnalyticsController {
       console.error('[AnalyticsController] Aggregation failed:', error);
       return {
         success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  /**
+   * Get recommended build for a champion (runes, spells, items)
+   * Similar to U.GG's champion build page
+   * 
+   * @param championId - Champion ID (e.g., 103 for Ahri)
+   * @param rank - Rank bracket (e.g., 'emerald_plus', 'all_ranks')
+   * @param role - Role (e.g., 'MIDDLE', 'ALL')
+   * @param patch - Patch version (e.g., '16.3') or 'latest'
+   * @param region - Region (e.g., 'na1') or 'world' for all regions
+   */
+  @Get(':championId/build')
+  async getChampionBuild(
+    @Param('championId') championId: string,
+    @Query('rank') rank?: string,
+    @Query('role') role?: string,
+    @Query('patch') patch?: string,
+    @Query('region') region?: string
+  ) {
+    try {
+      const champId = parseInt(championId, 10);
+      if (isNaN(champId)) {
+        return {
+          error: 'Invalid champion ID',
+        };
+      }
+
+      // Get latest patch if 'latest' or not provided
+      let actualPatch = patch;
+      if (!actualPatch || actualPatch === 'latest') {
+        const patches = await this.analyticsService.getAvailablePatches();
+        actualPatch = patches.latest || null;
+        if (!actualPatch) {
+          return {
+            error: 'No patch data available',
+          };
+        }
+      }
+
+      // Normalize rank bracket
+      const rankBracket = rank || 'all_ranks';
+      const normalizedRole = role || 'ALL';
+      const normalizedRegion = region === 'world' || !region ? null : region;
+
+      // Get tier stats for this champion
+      const tierStats = await this.analyticsService.getChampionStats({
+        rank: rankBracket,
+        role: normalizedRole,
+        patch: actualPatch,
+        region: normalizedRegion,
+      });
+      const championStats = tierStats.find((s: any) => s.championId === champId);
+
+      // Get recommended builds
+      const [runes, spells, items] = await Promise.all([
+        this.buildAggregationService.getRecommendedRunes(
+          champId,
+          actualPatch,
+          rankBracket,
+          normalizedRole,
+          normalizedRegion
+        ),
+        this.buildAggregationService.getRecommendedSpells(
+          champId,
+          actualPatch,
+          rankBracket,
+          normalizedRole,
+          normalizedRegion
+        ),
+        this.buildAggregationService.getRecommendedItems(
+          champId,
+          actualPatch,
+          rankBracket,
+          normalizedRole,
+          normalizedRegion
+        ),
+      ]);
+
+      return {
+        championId: champId,
+        patch: actualPatch,
+        rank: rankBracket,
+        role: normalizedRole,
+        region: normalizedRegion || 'world',
+        tierStats: championStats || null,
+        recommended: {
+          runes: runes ? {
+            primaryStyleId: runes.primaryStyleId,
+            subStyleId: runes.subStyleId,
+            perkIds: runes.perkIds,
+            statShards: runes.statShards,
+            winRate: runes.winRate * 100, // Convert to percentage
+            games: runes.games,
+          } : null,
+          spells: spells ? {
+            spell1Id: spells.spell1Id,
+            spell2Id: spells.spell2Id,
+            winRate: spells.winRate * 100, // Convert to percentage
+            games: spells.games,
+          } : null,
+          items: items ? {
+            items: items.items,
+            winRate: items.winRate * 100, // Convert to percentage
+            games: items.games,
+          } : null,
+        },
+      };
+    } catch (error) {
+      console.error('[AnalyticsController] Error getting champion build:', error);
+      return {
         error: error instanceof Error ? error.message : 'Unknown error',
       };
     }

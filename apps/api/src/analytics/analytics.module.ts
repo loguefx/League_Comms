@@ -4,6 +4,7 @@ import { AnalyticsController } from './analytics.controller';
 import { AnalyticsService } from './analytics.service';
 import { IngestionService } from './ingestion.service';
 import { AggregationService } from './aggregation.service';
+import { BuildAggregationService } from './build-aggregation.service';
 import { PublicChampionSeedService } from './public-champion-seed.service';
 import { BatchSeedService } from './batch-seed.service';
 import { RateLimiterService } from './rate-limiter.service';
@@ -34,6 +35,7 @@ import { BullModule } from '@nestjs/bullmq';
     AnalyticsService,
     IngestionService,
     AggregationService,
+    BuildAggregationService,
     PublicChampionSeedService,
     BatchSeedService,
     RateLimiterService,

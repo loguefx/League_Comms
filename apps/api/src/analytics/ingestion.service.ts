@@ -74,7 +74,16 @@ export class IngestionService {
       const gameStartTs = new Date(match.info.gameCreation);
       const durationS = match.info.gameDuration;
 
-      // Store match
+      // Extract participant data
+      const participants = match.info.participants.map((p: any) => ({
+        puuid: p.puuid,
+        teamId: p.teamId,
+        championId: p.championId,
+        role: this.normalizeRole(p.teamPosition || p.individualPosition || p.role),
+        win: p.win,
+      }));
+
+      // Store match with participants and bans
       await this.prisma.match.create({
         data: {
           matchId,
@@ -86,21 +95,25 @@ export class IngestionService {
           gameVersion: match.info.gameVersion,
           rankBracket,
           participants: {
-            create: match.info.participants.map((p: any) => ({
-              puuid: p.puuid,
-              teamId: p.teamId,
-              championId: p.championId,
-              role: this.normalizeRole(p.teamPosition || p.individualPosition || p.role),
-              win: p.win, // Schema uses 'win', not 'won'
-            })),
+            create: participants,
           },
           bans: {
             create: this.extractBans(match),
           },
+          // Store build data (runes, spells, items)
+          perks: {
+            create: this.extractPerks(match.info.participants),
+          },
+          spells: {
+            create: this.extractSpells(match.info.participants),
+          },
+          finalItems: {
+            create: this.extractFinalItems(match.info.participants),
+          },
         },
       });
 
-      this.logger.log(`Ingested match ${matchId} (${patch}, ${rankBracket})`);
+      this.logger.log(`Ingested match ${matchId} (${patch}, ${rankBracket}) with build data`);
     } catch (error) {
       this.logger.error(`Failed to ingest match ${matchId}:`, error);
       throw error;
@@ -156,6 +169,114 @@ export class IngestionService {
     if (normalized.includes('UTILITY') || normalized.includes('SUPPORT')) return 'UTILITY';
     
     return 'UTILITY'; // Default
+  }
+
+  /**
+   * Extract runes/perks from participants
+   */
+  private extractPerks(participants: any[]): Array<{
+    puuid: string;
+    championId: number;
+    role: string;
+    win: boolean;
+    primaryStyleId: number;
+    subStyleId: number;
+    perkIds: number[];
+    statShards: number[];
+  }> {
+    return participants
+      .filter((p: any) => p.perks) // Only if perks exist
+      .map((p: any) => {
+        const perks = p.perks;
+        const primaryStyle = perks.styles?.find((s: any) => s.description === 'primaryStyle');
+        const subStyle = perks.styles?.find((s: any) => s.description === 'subStyle');
+        
+        // Extract perk IDs: [keystone, primary1, primary2, primary3, sub1, sub2]
+        const perkIds: number[] = [];
+        if (primaryStyle?.selections) {
+          primaryStyle.selections.forEach((sel: any) => {
+            if (sel.perk !== undefined) perkIds.push(sel.perk);
+          });
+        }
+        if (subStyle?.selections) {
+          subStyle.selections.forEach((sel: any) => {
+            if (sel.perk !== undefined) perkIds.push(sel.perk);
+          });
+        }
+        
+        // Extract stat shards (statPerks)
+        const statShards: number[] = [];
+        if (perks.statPerks) {
+          if (perks.statPerks.defense !== undefined) statShards.push(perks.statPerks.defense);
+          if (perks.statPerks.flex !== undefined) statShards.push(perks.statPerks.flex);
+          if (perks.statPerks.offense !== undefined) statShards.push(perks.statPerks.offense);
+        }
+        
+        return {
+          puuid: p.puuid,
+          championId: p.championId,
+          role: this.normalizeRole(p.teamPosition || p.individualPosition || p.role),
+          win: p.win,
+          primaryStyleId: primaryStyle?.style || 0,
+          subStyleId: subStyle?.style || 0,
+          perkIds,
+          statShards,
+        };
+      })
+      .filter((p) => p.primaryStyleId > 0 && p.perkIds.length > 0); // Only valid perks
+  }
+
+  /**
+   * Extract summoner spells from participants
+   */
+  private extractSpells(participants: any[]): Array<{
+    puuid: string;
+    championId: number;
+    role: string;
+    win: boolean;
+    spell1Id: number;
+    spell2Id: number;
+  }> {
+    return participants
+      .filter((p: any) => p.summoner1Id !== undefined && p.summoner2Id !== undefined)
+      .map((p: any) => ({
+        puuid: p.puuid,
+        championId: p.championId,
+        role: this.normalizeRole(p.teamPosition || p.individualPosition || p.role),
+        win: p.win,
+        spell1Id: p.summoner1Id,
+        spell2Id: p.summoner2Id,
+      }));
+  }
+
+  /**
+   * Extract final items from participants
+   */
+  private extractFinalItems(participants: any[]): Array<{
+    puuid: string;
+    championId: number;
+    role: string;
+    win: boolean;
+    items: number[];
+  }> {
+    return participants.map((p: any) => {
+      // Extract items from item0-item6, filter out 0 (empty slot)
+      const items: number[] = [];
+      for (let i = 0; i <= 6; i++) {
+        const itemId = p[`item${i}`];
+        if (itemId && itemId > 0) {
+          items.push(itemId);
+        }
+      }
+      
+      return {
+        puuid: p.puuid,
+        championId: p.championId,
+        role: this.normalizeRole(p.teamPosition || p.individualPosition || p.role),
+        win: p.win,
+        items,
+      };
+    });
   }
 
   /**

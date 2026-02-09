@@ -1,12 +1,16 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
+import { BuildAggregationService } from './build-aggregation.service';
 
 @Injectable()
 export class AggregationService implements OnModuleInit {
   private readonly logger = new Logger(AggregationService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private buildAggregation: BuildAggregationService
+  ) {}
 
   /**
    * Run aggregation on module initialization (server startup)
@@ -27,10 +31,10 @@ export class AggregationService implements OnModuleInit {
   }
 
   /**
-   * Run full aggregation (bucket totals + champion stats + ban stats)
+   * Run full aggregation (bucket totals + champion stats + ban stats + build data)
    * This is called:
    * - On server startup (via onModuleInit)
-   * - Every 10 minutes (via @Cron)
+   * - Every 2 minutes (via @Cron)
    * - Manually via POST /champions/aggregate
    */
   async aggregateChampionStats() {
@@ -40,6 +44,12 @@ export class AggregationService implements OnModuleInit {
       await this.computeBucketTotals();
       await this.computeChampionStats();
       await this.computeBanStats();
+      
+      // Also aggregate build data (runes, spells, items)
+      // This runs less frequently as it's more expensive
+      this.logger.log('Starting build data aggregation...');
+      await this.buildAggregation.aggregateBuilds();
+      
       this.logger.log('Champion stats aggregation complete');
     } catch (error) {
       this.logger.error('Aggregation failed:', error);
