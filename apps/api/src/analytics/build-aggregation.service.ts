@@ -854,36 +854,107 @@ export class BuildAggregationService {
       let matchingItems: Array<{ items: number[]; games: bigint; wins: bigint }> = [];
       
       try {
-        const whereConditions = isAllRanks && isWorld
-          ? Prisma.sql`m.patch = ${patch} AND m.queue_id = 420 AND pp.champion_id = ${championId} AND pp.role = ${normalizedRole}`
-          : isAllRanks
-          ? Prisma.sql`m.patch = ${patch} AND m.region = ${region} AND m.queue_id = 420 AND pp.champion_id = ${championId} AND pp.role = ${normalizedRole}`
-          : isWorld
-          ? Prisma.sql`m.patch = ${patch} AND m.queue_id = 420 AND m.rank_bracket = ${rankBracket} AND pp.champion_id = ${championId} AND pp.role = ${normalizedRole}`
-          : Prisma.sql`m.patch = ${patch} AND m.region = ${region} AND m.queue_id = 420 AND m.rank_bracket = ${rankBracket} AND pp.champion_id = ${championId} AND pp.role = ${normalizedRole}`;
-
+        // Build dynamic WHERE clause based on filters
+        let query: any;
+        if (isAllRanks && isWorld) {
+          query = Prisma.sql`
+            SELECT
+              pfi.items,
+              COUNT(*)::bigint AS games,
+              SUM(CASE WHEN mp.win = true THEN 1 ELSE 0 END)::bigint AS wins
+            FROM participant_perks pp
+            JOIN participant_final_items pfi ON pp.match_id = pfi.match_id AND pp.puuid = pfi.puuid
+            JOIN match_participants mp ON mp.match_id = pp.match_id AND mp.puuid = pp.puuid
+            JOIN matches m ON m.match_id = pp.match_id
+            WHERE m.patch = ${patch}
+              AND m.queue_id = 420
+              AND pp.champion_id = ${championId}
+              AND pp.role = ${normalizedRole}
+              AND pp.primary_style_id = ${runePage.primaryStyleId}
+              AND pp.sub_style_id = ${runePage.subStyleId}
+              AND pp.perk_ids = ${runePage.perkIds}::int[]
+            GROUP BY pfi.items
+            HAVING COUNT(*) >= ${this.MIN_GAMES_THRESHOLD}
+            ORDER BY COUNT(*) DESC
+            LIMIT 1
+          `;
+        } else if (isAllRanks) {
+          query = Prisma.sql`
+            SELECT
+              pfi.items,
+              COUNT(*)::bigint AS games,
+              SUM(CASE WHEN mp.win = true THEN 1 ELSE 0 END)::bigint AS wins
+            FROM participant_perks pp
+            JOIN participant_final_items pfi ON pp.match_id = pfi.match_id AND pp.puuid = pfi.puuid
+            JOIN match_participants mp ON mp.match_id = pp.match_id AND mp.puuid = pp.puuid
+            JOIN matches m ON m.match_id = pp.match_id
+            WHERE m.patch = ${patch}
+              AND m.region = ${region}
+              AND m.queue_id = 420
+              AND pp.champion_id = ${championId}
+              AND pp.role = ${normalizedRole}
+              AND pp.primary_style_id = ${runePage.primaryStyleId}
+              AND pp.sub_style_id = ${runePage.subStyleId}
+              AND pp.perk_ids = ${runePage.perkIds}::int[]
+            GROUP BY pfi.items
+            HAVING COUNT(*) >= ${this.MIN_GAMES_THRESHOLD}
+            ORDER BY COUNT(*) DESC
+            LIMIT 1
+          `;
+        } else if (isWorld) {
+          query = Prisma.sql`
+            SELECT
+              pfi.items,
+              COUNT(*)::bigint AS games,
+              SUM(CASE WHEN mp.win = true THEN 1 ELSE 0 END)::bigint AS wins
+            FROM participant_perks pp
+            JOIN participant_final_items pfi ON pp.match_id = pfi.match_id AND pp.puuid = pfi.puuid
+            JOIN match_participants mp ON mp.match_id = pp.match_id AND mp.puuid = pp.puuid
+            JOIN matches m ON m.match_id = pp.match_id
+            WHERE m.patch = ${patch}
+              AND m.queue_id = 420
+              AND m.rank_bracket = ${rankBracket}
+              AND pp.champion_id = ${championId}
+              AND pp.role = ${normalizedRole}
+              AND pp.primary_style_id = ${runePage.primaryStyleId}
+              AND pp.sub_style_id = ${runePage.subStyleId}
+              AND pp.perk_ids = ${runePage.perkIds}::int[]
+            GROUP BY pfi.items
+            HAVING COUNT(*) >= ${this.MIN_GAMES_THRESHOLD}
+            ORDER BY COUNT(*) DESC
+            LIMIT 1
+          `;
+        } else {
+          query = Prisma.sql`
+            SELECT
+              pfi.items,
+              COUNT(*)::bigint AS games,
+              SUM(CASE WHEN mp.win = true THEN 1 ELSE 0 END)::bigint AS wins
+            FROM participant_perks pp
+            JOIN participant_final_items pfi ON pp.match_id = pfi.match_id AND pp.puuid = pfi.puuid
+            JOIN match_participants mp ON mp.match_id = pp.match_id AND mp.puuid = pp.puuid
+            JOIN matches m ON m.match_id = pp.match_id
+            WHERE m.patch = ${patch}
+              AND m.region = ${region}
+              AND m.queue_id = 420
+              AND m.rank_bracket = ${rankBracket}
+              AND pp.champion_id = ${championId}
+              AND pp.role = ${normalizedRole}
+              AND pp.primary_style_id = ${runePage.primaryStyleId}
+              AND pp.sub_style_id = ${runePage.subStyleId}
+              AND pp.perk_ids = ${runePage.perkIds}::int[]
+            GROUP BY pfi.items
+            HAVING COUNT(*) >= ${this.MIN_GAMES_THRESHOLD}
+            ORDER BY COUNT(*) DESC
+            LIMIT 1
+          `;
+        }
+        
         matchingItems = await this.prisma.$queryRaw<Array<{
           items: number[];
           games: bigint;
           wins: bigint;
-        }>>`
-          SELECT
-            pfi.items,
-            COUNT(*)::bigint AS games,
-            SUM(CASE WHEN mp.win = true THEN 1 ELSE 0 END)::bigint AS wins
-          FROM participant_perks pp
-          JOIN participant_final_items pfi ON pp.match_id = pfi.match_id AND pp.puuid = pfi.puuid
-          JOIN match_participants mp ON mp.match_id = pp.match_id AND mp.puuid = pp.puuid
-          JOIN matches m ON m.match_id = pp.match_id
-          WHERE ${whereConditions}
-            AND pp.primary_style_id = ${runePage.primaryStyleId}
-            AND pp.sub_style_id = ${runePage.subStyleId}
-            AND pp.perk_ids = ${runePage.perkIds}::int[]
-          GROUP BY pfi.items
-          HAVING COUNT(*) >= ${this.MIN_GAMES_THRESHOLD}
-          ORDER BY COUNT(*) DESC
-          LIMIT 1
-        `;
+        }>>(query);
       } catch (error) {
         this.logger.warn(`Failed to find matching items for rune page:`, error);
       }
