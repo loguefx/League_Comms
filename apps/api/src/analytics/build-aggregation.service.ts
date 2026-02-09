@@ -1595,11 +1595,14 @@ export class BuildAggregationService {
 
       if (matchingItems.length > 0) {
         const itemBuildData = matchingItems[0];
-        const itemBuild = itemBuilds.find(ib => 
-          ib.items.length === itemBuildData.items.length &&
-          ib.items.every((id, idx) => id === itemBuildData.items[idx])
-        ) || {
-          items: itemBuildData.items,
+        // Filter zeros from itemBuildData.items before matching
+        const filteredItemBuildDataItems = Array.isArray(itemBuildData.items) ? itemBuildData.items.filter(id => Number(id) > 0) : [];
+        const itemBuild = itemBuilds.find(ib => {
+          const filteredIbItems = Array.isArray(ib.items) ? ib.items.filter(id => Number(id) > 0) : [];
+          return filteredIbItems.length === filteredItemBuildDataItems.length &&
+            filteredIbItems.every((id, idx) => id === filteredItemBuildDataItems[idx]);
+        }) || {
+          items: filteredItemBuildDataItems,
           winRate: Number(itemBuildData.wins) / Number(itemBuildData.games),
           games: Number(itemBuildData.games),
         };
