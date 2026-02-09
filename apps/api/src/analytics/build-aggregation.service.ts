@@ -1306,7 +1306,7 @@ export class BuildAggregationService {
     // For each rune page, find the most common item build used with it
     for (const runePage of runePages.slice(0, limit)) {
       // Find item builds that are commonly used with this rune page by querying matches
-      let matchingItems: Array<{ items: number[]; games: bigint; wins: bigint }> = [];
+      let matchingItems: Array<{ items: number[]; games: number; wins: number }> = [];
       
       try {
         // Build dynamic WHERE clause based on filters
@@ -1405,11 +1405,18 @@ export class BuildAggregationService {
           `;
         }
         
-        matchingItems = await this.prisma.$queryRaw<Array<{
+        const rawItems = await this.prisma.$queryRaw<Array<{
           items: number[];
           games: bigint;
           wins: bigint;
         }>>(query);
+        
+        // Convert BigInt to numbers immediately
+        matchingItems = rawItems.map(item => ({
+          items: item.items,
+          games: Number(item.games),
+          wins: Number(item.wins),
+        }));
       } catch (error) {
         this.logger.warn(`Failed to find matching items for rune page:`, error);
       }
@@ -1418,8 +1425,8 @@ export class BuildAggregationService {
       if (matchingItems.length === 0 && itemBuilds.length > 0) {
         matchingItems = [{
           items: itemBuilds[0].items,
-          games: BigInt(itemBuilds[0].games),
-          wins: BigInt(Math.round(itemBuilds[0].games * itemBuilds[0].winRate)),
+          games: itemBuilds[0].games, // Already a number
+          wins: Math.round(itemBuilds[0].games * itemBuilds[0].winRate), // Already a number
         }];
       }
 
