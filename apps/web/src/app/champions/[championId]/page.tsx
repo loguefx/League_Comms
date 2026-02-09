@@ -849,7 +849,12 @@ export default function ChampionBuildPage() {
                   {build.itemBuilds.starting.length > 0 && (
                     <div>
                       <h3 className="text-sm font-semibold text-[#94A3B8] mb-3 uppercase tracking-wider">Starting Items</h3>
-                      {build.itemBuilds.starting.slice(0, 1).map((buildOption, optIdx) => (
+                      {build.itemBuilds.starting.slice(0, 1).map((buildOption, optIdx) => {
+                        // #region agent log
+                        console.log(`[ItemBuildRender] Starting items buildOption[${optIdx}]:`, { items: buildOption.items, itemsLength: buildOption.items.length, winRate: buildOption.winRate, games: buildOption.games });
+                        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:852',message:'Starting items buildOption',data:{optIdx,items:buildOption.items,itemsLength:buildOption.items.length,winRate:buildOption.winRate,games:buildOption.games},timestamp:Date.now(),runId:'debug1',hypothesisId:'C'})}).catch(()=>{});
+                        // #endregion
+                        return (
                         <div key={optIdx} className="mb-4">
                           <div className="flex flex-wrap gap-2 mb-2">
                             {buildOption.items.filter(itemId => itemId > 0).map((itemId, idx) => {
@@ -883,7 +888,8 @@ export default function ChampionBuildPage() {
                             <span className="text-white">{buildOption.games.toLocaleString()}</span> Matches
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
 
@@ -891,7 +897,12 @@ export default function ChampionBuildPage() {
                   {build.itemBuilds.core.length > 0 && (
                     <div>
                       <h3 className="text-sm font-semibold text-[#94A3B8] mb-3 uppercase tracking-wider">Core Items</h3>
-                      {build.itemBuilds.core.slice(0, 1).map((buildOption, optIdx) => (
+                      {build.itemBuilds.core.slice(0, 1).map((buildOption, optIdx) => {
+                        // #region agent log
+                        console.log(`[ItemBuildRender] Core items buildOption[${optIdx}]:`, { items: buildOption.items, itemsLength: buildOption.items.length, winRate: buildOption.winRate, games: buildOption.games });
+                        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:894',message:'Core items buildOption',data:{optIdx,items:buildOption.items,itemsLength:buildOption.items.length,winRate:buildOption.winRate,games:buildOption.games},timestamp:Date.now(),runId:'debug1',hypothesisId:'D'})}).catch(()=>{});
+                        // #endregion
+                        return (
                         <div key={optIdx} className="mb-4">
                           <div className="flex flex-wrap gap-2 mb-2">
                             {buildOption.items.filter(itemId => itemId > 0).map((itemId, idx) => {
@@ -925,7 +936,8 @@ export default function ChampionBuildPage() {
                             <span className="text-white">{buildOption.games.toLocaleString()}</span> Matches
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
 
@@ -933,7 +945,12 @@ export default function ChampionBuildPage() {
                   {build.itemBuilds.fourth.length > 0 && (
                     <div>
                       <h3 className="text-sm font-semibold text-[#94A3B8] mb-3 uppercase tracking-wider">Fourth Item</h3>
-                      {build.itemBuilds.fourth.slice(0, 3).map((buildOption, optIdx) => (
+                      {build.itemBuilds.fourth.slice(0, 3).map((buildOption, optIdx) => {
+                        // #region agent log
+                        console.log(`[ItemBuildRender] Fourth items buildOption[${optIdx}]:`, { items: buildOption.items, itemsLength: buildOption.items.length, winRate: buildOption.winRate, games: buildOption.games });
+                        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:936',message:'Fourth items buildOption',data:{optIdx,items:buildOption.items,itemsLength:buildOption.items.length,winRate:buildOption.winRate,games:buildOption.games},timestamp:Date.now(),runId:'debug1',hypothesisId:'E'})}).catch(()=>{});
+                        // #endregion
+                        return (
                         <div key={optIdx} className="mb-3">
                           <div className="flex gap-2 mb-1">
                             {buildOption.items.filter(itemId => itemId > 0).map((itemId, idx) => (
