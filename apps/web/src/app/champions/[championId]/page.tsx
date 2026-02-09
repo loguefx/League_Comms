@@ -636,15 +636,23 @@ export default function ChampionBuildPage() {
                               src={runeImg}
                               alt={runeName}
                               className="w-full h-full object-cover rounded-lg"
+                              onLoad={() => {
+                                console.log(`[RuneImage] Successfully loaded rune image for perk ${perkIdNum}: ${runeImg}`);
+                              }}
                               onError={async (e) => {
                                 console.error(`[RuneImage] Failed to load rune image for perk ${perkIdNum}: ${runeImg}`);
+                                // #region agent log
+                                fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:640',message:'Rune image failed to load',data:{perkIdNum,runeImg,perkId},timestamp:Date.now(),runId:'debug1',hypothesisId:'L'})}).catch(()=>{});
+                                // #endregion
                                 // Try to reload the rune image
                                 try {
                                   const { getRuneImageUrl } = await import('@/utils/runeData');
                                   const newUrl = await getRuneImageUrl(perkIdNum);
                                   if (newUrl && newUrl !== runeImg) {
+                                    console.log(`[RuneImage] Retrying with new URL for perk ${perkIdNum}: ${newUrl}`);
                                     (e.target as HTMLImageElement).src = newUrl;
                                   } else {
+                                    console.warn(`[RuneImage] No alternative URL found for perk ${perkIdNum}, hiding image`);
                                     (e.target as HTMLImageElement).style.display = 'none';
                                     (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${perkIdNum}</span>`;
                                   }
