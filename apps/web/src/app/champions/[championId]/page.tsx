@@ -219,6 +219,14 @@ export default function ChampionBuildPage() {
           }
         });
         console.log('[loadBuild] First build archetype runes:', data.builds?.[0]?.runes);
+        console.log('[loadBuild] First build archetype perkIds:', data.builds?.[0]?.runes?.perkIds);
+        console.log('[loadBuild] First build archetype perkIds type:', typeof data.builds?.[0]?.runes?.perkIds, Array.isArray(data.builds?.[0]?.runes?.perkIds));
+        // #region agent log
+        if (data.builds && data.builds.length > 0) {
+          const firstBuildRunes = data.builds[0].runes;
+          fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:222',message:'First build runes structure',data:{primaryStyleId:firstBuildRunes?.primaryStyleId,subStyleId:firstBuildRunes?.subStyleId,perkIds:firstBuildRunes?.perkIds,perkIdsType:typeof firstBuildRunes?.perkIds,isArray:Array.isArray(firstBuildRunes?.perkIds),perkIdsLength:firstBuildRunes?.perkIds?.length},timestamp:Date.now(),runId:'debug1',hypothesisId:'E'})}).catch(()=>{});
+        }
+        // #endregion
         console.log('[loadBuild] ==============================================');
 
         setBuild(data);
@@ -227,6 +235,12 @@ export default function ChampionBuildPage() {
           
           // Load rune images and style images - ensure rune data is preloaded first
           const loadRuneImages = async () => {
+            // #region agent log
+            console.log('[loadRuneImages] Starting rune image loading');
+            console.log('[loadRuneImages] Build archetypes count:', data.builds.length);
+            console.log('[loadRuneImages] First build perkIds:', data.builds[0]?.runes?.perkIds);
+            fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:229',message:'Starting rune image loading',data:{buildsCount:data.builds.length,firstBuildPerkIds:data.builds[0]?.runes?.perkIds},timestamp:Date.now(),runId:'debug1',hypothesisId:'F'})}).catch(()=>{});
+            // #endregion
             // Ensure rune data is loaded
             await preloadRuneData();
             await preloadItemData();
@@ -276,23 +290,36 @@ export default function ChampionBuildPage() {
               }
               
               // Load rune images and descriptions
+              if (!buildArchetype.runes?.perkIds || !Array.isArray(buildArchetype.runes.perkIds)) {
+                console.error(`[loadRuneImages] Invalid perkIds for build archetype:`, buildArchetype.runes);
+                // #region agent log
+                fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:278',message:'Invalid perkIds detected',data:{runes:buildArchetype.runes,perkIds:buildArchetype.runes?.perkIds,perkIdsType:typeof buildArchetype.runes?.perkIds,isArray:Array.isArray(buildArchetype.runes?.perkIds)},timestamp:Date.now(),runId:'debug1',hypothesisId:'G'})}).catch(()=>{});
+                // #endregion
+                continue;
+              }
               for (const perkId of buildArchetype.runes.perkIds) {
                 if (!runeImgMap.has(perkId)) {
                   try {
-                    console.log(`[loadRuneImages] Loading rune perk ${perkId}`);
-                    const imgUrl = await getRuneImageUrl(perkId);
-                    const name = await getRuneName(perkId);
-                    const desc = await getRuneDescription(perkId);
+                    console.log(`[loadRuneImages] Loading rune perk ${perkId} (type: ${typeof perkId})`);
+                    const imgUrl = await getRuneImageUrl(Number(perkId));
+                    const name = await getRuneName(Number(perkId));
+                    const desc = await getRuneDescription(Number(perkId));
                     if (imgUrl && name && !imgUrl.includes('StatModsEmpty')) {
                       console.log(`[loadRuneImages] Rune perk ${perkId} loaded: ${imgUrl} (${name})`);
-                      runeImgMap.set(perkId, imgUrl);
-                      runeNameMap.set(perkId, name);
-                      runeDescMap.set(perkId, desc);
+                      runeImgMap.set(Number(perkId), imgUrl);
+                      runeNameMap.set(Number(perkId), name);
+                      runeDescMap.set(Number(perkId), desc);
                     } else {
                       console.warn(`[loadRuneImages] Rune perk ${perkId} returned empty/invalid URL or name:`, { imgUrl, name });
+                      // #region agent log
+                      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:286',message:'Rune perk returned invalid data',data:{perkId,imgUrl,name},timestamp:Date.now(),runId:'debug1',hypothesisId:'H'})}).catch(()=>{});
+                      // #endregion
                     }
                   } catch (err) {
                     console.error(`[loadRuneImages] Failed to load rune for perk ${perkId}:`, err);
+                    // #region agent log
+                    fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:295',message:'Failed to load rune',data:{perkId,error:err instanceof Error?err.message:String(err)},timestamp:Date.now(),runId:'debug1',hypothesisId:'I'})}).catch(()=>{});
+                    // #endregion
                   }
                 }
               }
@@ -360,6 +387,14 @@ export default function ChampionBuildPage() {
             fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:299',message:'Rune style images loaded',data:{runeImagesCount:runeImgMap.size,styleImagesCount:styleImgMap.size,primaryStyleIds,subStyleIds,loadedStyleIds},timestamp:Date.now(),runId:'debug1',hypothesisId:'A'})}).catch(()=>{});
             // #endregion
             
+            // #region agent log
+            console.log('[loadRuneImages] Final rune image map size:', runeImgMap.size);
+            console.log('[loadRuneImages] Final rune name map size:', runeNameMap.size);
+            console.log('[loadRuneImages] Final style image map size:', styleImgMap.size);
+            console.log('[loadRuneImages] Rune image map keys:', Array.from(runeImgMap.keys()));
+            console.log('[loadRuneImages] Style image map keys:', Array.from(styleImgMap.keys()));
+            fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:360',message:'Rune image loading complete',data:{runeImgMapSize:runeImgMap.size,runeNameMapSize:runeNameMap.size,styleImgMapSize:styleImgMap.size,runeImgMapKeys:Array.from(runeImgMap.keys()),styleImgMapKeys:Array.from(styleImgMap.keys())},timestamp:Date.now(),runId:'debug1',hypothesisId:'J'})}).catch(()=>{});
+            // #endregion
             setRuneImages(runeImgMap);
             setRuneNames(runeNameMap);
             setRuneDescriptions(runeDescMap);
@@ -596,28 +631,28 @@ export default function ChampionBuildPage() {
                             <img
                               src={runeImg}
                               alt={runeName}
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-cover rounded-lg"
                               onError={async (e) => {
-                                console.error(`[RuneImage] Failed to load rune image for perk ${perkId}: ${runeImg}`);
+                                console.error(`[RuneImage] Failed to load rune image for perk ${perkIdNum}: ${runeImg}`);
                                 // Try to reload the rune image
                                 try {
                                   const { getRuneImageUrl } = await import('@/utils/runeData');
-                                  const newUrl = await getRuneImageUrl(perkId);
+                                  const newUrl = await getRuneImageUrl(perkIdNum);
                                   if (newUrl && newUrl !== runeImg) {
                                     (e.target as HTMLImageElement).src = newUrl;
                                   } else {
                                     (e.target as HTMLImageElement).style.display = 'none';
-                                    (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${perkId}</span>`;
+                                    (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${perkIdNum}</span>`;
                                   }
                                 } catch (err) {
-                                  console.error(`[RuneImage] Error reloading rune ${perkId}:`, err);
+                                  console.error(`[RuneImage] Error reloading rune ${perkIdNum}:`, err);
                                   (e.target as HTMLImageElement).style.display = 'none';
-                                  (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${perkId}</span>`;
+                                  (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">${perkIdNum}</span>`;
                                 }
                               }}
                             />
                           ) : (
-                            <span className="text-xs text-[#94A3B8] group-hover:text-blue-400 transition-colors">{perkId}</span>
+                            <span className="text-xs text-[#94A3B8] group-hover:text-blue-400 transition-colors">{perkIdNum}</span>
                           )}
                           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-[#0F172A] border border-[#334155] rounded text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20">
                             {runeName}
