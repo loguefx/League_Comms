@@ -172,10 +172,13 @@ export class AggregationService implements OnModuleInit {
 
   /**
    * Step C: Compute ban stats (banned_matches per champion per bucket)
+   * Ban stats are the same for all roles (a champion is banned regardless of role)
+   * So we update ALL role entries with the same ban count
    */
   private async computeBanStats() {
     this.logger.log('Computing ban stats...');
 
+    // First, compute ban counts per champion per bucket
     await this.prisma.$executeRaw`
       WITH banned AS (
         SELECT
@@ -196,10 +199,14 @@ export class AggregationService implements OnModuleInit {
         AND cs.queue_id = b.queue_id
         AND cs.rank_bracket = b.rank_bracket
         AND cs.champion_id = b.champion_id
-        AND cs.role = 'ALL'
     `;
 
-    this.logger.log('Ban stats computed');
+    // Log how many bans were found
+    const banCount = await this.prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*)::bigint AS count
+      FROM match_bans
+    `;
+    this.logger.log(`Ban stats computed. Total bans in database: ${banCount[0]?.count || 0}`);
   }
 
   /**

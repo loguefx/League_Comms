@@ -172,6 +172,18 @@ export class AnalyticsService {
 
     this.logger.log(`[getChampionStats] SQL query completed, found ${stats.length} raw champion stats`);
     
+    // Log sample of ban rates to debug
+    if (stats.length > 0) {
+      const sampleStats = stats.slice(0, 3);
+      this.logger.log(`[getChampionStats] Sample stats (first 3):`, sampleStats.map(s => ({
+        champion_id: s.champion_id,
+        games: s.games.toString(),
+        wins: s.wins.toString(),
+        ban_rate: s.ban_rate,
+        pick_rate: s.pick_rate,
+      })));
+    }
+    
     if (stats.length === 0) {
       this.logger.warn(`[getChampionStats] ⚠️  No champion stats found for patch=${patch}, rankBracket=${rankBracket}, role=${role}, region=${region || 'world'}`);
       this.logger.warn(`[getChampionStats] This might mean: 1) No matches ingested yet, 2) Aggregation hasn't run, or 3) No data for these filters`);
@@ -424,6 +436,10 @@ export class AnalyticsService {
       const isAllRanks = rankBracket === 'all_ranks';
       const isWorld = !region;
 
+      // Lower threshold for counter picks - with limited data, we need to be more lenient
+      // Require at least 3 matchups instead of 10
+      const minMatchups = 3;
+      
       let counterPicks;
       if (isAllRanks && isWorld) {
         counterPicks = await this.prisma.$queryRaw<Array<{ champion_id: number; win_rate: number }>>`
@@ -441,8 +457,8 @@ export class AnalyticsService {
             AND m.patch = ${patch}
             AND main.role = ${role}
           GROUP BY enemy.champion_id
-          HAVING COUNT(*) >= 10
-          ORDER BY win_rate DESC
+          HAVING COUNT(*) >= ${minMatchups}
+          ORDER BY win_rate DESC, COUNT(*) DESC
           LIMIT 6
         `;
       } else if (isAllRanks) {
@@ -462,8 +478,8 @@ export class AnalyticsService {
             AND m.region = ${region}
             AND main.role = ${role}
           GROUP BY enemy.champion_id
-          HAVING COUNT(*) >= 10
-          ORDER BY win_rate DESC
+          HAVING COUNT(*) >= ${minMatchups}
+          ORDER BY win_rate DESC, COUNT(*) DESC
           LIMIT 6
         `;
       } else if (isWorld) {
@@ -483,8 +499,8 @@ export class AnalyticsService {
             AND m.rank_bracket = ${rankBracket}
             AND main.role = ${role}
           GROUP BY enemy.champion_id
-          HAVING COUNT(*) >= 10
-          ORDER BY win_rate DESC
+          HAVING COUNT(*) >= ${minMatchups}
+          ORDER BY win_rate DESC, COUNT(*) DESC
           LIMIT 6
         `;
       } else {
@@ -505,13 +521,15 @@ export class AnalyticsService {
             AND m.region = ${region}
             AND main.role = ${role}
           GROUP BY enemy.champion_id
-          HAVING COUNT(*) >= 10
-          ORDER BY win_rate DESC
+          HAVING COUNT(*) >= ${minMatchups}
+          ORDER BY win_rate DESC, COUNT(*) DESC
           LIMIT 6
         `;
       }
 
-      return counterPicks.map((cp) => Number(cp.champion_id));
+      const counterPickIds = counterPicks.map((cp) => Number(cp.champion_id));
+      this.logger.debug(`[getCounterPicks] Found ${counterPickIds.length} counter picks for champion ${championId}`);
+      return counterPickIds;
     } catch (error) {
       this.logger.warn(`Failed to get counter picks for champion ${championId}:`, error);
       return []; // Return empty array on error
