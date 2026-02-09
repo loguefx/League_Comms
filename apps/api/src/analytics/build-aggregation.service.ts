@@ -839,8 +839,17 @@ export class BuildAggregationService {
     this.logger.log(`[getRecommendedRunes] Found ${runePages.length} rune pages for champion ${championId}`);
 
     // #region agent log
-    console.log('[DEBUG] getRecommendedRunes query result', { runePagesLength: runePages?.length || 0, runePagesSample: runePages?.[0] || null });
-    fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:833',message:'getRecommendedRunes query result',data:{runePagesLength:runePages?.length||0,runePagesSample:runePages?.[0]||null},timestamp:Date.now(),runId:'debug2',hypothesisId:'H'})}).catch(()=>{});
+    // Sanitize BigInt values before logging
+    const sanitizedRuneSample = runePages?.[0] ? {
+      primary_style_id: Number(runePages[0].primary_style_id),
+      sub_style_id: Number(runePages[0].sub_style_id),
+      perk_ids: runePages[0].perk_ids,
+      stat_shards: runePages[0].stat_shards,
+      games: Number(runePages[0].games),
+      wins: Number(runePages[0].wins),
+    } : null;
+    console.log('[DEBUG] getRecommendedRunes query result', { runePagesLength: runePages?.length || 0, runePagesSample: sanitizedRuneSample });
+    fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:833',message:'getRecommendedRunes query result',data:{runePagesLength:runePages?.length||0,runePagesSample:sanitizedRuneSample},timestamp:Date.now(),runId:'debug2',hypothesisId:'H'})}).catch(()=>{});
     // #endregion
 
     if (!runePages || runePages.length === 0) {
@@ -1306,8 +1315,14 @@ export class BuildAggregationService {
     }
 
     // #region agent log
-    console.log('[DEBUG] getRecommendedItems query result', { itemBuildsLength: itemBuilds?.length || 0, itemBuildsSample: itemBuilds?.[0] || null });
-    fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:1275',message:'getRecommendedItems query result',data:{itemBuildsLength:itemBuilds?.length||0,itemBuildsSample:itemBuilds?.[0]||null},timestamp:Date.now(),runId:'debug2',hypothesisId:'E'})}).catch(()=>{});
+    // Sanitize BigInt values before logging
+    const sanitizedItemSample = itemBuilds?.[0] ? {
+      items: itemBuilds[0].items,
+      games: Number(itemBuilds[0].games),
+      wins: Number(itemBuilds[0].wins),
+    } : null;
+    console.log('[DEBUG] getRecommendedItems query result', { itemBuildsLength: itemBuilds?.length || 0, itemBuildsSample: sanitizedItemSample });
+    fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:1275',message:'getRecommendedItems query result',data:{itemBuildsLength:itemBuilds?.length||0,itemBuildsSample:sanitizedItemSample},timestamp:Date.now(),runId:'debug2',hypothesisId:'E'})}).catch(()=>{});
     // #endregion
 
     if (!itemBuilds || itemBuilds.length === 0) {
