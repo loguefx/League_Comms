@@ -538,27 +538,50 @@ export class AnalyticsController {
         sixth: allItemBuilds.sixth.length,
       });
       // Sanitize BigInt before JSON.stringify to prevent serialization errors
-      const sanitizeForLog = (obj: any): any => {
+      const sanitizeForLog = (obj: any, depth: number = 0): any => {
+        if (depth > 50) return '[Max depth reached]'; // Prevent infinite recursion
         if (obj === null || obj === undefined) return obj;
-        if (typeof obj === 'bigint') return Number(obj);
-        if (Array.isArray(obj)) return obj.map(sanitizeForLog);
+        if (typeof obj === 'bigint') {
+          console.warn(`[sanitizeForLog] Found BigInt at depth ${depth}, converting to number`);
+          return Number(obj);
+        }
+        if (Array.isArray(obj)) return obj.map((item, idx) => sanitizeForLog(item, depth + 1));
         if (typeof obj === 'object') {
           const sanitized: any = {};
           for (const key in obj) {
-            sanitized[key] = sanitizeForLog(obj[key]);
+            if (obj.hasOwnProperty(key)) {
+              try {
+                sanitized[key] = sanitizeForLog(obj[key], depth + 1);
+              } catch (e) {
+                sanitized[key] = '[Error sanitizing]';
+              }
+            }
           }
           return sanitized;
         }
         return obj;
       };
       try {
-        console.log(`[getChampionBuild] Starting items data:`, JSON.stringify(sanitizeForLog(allItemBuilds.starting), null, 2));
-        console.log(`[getChampionBuild] Core items data:`, JSON.stringify(sanitizeForLog(allItemBuilds.core), null, 2));
-        console.log(`[getChampionBuild] Fourth items data:`, JSON.stringify(sanitizeForLog(allItemBuilds.fourth), null, 2));
-        console.log(`[getChampionBuild] Fifth items data:`, JSON.stringify(sanitizeForLog(allItemBuilds.fifth), null, 2));
-        console.log(`[getChampionBuild] Sixth items data:`, JSON.stringify(sanitizeForLog(allItemBuilds.sixth), null, 2));
-      } catch (logError) {
+        const sanitizedStarting = sanitizeForLog(allItemBuilds.starting);
+        const sanitizedCore = sanitizeForLog(allItemBuilds.core);
+        const sanitizedFourth = sanitizeForLog(allItemBuilds.fourth);
+        const sanitizedFifth = sanitizeForLog(allItemBuilds.fifth);
+        const sanitizedSixth = sanitizeForLog(allItemBuilds.sixth);
+        
+        console.log(`[getChampionBuild] Starting items data:`, JSON.stringify(sanitizedStarting, null, 2));
+        console.log(`[getChampionBuild] Core items data:`, JSON.stringify(sanitizedCore, null, 2));
+        console.log(`[getChampionBuild] Fourth items data:`, JSON.stringify(sanitizedFourth, null, 2));
+        console.log(`[getChampionBuild] Fifth items data:`, JSON.stringify(sanitizedFifth, null, 2));
+        console.log(`[getChampionBuild] Sixth items data:`, JSON.stringify(sanitizedSixth, null, 2));
+      } catch (logError: any) {
+        // #region agent log
+        console.log('[DEBUG] ========== LOGGING ERROR ==========');
+        console.log('[DEBUG] Error during item builds logging:', logError.message);
+        console.log('[DEBUG] Error stack:', logError.stack);
+        console.log('[DEBUG] ====================================');
+        // #endregion
         console.warn(`[getChampionBuild] Failed to log item builds data:`, logError);
+        // Don't throw - logging errors shouldn't break the request
       }
       console.log(`[getChampionBuild] ======================================`);
 
