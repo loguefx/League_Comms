@@ -349,14 +349,15 @@ export class BuildAggregationService {
               pfi.role,
               pfi.champion_id,
               pfi.items[${startPos}] AS item_id,
-              COUNT(*)::bigint AS frequency
+              COUNT(*)::bigint AS frequency,
+              SUM(CASE WHEN pfi.win THEN 1 ELSE 0 END)::bigint AS wins
             FROM participant_final_items pfi
             JOIN matches m ON m.match_id = pfi.match_id
             WHERE m.patch = ${patch}
               AND m.queue_id = 420
-              AND pfi.win = true
               AND array_length(pfi.items, 1) >= ${startPos}
               AND pfi.items[${startPos}] > 0
+              AND pfi.items[${startPos}] IS NOT NULL
               ${roleFilter ? Prisma.sql`AND pfi.role = ${roleFilter}` : Prisma.empty}
             GROUP BY
               m.patch, m.region, m.queue_id, m.rank_bracket,
@@ -384,7 +385,7 @@ export class BuildAggregationService {
             ${buildType} AS build_type,
             ARRAY[item_id] AS items,
             frequency AS games,
-            frequency AS wins, -- All are from winning games
+            wins
             NOW() AS updated_at
           FROM ranked_items
           WHERE rn <= 5
