@@ -328,18 +328,10 @@ export class BatchSeedService {
   }
 
   /**
-   * Convert tier to rank_bracket format
+   * Convert tier to rank_bracket format using U.GG utility
    * Examples: "EMERALD" -> "emerald", "MASTER" -> "master_plus", "CHALLENGER" -> "master_plus"
    */
   private tierToRankBracket(tier: string): string {
-    const normalized = tier.toUpperCase();
-    
-    // Master+ tiers (Master, Grandmaster, Challenger) -> "master_plus"
-    if (normalized === 'MASTER' || normalized === 'GRANDMASTER' || normalized === 'CHALLENGER') {
-      return 'master_plus';
-    }
-    
-    // Regular tiers -> lowercase
-    return normalized.toLowerCase();
+    return convertTierToRankBracket(tier);
   }
 }

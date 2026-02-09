@@ -54,10 +54,11 @@ export class PublicChampionSeedService {
 
           this.logger.log(`Player ${player.summonerName}: Found ${matchIds.length} matches`);
 
-          // Ingest each match (mark as CHALLENGER tier since we're fetching from challenger league)
+          // Ingest each match (mark as master_plus since we're fetching from challenger league)
           for (const matchId of matchIds) {
             try {
-              await this.ingestionService.ingestMatch(region, matchId, 'CHALLENGER');
+              // Use master_plus bracket (U.GG format) for challenger league matches
+              await this.ingestionService.ingestMatch(region, matchId, 'master_plus');
               totalMatchesIngested++;
             } catch (error) {
               this.logger.warn(`Failed to ingest match ${matchId}: ${error}`);

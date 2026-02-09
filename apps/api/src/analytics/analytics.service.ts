@@ -296,59 +296,11 @@ export class AnalyticsService {
   }
 
   /**
-   * Normalize rank bracket to match database values
-   * Database stores: "iron", "bronze", "silver", "gold", "platinum", "emerald", "diamond", "master_plus"
-   * Frontend sends: "IRON_PLUS", "BRONZE_PLUS", etc. or "ALL_RANKS"
-   * 
-   * This function maps frontend values to database values:
-   * - "IRON_PLUS" or "IRON" -> "iron"
-   * - "BRONZE_PLUS" or "BRONZE" -> "bronze"
-   * - "SILVER_PLUS" or "SILVER" -> "silver"
-   * - "GOLD_PLUS" or "GOLD" -> "gold"
-   * - "PLATINUM_PLUS" or "PLATINUM" -> "platinum"
-   * - "EMERALD_PLUS" or "EMERALD" -> "emerald"
-   * - "DIAMOND_PLUS" or "DIAMOND" -> "diamond"
-   * - "MASTER_PLUS", "GRANDMASTER_PLUS", "CHALLENGER" -> "master_plus"
-   * - "ALL_RANKS" -> "all_ranks" (special case for querying all)
+   * Normalize rank bracket to match database values using U.GG utility
+   * Uses the centralized rank-bracket.util for consistency
    */
   private normalizeRankBracket(rank: string): string {
-    if (!rank || rank === 'ALL_RANKS') {
-      return 'all_ranks'; // Special case for all ranks
-    }
-    
-    const normalized = rank.toLowerCase().trim();
-    
-    // Remove _plus suffix if present (iron_plus -> iron)
-    const baseRank = normalized.replace(/_plus$/, '');
-    
-    // Map to database values (exact tiers stored as lowercase without _plus)
-    const rankMap: Record<string, string> = {
-      'iron': 'iron',
-      'bronze': 'bronze',
-      'silver': 'silver',
-      'gold': 'gold',
-      'platinum': 'platinum',
-      'emerald': 'emerald',
-      'diamond': 'diamond',
-      // Master+ variants all map to master_plus
-      'master': 'master_plus',
-      'grandmaster': 'master_plus',
-      'challenger': 'master_plus',
-    };
-    
-    // Check if base rank exists in map
-    if (rankMap[baseRank]) {
-      return rankMap[baseRank];
-    }
-    
-    // Fallback: if it already matches a database value, return as-is
-    if (Object.values(rankMap).includes(normalized)) {
-      return normalized;
-    }
-    
-    // Default fallback: return normalized (shouldn't happen with valid inputs)
-    this.logger.warn(`Unknown rank bracket: ${rank}, using normalized value: ${normalized}`);
-    return normalized;
+    return normalizeRankBracket(rank);
   }
 
   /**
