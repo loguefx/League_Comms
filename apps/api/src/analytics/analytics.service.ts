@@ -243,19 +243,42 @@ export class AnalyticsService {
     this.logger.log(`[getChampionStats] Processed ${championsWithStats.length} champions with stats`);
 
     // Calculate counter picks for each champion (skip if no champions to avoid unnecessary queries)
-    const championsWithCounterPicks = championsWithStats.length > 0
+    // Limit to first 50 champions to avoid too many queries (counter picks are expensive)
+    const championsToProcess = championsWithStats.slice(0, 50);
+    this.logger.log(`[getChampionStats] Calculating counter picks for ${championsToProcess.length} champions (limited to 50 for performance)`);
+    
+    const championsWithCounterPicks = championsToProcess.length > 0
       ? await Promise.all(
-          championsWithStats.map(async (champ) => {
-            const counterPicks = await this.getCounterPicks(champ.championId, patch, role, rankBracket, region);
-            return {
-              ...champ,
-              counterPicks,
-            };
+          championsToProcess.map(async (champ, index) => {
+            try {
+              const counterPicks = await this.getCounterPicks(champ.championId, patch, role, rankBracket, region);
+              this.logger.debug(`[getChampionStats] Champion ${index + 1}/${championsToProcess.length} (ID: ${champ.championId}): ${counterPicks.length} counter picks`);
+              return {
+                ...champ,
+                counterPicks,
+              };
+            } catch (error) {
+              this.logger.warn(`[getChampionStats] Failed to get counter picks for champion ${champ.championId}:`, error);
+              return {
+                ...champ,
+                counterPicks: [],
+              };
+            }
           })
         )
       : [];
 
-    this.logger.log(`[getChampionStats] Returning ${championsWithCounterPicks.length} champions with counter picks`);
+    // Add remaining champions without counter picks (if any)
+    if (championsWithStats.length > 50) {
+      const remainingChampions = championsWithStats.slice(50).map(champ => ({
+        ...champ,
+        counterPicks: [],
+      }));
+      championsWithCounterPicks.push(...remainingChampions);
+      this.logger.log(`[getChampionStats] Added ${remainingChampions.length} remaining champions without counter picks (performance optimization)`);
+    }
+
+    this.logger.log(`[getChampionStats] Returning ${championsWithCounterPicks.length} champions (${championsToProcess.length} with counter picks)`);
     return championsWithCounterPicks;
   }
 
