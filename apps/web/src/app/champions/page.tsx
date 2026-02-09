@@ -28,6 +28,7 @@ export default function ChampionsPage() {
   const [championDataLoaded, setChampionDataLoaded] = useState(false);
   const [availablePatches, setAvailablePatches] = useState<string[]>([]);
   const [latestPatch, setLatestPatch] = useState<string | null>(null);
+  const [patchesLoading, setPatchesLoading] = useState(true);
   const [filters, setFilters] = useState({
     rank: 'PLATINUM_PLUS',
     role: '',
@@ -43,6 +44,7 @@ export default function ChampionsPage() {
     
     // Fetch available patches
     const fetchPatches = async () => {
+      setPatchesLoading(true);
       try {
         const apiUrl = getApiUrl();
         const response = await fetch(`${apiUrl}/champions/patches`);
@@ -74,10 +76,15 @@ export default function ChampionsPage() {
             }
             return prev;
           });
+        } else {
+          // No patches available - might mean no matches ingested yet
+          console.warn('[ChampionsPage] No patches available - database might be empty');
         }
       } catch (error) {
         console.error('Failed to fetch patches:', error);
         // Don't update state on error - keep existing values
+      } finally {
+        setPatchesLoading(false);
       }
     };
     fetchPatches();
@@ -347,16 +354,16 @@ export default function ChampionsPage() {
                 onChange={(e) => setFilters({ ...filters, patch: e.target.value })}
                 className="w-full px-4 py-3 bg-[#0D121E] border border-[#283D4D] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                {availablePatches.length > 0 ? (
+                {patchesLoading ? (
+                  <option value="latest" className="bg-[#0D121E] text-white">Loading patches...</option>
+                ) : availablePatches.length > 0 ? (
                   availablePatches.map((patch) => (
                     <option key={patch} value={patch} className="bg-[#0D121E] text-white">
                       {patch}{patch === latestPatch ? ' (Latest)' : ''}
                     </option>
                   ))
                 ) : (
-                  <option value="latest" className="bg-[#0D121E] text-white">
-                    {filters.patch === 'latest' ? 'Loading patches...' : filters.patch}
-                  </option>
+                  <option value="latest" className="bg-[#0D121E] text-white">No patches available</option>
                 )}
               </select>
             </div>
