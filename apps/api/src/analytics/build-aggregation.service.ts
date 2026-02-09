@@ -1586,8 +1586,20 @@ export class BuildAggregationService {
 
       // If no matching items found, use the most common item build
       if (matchingItems.length === 0 && itemBuilds.length > 0) {
+        // Filter zeros from itemBuilds[0].items before using as fallback
+        const fallbackItems = Array.isArray(itemBuilds[0].items) ? itemBuilds[0].items.filter(id => Number(id) > 0) : [];
+        // #region agent log
+        console.log('[DEBUG] Using fallback items (no matching items found)', { 
+          itemBuildsLength: itemBuilds.length, 
+          originalItems: itemBuilds[0].items, 
+          filteredItems: fallbackItems,
+          itemBuilds0Games: itemBuilds[0].games,
+          itemBuilds0WinRate: itemBuilds[0].winRate
+        });
+        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'build-aggregation.service.ts:1588',message:'Using fallback items',data:{itemBuildsLength:itemBuilds.length,originalItems:itemBuilds[0].items,filteredItems:fallbackItems,itemBuilds0Games:itemBuilds[0].games,itemBuilds0WinRate:itemBuilds[0].winRate},timestamp:Date.now(),runId:'debug1',hypothesisId:'J'})}).catch(()=>{});
+        // #endregion
         matchingItems = [{
-          items: itemBuilds[0].items,
+          items: fallbackItems,
           games: itemBuilds[0].games, // Already a number
           wins: Math.round(itemBuilds[0].games * itemBuilds[0].winRate), // Already a number
         }];
