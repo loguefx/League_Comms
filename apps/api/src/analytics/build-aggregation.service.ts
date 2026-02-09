@@ -340,7 +340,7 @@ export class BuildAggregationService {
       if (endPos === null) {
         // Single item at position startPos
         await this.prisma.$executeRaw`
-          WITH item_at_position AS (
+          WITH filtered_items AS (
             SELECT
               m.patch,
               m.region,
@@ -348,20 +348,32 @@ export class BuildAggregationService {
               m.rank_bracket,
               pfi.role,
               pfi.champion_id,
-              pfi.items[${startPos}] AS item_id,
-              COUNT(*)::bigint AS frequency,
-              SUM(CASE WHEN pfi.win THEN 1 ELSE 0 END)::bigint AS wins
+              (pfi.items[${startPos}])::int AS item_id,
+              pfi.win
             FROM participant_final_items pfi
             JOIN matches m ON m.match_id = pfi.match_id
             WHERE m.patch = ${patch}
               AND m.queue_id = 420
               AND array_length(pfi.items, 1) >= ${startPos}
-              AND pfi.items[${startPos}] > 0
-              AND pfi.items[${startPos}] IS NOT NULL
+              AND (pfi.items[${startPos}])::int > 0
+              AND (pfi.items[${startPos}])::int IS NOT NULL
               ${roleFilter ? Prisma.sql`AND pfi.role = ${roleFilter}` : Prisma.empty}
+          ),
+          item_at_position AS (
+            SELECT
+              patch,
+              region,
+              queue_id,
+              rank_bracket,
+              role,
+              champion_id,
+              item_id,
+              COUNT(*)::bigint AS frequency,
+              SUM(CASE WHEN win THEN 1 ELSE 0 END)::bigint AS wins
+            FROM filtered_items
             GROUP BY
-              m.patch, m.region, m.queue_id, m.rank_bracket,
-              pfi.role, pfi.champion_id, pfi.items[${startPos}]
+              patch, region, queue_id, rank_bracket,
+              role, champion_id, item_id
           ),
           ranked_items AS (
             SELECT *,
