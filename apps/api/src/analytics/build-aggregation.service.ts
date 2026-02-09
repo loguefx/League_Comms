@@ -50,6 +50,15 @@ export class BuildAggregationService {
    */
   private async aggregateRunePages(patch: string): Promise<void> {
     this.logger.log(`Aggregating rune pages for patch ${patch}...`);
+    
+    // Check if we have any participant_perks data
+    const perkCount = await this.prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*)::bigint as count
+      FROM participant_perks pp
+      JOIN matches m ON m.match_id = pp.match_id
+      WHERE m.patch = ${patch} AND m.queue_id = 420
+    `;
+    this.logger.log(`Found ${Number(perkCount[0]?.count || 0)} participant perks for patch ${patch}`);
 
     // Group by: patch, region, queueId, rankBracket, role, championId, rune page signature
     await this.prisma.$executeRaw`
@@ -129,7 +138,13 @@ export class BuildAggregationService {
         updated_at = NOW()
     `;
 
-    this.logger.log(`Rune pages aggregated for patch ${patch}`);
+    // Check how many rune pages were created
+    const runePageCount = await this.prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*)::bigint as count
+      FROM champion_rune_pages
+      WHERE patch = ${patch}
+    `;
+    this.logger.log(`Rune pages aggregated for patch ${patch}: ${Number(runePageCount[0]?.count || 0)} total rune pages`);
   }
 
   /**
@@ -833,7 +848,10 @@ export class BuildAggregationService {
       this.getRecommendedSpells(championId, patch, rankBracket, role, region, limit * 2),
     ]);
 
+    this.logger.log(`[getBuildArchetypes] Found ${runePages.length} rune pages, ${itemBuilds.length} item builds, ${spellSets.length} spell sets for champion ${championId}`);
+
     if (runePages.length === 0 || itemBuilds.length === 0) {
+      this.logger.warn(`[getBuildArchetypes] No build data found for champion ${championId} - runes: ${runePages.length}, items: ${itemBuilds.length}`);
       return [];
     }
 
