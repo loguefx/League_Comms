@@ -592,23 +592,51 @@ export default function ChampionBuildPage() {
                         src={runeStyleImages.get(selectedBuild.runes.primaryStyleId)!}
                         alt={`Style ${selectedBuild.runes.primaryStyleId}`}
                         className="w-full h-full object-cover"
+                        crossOrigin="anonymous"
+                        onLoad={() => {
+                          console.log(`[RuneStyleImage] ✅ Successfully loaded primary style ${selectedBuild.runes.primaryStyleId}`);
+                          // #region agent log
+                          fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:591',message:'Primary style image loaded successfully',data:{styleId:selectedBuild.runes.primaryStyleId,imageUrl:runeStyleImages.get(selectedBuild.runes.primaryStyleId)},timestamp:Date.now(),runId:'debug3',hypothesisId:'U'})}).catch(()=>{});
+                          // #endregion
+                        }}
                         onError={async (e) => {
-                          console.error(`[RuneStyleImage] Failed to load primary style ${selectedBuild.runes.primaryStyleId}: ${runeStyleImages.get(selectedBuild.runes.primaryStyleId)}`);
+                          const img = e.target as HTMLImageElement;
+                          const styleUrl = runeStyleImages.get(selectedBuild.runes.primaryStyleId);
+                          const errorDetails = {
+                            styleId: selectedBuild.runes.primaryStyleId,
+                            styleUrl,
+                            naturalWidth: img.naturalWidth,
+                            naturalHeight: img.naturalHeight,
+                            complete: img.complete,
+                            currentSrc: img.currentSrc,
+                            src: img.src,
+                            error: img.error?.message || 'Unknown error'
+                          };
+                          console.error(`[RuneStyleImage] ❌ Failed to load primary style ${selectedBuild.runes.primaryStyleId}:`, errorDetails);
+                          // #region agent log
+                          fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:595',message:'Primary style image failed to load',data:errorDetails,timestamp:Date.now(),runId:'debug3',hypothesisId:'V'})}).catch(()=>{});
+                          // #endregion
                           try {
                             const { getRuneStyleImageUrl } = await import('@/utils/runeData');
                             const newUrl = await getRuneStyleImageUrl(selectedBuild.runes.primaryStyleId);
                             if (newUrl) {
-                              (e.target as HTMLImageElement).src = newUrl;
+                              img.src = newUrl;
                               // Update the state
                               setRuneStyleImages(prev => new Map(prev).set(selectedBuild.runes.primaryStyleId, newUrl));
                             } else {
-                              (e.target as HTMLImageElement).style.display = 'none';
-                              (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">Style ${selectedBuild.runes.primaryStyleId}</span>`;
+                              img.style.display = 'none';
+                              const parent = img.parentElement;
+                              if (parent) {
+                                parent.innerHTML = `<span class="text-xs text-[#94A3B8]">Style ${selectedBuild.runes.primaryStyleId}</span>`;
+                              }
                             }
                           } catch (err) {
                             console.error(`[RuneStyleImage] Error reloading style ${selectedBuild.runes.primaryStyleId}:`, err);
-                            (e.target as HTMLImageElement).style.display = 'none';
-                            (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xs text-[#94A3B8]">Style ${selectedBuild.runes.primaryStyleId}</span>`;
+                            img.style.display = 'none';
+                            const parent = img.parentElement;
+                            if (parent) {
+                              parent.innerHTML = `<span class="text-xs text-[#94A3B8]">Style ${selectedBuild.runes.primaryStyleId}</span>`;
+                            }
                           }
                         }}
                       />
