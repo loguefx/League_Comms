@@ -110,32 +110,52 @@ export async function preloadChampionData(): Promise<void> {
 /**
  * Calculate tier based on win rate and pick rate (U.GG-style)
  * Tiers: S+, S, A, B, C, D
+ * 
+ * This uses a more nuanced approach:
+ * - Very low sample size (< 10 games) = D tier (unreliable)
+ * - Low sample size (10-49 games) = Capped at B tier (less reliable but still useful)
+ * - Normal sample size (50+ games) = Full tier range
  */
 export function calculateTier(winRate: number, pickRate: number, games: number): string {
-  // Minimum games for reliable tier (U.GG typically uses ~100-200)
-  if (games < 50) {
-    return 'D'; // Low sample size = unreliable
+  // Very low sample size - unreliable, always D tier
+  if (games < 10) {
+    return 'D';
   }
 
-  // Base tier on win rate with adjustments for pick rate
-  // Higher pick rate = more competitive, so we adjust expectations
+  // Base tier score on win rate (winRate is already a percentage 0-100)
   let tierScore = winRate;
 
-  // Adjust for pick rate (popular champs are harder to maintain high WR)
+  // Adjust for pick rate (popular champs are harder to maintain high WR, so they get a boost)
+  // This accounts for the fact that high pick rate champs face more counter-picks
   if (pickRate > 10) {
-    tierScore += 2; // Popular champs get slight boost
+    tierScore += 2; // Very popular champs get boost
   } else if (pickRate > 5) {
-    tierScore += 1;
+    tierScore += 1; // Popular champs get small boost
+  } else if (pickRate < 1) {
+    tierScore -= 1; // Very niche picks get penalty (might be off-meta)
   }
 
-  // Adjust for sample size (more games = more reliable)
-  if (games > 1000) {
-    tierScore += 1;
+  // Adjust for sample size confidence
+  if (games >= 1000) {
+    tierScore += 1; // Very high confidence
+  } else if (games >= 500) {
+    tierScore += 0.5; // High confidence
   } else if (games < 200) {
-    tierScore -= 1;
+    tierScore -= 1; // Lower confidence
+  } else if (games < 50) {
+    tierScore -= 2; // Much lower confidence
   }
 
-  // Determine tier
+  // Determine tier with adjusted thresholds
+  // For low sample size (10-49 games), cap at B tier
+  if (games < 50) {
+    // Low sample size - be conservative, cap at B tier
+    if (tierScore >= 52) return 'B';
+    if (tierScore >= 50) return 'C';
+    return 'D';
+  }
+
+  // Normal sample size (50+ games) - full tier range
   if (tierScore >= 55) return 'S+';
   if (tierScore >= 53) return 'S';
   if (tierScore >= 51) return 'A';
