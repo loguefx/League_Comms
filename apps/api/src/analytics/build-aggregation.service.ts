@@ -358,6 +358,8 @@ export class BuildAggregationService {
               AND array_length(pfi.items, 1) >= ${startPos}
               AND (pfi.items[${startPos}])::int > 0
               AND (pfi.items[${startPos}])::int IS NOT NULL
+              -- Only include matches where players have at least 6 completed items (filter out early game matches)
+              AND array_length(array_remove((pfi.items[1:6])::int[], 0), 1) >= 6
               ${roleFilter ? Prisma.sql`AND pfi.role = ${roleFilter}` : Prisma.empty}
           ),
           item_at_position AS (
@@ -446,6 +448,8 @@ export class BuildAggregationService {
               AND array_length((pfi.items[${startPos}:${endPos}])::int[], 1) >= 1
               AND (pfi.items[${startPos}:${endPos}])::int[] IS NOT NULL
               AND array_length(array_remove((pfi.items[${startPos}:${endPos}])::int[], 0), 1) >= 1
+              -- Only include matches where players have at least 6 completed items (filter out early game matches)
+              AND array_length(array_remove((pfi.items[1:6])::int[], 0), 1) >= 6
               ${roleFilter ? Prisma.sql`AND pfi.role = ${roleFilter}` : Prisma.empty}
           ),
           item_combinations AS (

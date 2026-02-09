@@ -592,7 +592,6 @@ export default function ChampionBuildPage() {
                         src={runeStyleImages.get(selectedBuild.runes.primaryStyleId)!}
                         alt={`Style ${selectedBuild.runes.primaryStyleId}`}
                         className="w-full h-full object-cover"
-                        crossOrigin="anonymous"
                         onLoad={() => {
                           console.log(`[RuneStyleImage] ✅ Successfully loaded primary style ${selectedBuild.runes.primaryStyleId}`);
                           // #region agent log
@@ -678,7 +677,6 @@ export default function ChampionBuildPage() {
                                 alt={runeName}
                                 className="w-full h-full object-cover rounded-lg"
                                 style={{ display: 'block' }}
-                                crossOrigin="anonymous"
                                 onLoad={() => {
                                   console.log(`[RuneImage] ✅ Successfully loaded rune image for perk ${perkIdNum}: ${runeImg}`);
                                   // #region agent log
@@ -773,7 +771,6 @@ export default function ChampionBuildPage() {
                         src={runeStyleImages.get(selectedBuild.runes.subStyleId)!}
                         alt={`Style ${selectedBuild.runes.subStyleId}`}
                         className="w-full h-full object-cover"
-                        crossOrigin="anonymous"
                         onLoad={() => {
                           console.log(`[RuneStyleImage] ✅ Successfully loaded sub style ${selectedBuild.runes.subStyleId}`);
                           // #region agent log
