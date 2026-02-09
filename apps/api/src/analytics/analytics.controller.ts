@@ -704,10 +704,37 @@ export class AnalyticsController {
           overallWinRate: Number(archetype.overallWinRate) * 100,
         })),
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('[AnalyticsController] Error getting champion build:', error);
+      
+      // If it's a BigInt serialization error, return a safe fallback response
+      if (error.message && (error.message.includes('BigInt') || error.message.includes('serialize'))) {
+        console.error(`[getChampionBuild] BigInt serialization error detected for champion ${championId}`);
+        console.error(`[getChampionBuild] Error details:`, error.message);
+        
+        // Return a minimal safe response that won't cause serialization errors
+        return {
+          championId: Number(championId) || 0,
+          patch: patch || 'latest',
+          rank: rank || 'ALL_RANKS',
+          role: role || 'ALL',
+          region: region || 'world',
+          tierStats: null,
+          itemBuilds: {
+            starting: [],
+            core: [],
+            fourth: [],
+            fifth: [],
+            sixth: [],
+          },
+          builds: [],
+          error: 'Data serialization error - some data could not be processed. Please try again or contact support.',
+        };
+      }
+      
+      // For other errors, return error message
       return {
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
       };
     }
   }
