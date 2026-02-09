@@ -409,14 +409,15 @@ export class BuildAggregationService {
               pfi.role,
               pfi.champion_id,
               (pfi.items[${startPos}:${endPos}])::int[] AS item_slice,
-              COUNT(*)::bigint AS frequency
+              COUNT(*)::bigint AS frequency,
+              SUM(CASE WHEN pfi.win THEN 1 ELSE 0 END)::bigint AS wins
             FROM participant_final_items pfi
             JOIN matches m ON m.match_id = pfi.match_id
             WHERE m.patch = ${patch}
               AND m.queue_id = 420
-              AND pfi.win = true
               AND array_length(pfi.items, 1) >= ${endPos}
               AND array_length((pfi.items[${startPos}:${endPos}])::int[], 1) = ${expectedCount}
+              AND (pfi.items[${startPos}:${endPos}])::int[] IS NOT NULL
               ${roleFilter ? Prisma.sql`AND pfi.role = ${roleFilter}` : Prisma.empty}
             GROUP BY
               m.patch, m.region, m.queue_id, m.rank_bracket,
@@ -444,7 +445,7 @@ export class BuildAggregationService {
             ${buildType} AS build_type,
             item_slice AS items,
             frequency AS games,
-            frequency AS wins,
+            wins,
             NOW() AS updated_at
           FROM ranked_combinations
           WHERE rn <= 5
@@ -464,22 +465,45 @@ export class BuildAggregationService {
     const roles = ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY', null]; // null = ALL
     
     for (const role of roles) {
-      // Starting items: items[1:2] (first 2 items)
-      await aggregateByPosition('starting', 1, 2, 2, role);
-      
-      // Core items: items[3:5] (next 3 items)
-      await aggregateByPosition('core', 3, 5, 3, role);
-      
-      // Fourth item: items[6] (if exists)
-      await aggregateByPosition('fourth', 6, null, 1, role);
-      
-      // Fifth item: items[7] (if exists)
-      await aggregateByPosition('fifth', 7, null, 1, role);
-      
-      // Sixth item: items[8] (if exists)
-      await aggregateByPosition('sixth', 8, null, 1, role);
+      try {
+        // Starting items: items[1:2] (first 2 items)
+        this.logger.log(`Aggregating starting items for patch ${patch}, role: ${role || 'ALL'}`);
+        await aggregateByPosition('starting', 1, 2, 2, role);
+        
+        // Core items: items[3:5] (next 3 items)
+        this.logger.log(`Aggregating core items for patch ${patch}, role: ${role || 'ALL'}`);
+        await aggregateByPosition('core', 3, 5, 3, role);
+        
+        // Fourth item: items[6] (if exists)
+        this.logger.log(`Aggregating fourth items for patch ${patch}, role: ${role || 'ALL'}`);
+        await aggregateByPosition('fourth', 6, null, 1, role);
+        
+        // Fifth item: items[7] (if exists)
+        this.logger.log(`Aggregating fifth items for patch ${patch}, role: ${role || 'ALL'}`);
+        await aggregateByPosition('fifth', 7, null, 1, role);
+        
+        // Sixth item: items[8] (if exists)
+        this.logger.log(`Aggregating sixth items for patch ${patch}, role: ${role || 'ALL'}`);
+        await aggregateByPosition('sixth', 8, null, 1, role);
+      } catch (error) {
+        this.logger.error(`Failed to aggregate item builds for role ${role || 'ALL'}:`, error);
+      }
     }
 
+    // Log summary of aggregated items
+    const summary = await this.prisma.$queryRaw<Array<{
+      build_type: string;
+      role: string;
+      count: bigint;
+    }>>`
+      SELECT build_type, role, COUNT(*)::bigint as count
+      FROM champion_item_builds
+      WHERE patch = ${patch}
+      GROUP BY build_type, role
+      ORDER BY build_type, role
+    `;
+    
+    this.logger.log(`Item builds aggregated for patch ${patch}:`, summary);
     this.logger.log(`Item builds aggregated for patch ${patch} (all build types)`);
   }
 

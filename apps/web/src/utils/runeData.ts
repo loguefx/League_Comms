@@ -256,8 +256,29 @@ export async function getRuneStyleImageUrl(styleId: number): Promise<string> {
       console.log(`[getRuneStyleImageUrl] Style object:`, { id: style.id, name: style.name, icon: style.icon, key: style.key });
       // Check if style has icon property
       if (style.icon) {
-        const imageUrl = `https://ddragon.leagueoflegends.com/cdn/${runeDataCache.version}/img/${style.icon}`;
+        // Try the icon path from Data Dragon first
+        let imageUrl = `https://ddragon.leagueoflegends.com/cdn/${runeDataCache.version}/img/${style.icon}`;
         console.log(`[getRuneStyleImageUrl] Found style ${styleId} with icon: ${style.icon} -> ${imageUrl}`);
+        
+        // Also try alternative path structure (some versions use different paths)
+        // The icon might be in a subdirectory or have a different name
+        const styleMap: Record<number, string> = {
+          8000: 'perk-images/Styles/7201_Precision/7201_Precision.png',
+          8100: 'perk-images/Styles/7200_Domination/7200_Domination.png',
+          8200: 'perk-images/Styles/7202_Sorcery/7202_Sorcery.png',
+          8300: 'perk-images/Styles/7204_Inspiration/7204_Inspiration.png',
+          8400: 'perk-images/Styles/7203_Whimsy/7203_Whimsy.png',
+        };
+        
+        // If the icon path doesn't look right, use the fallback
+        if (!style.icon.includes('Styles') || style.icon.includes('7201_Precision.png')) {
+          const fallbackPath = styleMap[styleId];
+          if (fallbackPath) {
+            imageUrl = `https://ddragon.leagueoflegends.com/cdn/${runeDataCache.version}/img/${fallbackPath}`;
+            console.log(`[getRuneStyleImageUrl] Using fallback path for style ${styleId}: ${imageUrl}`);
+          }
+        }
+        
         return imageUrl;
       } else {
         console.warn(`[getRuneStyleImageUrl] Style ${styleId} found but has no icon property:`, style);
