@@ -52,6 +52,34 @@ async function bootstrap() {
   // Global interceptors
   app.useGlobalInterceptors(new RiotRateLimitInterceptor() as any);
 
+  // Add BigInt serializer for Fastify JSON responses
+  const fastifyInstance = app.getHttpAdapter().getInstance();
+  fastifyInstance.setSerializerCompiler(() => {
+    return (data: any) => {
+      // Recursively convert BigInt values to numbers
+      const convertBigInt = (obj: any): any => {
+        if (obj === null || obj === undefined) {
+          return obj;
+        }
+        if (typeof obj === 'bigint') {
+          return Number(obj);
+        }
+        if (Array.isArray(obj)) {
+          return obj.map(convertBigInt);
+        }
+        if (typeof obj === 'object') {
+          const converted: any = {};
+          for (const key in obj) {
+            converted[key] = convertBigInt(obj[key]);
+          }
+          return converted;
+        }
+        return obj;
+      };
+      return JSON.stringify(convertBigInt(data));
+    };
+  });
+
   const port = process.env.PORT || 4000;
   
   try {
