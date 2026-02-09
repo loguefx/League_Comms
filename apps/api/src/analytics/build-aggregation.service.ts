@@ -319,23 +319,12 @@ export class BuildAggregationService {
   private async aggregateItemBuilds(patch: string): Promise<void> {
     this.logger.log(`Aggregating item builds for patch ${patch}...`);
 
-    // Extract items by position in the array (since we don't have timeline data)
-    // Starting items: items[0-1] (first 2 items)
-    // Core items: items[2-4] (next 3 items)
-    // Fourth item: items[5] (if exists)
-    // Fifth item: items[6] (if exists)
-    // Sixth item: items[7] (if exists, though rare)
+    // For now, we'll compute "core items" as the top 3 most frequent items from winning games
+    // TODO: Implement full build type aggregation (starting, core, fourth, fifth, sixth)
+    // This requires extracting items by position in the array
     
-    // Helper function to aggregate items at specific array positions
-    const aggregateByPositions = async (
-      buildType: string,
-      positions: number[],
-      minItems: number,
-      roleFilter: string | null = null
-    ) => {
-      const roleCondition = roleFilter ? Prisma.sql`AND pfi.role = ${roleFilter}` : Prisma.empty;
-      
-      await this.prisma.$executeRaw`
+    // Core items: top 3 items by frequency in winning games
+    await this.prisma.$executeRaw`
       WITH item_frequency AS (
         SELECT
           m.patch,
