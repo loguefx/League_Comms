@@ -957,6 +957,7 @@ export class BuildAggregationService {
     };
 
     for (const buildType of buildTypes) {
+      this.logger.log(`[getAllItemBuilds] Querying for build type: ${buildType}, champion: ${championId}, patch: ${patch}, rank: ${rankBracket}, role: ${normalizedRole}, region: ${region || 'world'}`);
       let itemBuilds;
       if (isAllRanks && isWorld) {
         itemBuilds = await this.prisma.$queryRaw<Array<{
@@ -1043,6 +1044,23 @@ export class BuildAggregationService {
         `;
       }
 
+      this.logger.log(`[getAllItemBuilds] Found ${itemBuilds.length} ${buildType} builds for champion ${championId}`);
+      if (itemBuilds.length > 0) {
+        this.logger.log(`[getAllItemBuilds] Sample ${buildType} build:`, JSON.stringify(itemBuilds[0], null, 2));
+      } else {
+        // Check if any data exists at all for this build type
+        const checkQuery = await this.prisma.$queryRaw<Array<{ count: bigint }>>`
+          SELECT COUNT(*)::bigint as count
+          FROM champion_item_builds
+          WHERE patch = ${patch}
+            AND queue_id = 420
+            AND champion_id = ${championId}
+            AND build_type = ${buildType}
+        `;
+        const totalCount = Number(checkQuery[0]?.count || 0);
+        this.logger.warn(`[getAllItemBuilds] No ${buildType} builds found for champion ${championId} with filters. Total ${buildType} builds in DB: ${totalCount}`);
+      }
+      
       result[buildType] = itemBuilds.map((ib) => {
         const games = Number(ib.games);
         const wins = Number(ib.wins);
@@ -1054,6 +1072,14 @@ export class BuildAggregationService {
         };
       });
     }
+
+    this.logger.log(`[getAllItemBuilds] Final result for champion ${championId}:`, {
+      starting: result.starting.length,
+      core: result.core.length,
+      fourth: result.fourth.length,
+      fifth: result.fifth.length,
+      sixth: result.sixth.length,
+    });
 
     return result;
   }

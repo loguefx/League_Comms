@@ -255,33 +255,31 @@ export async function getRuneStyleImageUrl(styleId: number): Promise<string> {
     if (style) {
       console.log(`[getRuneStyleImageUrl] Style object:`, { id: style.id, name: style.name, icon: style.icon, key: style.key });
       // Check if style has icon property
-      if (style.icon) {
-        // Try the icon path from Data Dragon first
-        let imageUrl = `https://ddragon.leagueoflegends.com/cdn/${runeDataCache.version}/img/${style.icon}`;
-        console.log(`[getRuneStyleImageUrl] Found style ${styleId} with icon: ${style.icon} -> ${imageUrl}`);
-        
-        // Also try alternative path structure (some versions use different paths)
-        // The icon might be in a subdirectory or have a different name
-        const styleMap: Record<number, string> = {
-          8000: 'perk-images/Styles/7201_Precision/7201_Precision.png',
-          8100: 'perk-images/Styles/7200_Domination/7200_Domination.png',
-          8200: 'perk-images/Styles/7202_Sorcery/7202_Sorcery.png',
-          8300: 'perk-images/Styles/7204_Inspiration/7204_Inspiration.png',
-          8400: 'perk-images/Styles/7203_Whimsy/7203_Whimsy.png',
-        };
-        
-        // If the icon path doesn't look right, use the fallback
-        if (!style.icon.includes('Styles') || style.icon.includes('7201_Precision.png')) {
-          const fallbackPath = styleMap[styleId];
-          if (fallbackPath) {
-            imageUrl = `https://ddragon.leagueoflegends.com/cdn/${runeDataCache.version}/img/${fallbackPath}`;
-            console.log(`[getRuneStyleImageUrl] Using fallback path for style ${styleId}: ${imageUrl}`);
-          }
-        }
-        
+      // Data Dragon sometimes returns incorrect icon paths, so we always use our known-good mapping
+      const styleMap: Record<number, string> = {
+        8000: 'perk-images/Styles/7201_Precision/7201_Precision.png',
+        8100: 'perk-images/Styles/7200_Domination/7200_Domination.png',
+        8200: 'perk-images/Styles/7202_Sorcery/7202_Sorcery.png',
+        8300: 'perk-images/Styles/7204_Inspiration/7204_Inspiration.png',
+        8400: 'perk-images/Styles/7203_Whimsy/7203_Whimsy.png',
+      };
+      
+      // Always use our known-good mapping instead of Data Dragon's icon field
+      // (Data Dragon sometimes returns wrong paths, e.g., Inspiration returns Whimsy path)
+      const correctPath = styleMap[styleId];
+      if (correctPath) {
+        const imageUrl = `https://ddragon.leagueoflegends.com/cdn/${runeDataCache.version}/img/${correctPath}`;
+        console.log(`[getRuneStyleImageUrl] Using correct path for style ${styleId} (${style.name}): ${imageUrl}`);
         return imageUrl;
       } else {
-        console.warn(`[getRuneStyleImageUrl] Style ${styleId} found but has no icon property:`, style);
+        // Fallback to Data Dragon's icon if we don't have a mapping
+        if (style.icon) {
+          const imageUrl = `https://ddragon.leagueoflegends.com/cdn/${runeDataCache.version}/img/${style.icon}`;
+          console.warn(`[getRuneStyleImageUrl] No mapping for style ${styleId}, using Data Dragon icon: ${imageUrl}`);
+          return imageUrl;
+        } else {
+          console.warn(`[getRuneStyleImageUrl] Style ${styleId} found but has no icon property:`, style);
+        }
       }
     } else {
       console.warn(`[getRuneStyleImageUrl] Style ${styleId} not found in rune tree. Available styles:`, runeDataCache.runeTree.map(s => ({ id: s.id, name: s.name })));
