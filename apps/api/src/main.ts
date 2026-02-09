@@ -57,49 +57,31 @@ async function bootstrap() {
   try {
     console.log(`⏳ Starting API server on port ${port}...`);
     
-    // Don't call app.init() explicitly - it can hang even though initialization completes
-    // Instead, get the HTTP server and listen directly
-    // NestJS will initialize when needed
+    // Use app.listen() which properly initializes Fastify
+    // This ensures Fastify hooks are properly set up before handling requests
+    console.log(`⏳ Initializing NestJS application...`);
     
-    // Get the HTTP server instance
-    // Note: app.getHttpServer() returns a Node.js HTTP Server, not a Fastify instance
-    console.log(`⏳ Getting HTTP server instance...`);
-    const httpServer = app.getHttpServer();
-    console.log(`✓ Got HTTP server instance`);
+    // Wait a moment for all modules to initialize
+    await new Promise(resolve => setTimeout(resolve, 500));
     
-    // Wait a moment for routes to finish mapping (they're already mapped based on logs)
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    console.log(`✓ Waited for route mapping to complete`);
-    
-    // Use Node.js HTTP server's listen() method directly
     console.log(`⏳ Starting to listen on port ${port}...`);
-    await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        console.error(`❌ HTTP server listen() timed out after 10 seconds`);
-        reject(new Error(`HTTP server listen() timed out after 10 seconds`));
-      }, 10000);
-      
-      httpServer.listen(port, '0.0.0.0', () => {
-        console.log(`✓ HTTP server listen() callback fired`);
-        clearTimeout(timeout);
-        resolve();
-      });
-      
-      httpServer.on('error', (err: Error) => {
-        console.error(`❌ HTTP server error:`, err);
-        clearTimeout(timeout);
-        reject(err);
-      });
-      
-      httpServer.on('listening', () => {
-        console.log(`✓ HTTP server 'listening' event fired`);
-      });
-    });
+    
+    // Use app.listen() with a timeout to prevent hanging
+    await Promise.race([
+      app.listen(port, '0.0.0.0'),
+      new Promise<void>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('app.listen() timed out after 15 seconds'));
+        }, 15000);
+      }),
+    ]);
     
     console.log(`✅ Server listen() completed`);
     
-    // Verify server is actually listening
+    // Get the HTTP server to verify it's listening
+    const httpServer = app.getHttpServer();
     const address = httpServer.address();
+    
     if (address) {
       console.log(`✅ Server is listening on:`, address);
       console.log(`🚀 API server running on http://localhost:${port}`);
@@ -109,7 +91,6 @@ async function bootstrap() {
       console.log(`🔑 API key test: http://localhost:${port}/auth/riot/test/api-key`);
       console.log(`🔐 OAuth start: http://localhost:${port}/auth/riot/start`);
     } else {
-      // Even if address() is null, the server might be working
       console.warn(`⚠️  httpServer.address() returned null, but server should be listening`);
       console.log(`🚀 API server should be running on http://localhost:${port}`);
       console.log(`📡 Test with: curl http://localhost:${port}/health`);
