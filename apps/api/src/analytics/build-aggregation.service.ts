@@ -408,7 +408,7 @@ export class BuildAggregationService {
               m.rank_bracket,
               pfi.role,
               pfi.champion_id,
-              pfi.items[${startPos}:${endPos}] AS item_slice,
+              (pfi.items[${startPos}:${endPos}])::int[] AS item_slice,
               COUNT(*)::bigint AS frequency
             FROM participant_final_items pfi
             JOIN matches m ON m.match_id = pfi.match_id
@@ -416,11 +416,11 @@ export class BuildAggregationService {
               AND m.queue_id = 420
               AND pfi.win = true
               AND array_length(pfi.items, 1) >= ${endPos}
-              AND array_length(pfi.items[${startPos}:${endPos}], 1) = ${expectedCount}
+              AND array_length((pfi.items[${startPos}:${endPos}])::int[], 1) = ${expectedCount}
               ${roleFilter ? Prisma.sql`AND pfi.role = ${roleFilter}` : Prisma.empty}
             GROUP BY
               m.patch, m.region, m.queue_id, m.rank_bracket,
-              pfi.role, pfi.champion_id, pfi.items[${startPos}:${endPos}]
+              pfi.role, pfi.champion_id, (pfi.items[${startPos}:${endPos}])::int[]
           ),
           ranked_combinations AS (
             SELECT *,
