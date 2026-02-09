@@ -57,52 +57,59 @@ async function bootstrap() {
   try {
     console.log(`⏳ Starting API server on port ${port}...`);
     
-    // Don't call app.init() explicitly - it's hanging
-    // Instead, use app.listen() which handles initialization internally
-    // But we need to wait a bit for routes to finish mapping first
-    console.log(`⏳ Waiting for route mapping to complete...`);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    console.log(`✅ Route mapping should be complete`);
+    // Wait for routes to be mapped (they're already mapped based on logs)
+    console.log(`⏳ Waiting 3 seconds for route mapping and module initialization...`);
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    console.log(`✅ Wait complete`);
     
-    // Use app.listen() with a timeout
-    console.log(`⏳ Calling app.listen(${port}, '0.0.0.0')...`);
-    console.log(`   This will initialize the app and start the server`);
+    // Get Fastify instance BEFORE calling listen
+    console.log(`⏳ Getting Fastify instance...`);
+    const fastifyInstance = app.getHttpAdapter().getInstance();
+    console.log(`✅ Got Fastify instance`);
     
-    await Promise.race([
-      app.listen(port, '0.0.0.0'),
-      new Promise<void>((_, reject) => {
-        setTimeout(() => {
-          console.error(`❌ app.listen() timed out after 20 seconds`);
-          console.error(`   This might mean Fastify is waiting for something`);
-          reject(new Error('app.listen() timed out after 20 seconds'));
-        }, 20000);
-      }),
-    ]);
+    // Start the server using Fastify's listen directly
+    // This bypasses NestJS's app.listen() which seems to be hanging
+    console.log(`⏳ Starting Fastify server directly on port ${port}...`);
     
-    console.log(`✅ app.listen() completed successfully`);
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        console.error(`❌ Fastify listen() timed out after 15 seconds`);
+        reject(new Error('Fastify listen() timed out after 15 seconds'));
+      }, 15000);
+      
+      // Use Fastify's listen method directly
+      fastifyInstance.listen({ port, host: '0.0.0.0' }, (err: any) => {
+        clearTimeout(timeout);
+        if (err) {
+          console.error(`❌ Fastify listen() error:`, err);
+          reject(err);
+        } else {
+          console.log(`✅ Fastify server started successfully`);
+          resolve();
+        }
+      });
+    });
+    
+    console.log(`✅ Server startup complete`);
     
     // Verify server is listening
-    console.log(`⏳ Verifying server is listening...`);
     const httpServer = app.getHttpServer();
     const address = httpServer.address();
     
     if (address) {
       console.log(`✅ Server is confirmed listening on:`, address);
-      console.log(`🚀 API server running on http://localhost:${port}`);
-      console.log(`🌐 API server accessible on http://0.0.0.0:${port}`);
-      console.log(`📡 Health check: http://localhost:${port}/health`);
-      console.log(`📡 Champions: http://localhost:${port}/champions`);
-      console.log(`📡 Patches: http://localhost:${port}/champions/patches`);
-      console.log(`🔧 Config test: http://localhost:${port}/auth/riot/test/config`);
-      console.log(`🔑 API key test: http://localhost:${port}/auth/riot/test/api-key`);
-      console.log(`🔐 OAuth start: http://localhost:${port}/auth/riot/start`);
     } else {
-      console.warn(`⚠️  httpServer.address() returned null`);
-      console.warn(`   But app.listen() completed, so server should be running`);
-      console.log(`🚀 API server should be running on http://localhost:${port}`);
-      console.log(`📡 Test with: curl http://localhost:${port}/health`);
+      console.warn(`⚠️  httpServer.address() returned null, but server should be listening`);
     }
     
+    console.log(`🚀 API server running on http://localhost:${port}`);
+    console.log(`🌐 API server accessible on http://0.0.0.0:${port}`);
+    console.log(`📡 Health check: http://localhost:${port}/health`);
+    console.log(`📡 Champions: http://localhost:${port}/champions`);
+    console.log(`📡 Patches: http://localhost:${port}/champions/patches`);
+    console.log(`🔧 Config test: http://localhost:${port}/auth/riot/test/config`);
+    console.log(`🔑 API key test: http://localhost:${port}/auth/riot/test/api-key`);
+    console.log(`🔐 OAuth start: http://localhost:${port}/auth/riot/start`);
     console.log(`✅✅✅ SERVER STARTUP COMPLETE ✅✅✅`);
   } catch (error) {
     console.error('❌ Failed to start API server:', error);
