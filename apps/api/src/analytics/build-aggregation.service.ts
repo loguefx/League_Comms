@@ -397,7 +397,7 @@ export class BuildAggregationService {
             ${buildType} AS build_type,
             ARRAY[item_id] AS items,
             frequency AS games,
-            wins
+            wins,
             NOW() AS updated_at
           FROM ranked_items
           WHERE rn <= 5
