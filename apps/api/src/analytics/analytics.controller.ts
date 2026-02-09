@@ -519,6 +519,22 @@ export class AnalyticsController {
         );
         // #region agent log
         console.log('[DEBUG] After getAllItemBuilds', { allItemBuildsKeys: Object.keys(allItemBuilds) });
+        // Safely serialize for fetch - only include safe primitive values
+        try {
+          const safeLogData = {
+            location: 'analytics.controller.ts:521',
+            message: 'After getAllItemBuilds',
+            data: {
+              allItemBuildsKeys: Array.isArray(Object.keys(allItemBuilds)) ? Object.keys(allItemBuilds) : []
+            },
+            timestamp: Date.now(),
+            runId: 'debug1',
+            hypothesisId: 'E'
+          };
+          fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(safeLogData)}).catch(()=>{});
+        } catch (fetchError) {
+          // Ignore fetch logging errors
+        }
         // #endregion
       } catch (error: any) {
         // #region agent log
