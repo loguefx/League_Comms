@@ -277,7 +277,7 @@ export class AnalyticsService {
       }
     }
 
-    this.logger.log(`[getChampionStats] Returning ${championsWithCounterPicks.length} champions (${championsToProcess.length} with counter picks)`);
+    this.logger.log(`[getChampionStats] Returning ${championsWithCounterPicks.length} champions (all with counter picks)`);
     return championsWithCounterPicks;
   }
 
