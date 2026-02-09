@@ -166,6 +166,19 @@ export class AnalyticsService {
 
     this.logger.log(`[getChampionStats] Found ${stats.length} raw champion stats from database`);
     
+    if (stats.length === 0) {
+      this.logger.warn(`[getChampionStats] No champion stats found for patch=${patch}, rankBracket=${rankBracket}, role=${role}, region=${region || 'world'}`);
+      this.logger.warn(`[getChampionStats] This might mean: 1) No matches ingested yet, 2) Aggregation hasn't run, or 3) No data for these filters`);
+      
+      // Check if we have any champion stats at all
+      const anyStats = await this.prisma.championStat.findFirst();
+      if (!anyStats) {
+        this.logger.warn(`[getChampionStats] No champion stats exist in database at all - aggregation may not have run`);
+      } else {
+        this.logger.warn(`[getChampionStats] Champion stats exist but don't match filters - check patch/rank/role/region`);
+      }
+    }
+    
     // Convert BigInt to numbers and format percentages
     const championsWithStats = stats.map((stat) => ({
       championId: Number(stat.champion_id),
@@ -289,19 +302,52 @@ export class AnalyticsService {
    * Get available patches from database
    */
   async getAvailablePatches() {
-    const patches = await this.prisma.match.findMany({
-      select: { patch: true },
-      distinct: ['patch'],
-      orderBy: { patch: 'desc' },
-    });
+    try {
+      // Use groupBy to get distinct patches (Prisma's distinct doesn't work the way we need)
+      const patchGroups = await this.prisma.match.groupBy({
+        by: ['patch'],
+        _count: {
+          patch: true,
+        },
+        orderBy: {
+          patch: 'desc',
+        },
+      });
 
-    const patchList = patches.map((p) => p.patch).filter(Boolean);
-    const latest = patchList[0] || null;
+      const patchList = patchGroups
+        .map((p) => p.patch)
+        .filter((patch): patch is string => Boolean(patch) && typeof patch === 'string');
+      
+      const latest = patchList[0] || null;
 
-    return {
-      patches: patchList,
-      latest,
-    };
+      this.logger.log(`[getAvailablePatches] Found ${patchList.length} patches: ${patchList.join(', ')}`);
+
+      return {
+        patches: patchList,
+        latest,
+      };
+    } catch (error) {
+      this.logger.error(`[getAvailablePatches] Error querying patches:`, error);
+      // Fallback: try a simpler query
+      try {
+        const allMatches = await this.prisma.match.findMany({
+          select: { patch: true },
+          take: 1000, // Limit to avoid huge queries
+        });
+        const uniquePatches = [...new Set(allMatches.map((m) => m.patch).filter(Boolean))].sort().reverse();
+        this.logger.log(`[getAvailablePatches] Fallback query found ${uniquePatches.length} patches`);
+        return {
+          patches: uniquePatches,
+          latest: uniquePatches[0] || null,
+        };
+      } catch (fallbackError) {
+        this.logger.error(`[getAvailablePatches] Fallback query also failed:`, fallbackError);
+        return {
+          patches: [],
+          latest: null,
+        };
+      }
+    }
   }
 
   /**
