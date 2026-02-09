@@ -396,7 +396,7 @@ export class BuildAggregationService {
               wins
             FROM ranked_items
             WHERE rn = 1
-            ORDER BY patch, region, queue_id, rank_bracket, role, champion_id, frequency DESC
+            ORDER BY patch, region, queue_id, rank_bracket, role, champion_id, frequency DESC, item_id
           )
           INSERT INTO champion_item_builds (
             patch, region, queue_id, rank_bracket, role, champion_id,
@@ -1658,6 +1658,54 @@ export class BuildAggregationService {
     if (hasADItems && items.some(id => [3031, 3036].includes(id))) return 'Crit'; // Infinity Edge, etc.
     if (hasADItems) return 'AD';
     
+    // Fallback: determine by primary rune style
+    if (primaryStyleId === 8000) return 'Precision'; // Precision tree
+    if (primaryStyleId === 8100) return 'Domination'; // Domination tree
+    if (primaryStyleId === 8300) return 'Inspiration'; // Inspiration tree
+    if (primaryStyleId === 8400) return 'Resolve'; // Resolve tree (often tank)
+    if (primaryStyleId === 8200) return 'Sorcery'; // Sorcery tree (often AP)
+    
+    return 'Alternative';
+  }
+}
+
+  }
+}
+
+    if (hasTankItems && !hasAPItems && !hasADItems) return 'Tank';
+    if (hasAPItems && !hasTankItems) return 'AP';
+    if (hasLethalityItems) return 'Lethality';
+    if (hasADItems && items.some(id => [3031, 3036].includes(id))) return 'Crit'; // Infinity Edge, etc.
+    if (hasADItems) return 'AD';
+    
+    // Fallback: determine by primary rune style
+    if (primaryStyleId === 8000) return 'Precision'; // Precision tree
+    if (primaryStyleId === 8100) return 'Domination'; // Domination tree
+    if (primaryStyleId === 8300) return 'Inspiration'; // Inspiration tree
+    if (primaryStyleId === 8400) return 'Resolve'; // Resolve tree (often tank)
+    if (primaryStyleId === 8200) return 'Sorcery'; // Sorcery tree (often AP)
+    
+    return 'Alternative';
+  }
+}
+
+    if (hasADItems && items.some(id => [3031, 3036].includes(id))) return 'Crit'; // Infinity Edge, etc.
+    if (hasADItems) return 'AD';
+    
+    // Fallback: determine by primary rune style
+    if (primaryStyleId === 8000) return 'Precision'; // Precision tree
+    if (primaryStyleId === 8100) return 'Domination'; // Domination tree
+    if (primaryStyleId === 8300) return 'Inspiration'; // Inspiration tree
+    if (primaryStyleId === 8400) return 'Resolve'; // Resolve tree (often tank)
+    if (primaryStyleId === 8200) return 'Sorcery'; // Sorcery tree (often AP)
+    
+    return 'Alternative';
+  }
+}
+
+  }
+}
+
     // Fallback: determine by primary rune style
     if (primaryStyleId === 8000) return 'Precision'; // Precision tree
     if (primaryStyleId === 8100) return 'Domination'; // Domination tree
