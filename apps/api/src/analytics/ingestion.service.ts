@@ -69,7 +69,7 @@ export class IngestionService {
 
       // Extract patch version from gameVersion (e.g., "16.3.123.4567" -> "16.3")
       const patch = match.info.gameVersion.split('.').slice(0, 2).join('.');
-      
+
       // Convert gameCreation timestamp to DateTime
       const gameStartTs = new Date(match.info.gameCreation);
       const durationS = match.info.gameDuration;

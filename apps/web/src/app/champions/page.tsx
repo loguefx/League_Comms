@@ -119,8 +119,9 @@ export default function ChampionsPage() {
 
   useEffect(() => {
     if (championDataLoaded) {
-    loadChampions();
+      loadChampions();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters, championDataLoaded]);
 
   // Helper function to render champions table

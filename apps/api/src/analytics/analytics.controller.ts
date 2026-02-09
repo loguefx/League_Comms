@@ -279,28 +279,31 @@ export class AnalyticsController {
       });
       const championStats = tierStats.find((s: any) => s.championId === champId);
 
-      // Get recommended builds
+      // Get recommended builds (multiple options)
       const [runes, spells, items] = await Promise.all([
         this.buildAggregationService.getRecommendedRunes(
           champId,
           actualPatch,
           rankBracket,
           normalizedRole,
-          normalizedRegion
+          normalizedRegion,
+          5 // Get top 5 rune pages
         ),
         this.buildAggregationService.getRecommendedSpells(
           champId,
           actualPatch,
           rankBracket,
           normalizedRole,
-          normalizedRegion
+          normalizedRegion,
+          5 // Get top 5 spell sets
         ),
         this.buildAggregationService.getRecommendedItems(
           champId,
           actualPatch,
           rankBracket,
           normalizedRole,
-          normalizedRegion
+          normalizedRegion,
+          5 // Get top 5 item builds
         ),
       ]);
 
@@ -312,25 +315,46 @@ export class AnalyticsController {
         region: normalizedRegion || 'world',
         tierStats: championStats || null,
         recommended: {
-          runes: runes ? {
-            primaryStyleId: runes.primaryStyleId,
-            subStyleId: runes.subStyleId,
-            perkIds: runes.perkIds,
-            statShards: runes.statShards,
-            winRate: runes.winRate * 100, // Convert to percentage
-            games: runes.games,
-          } : null,
-          spells: spells ? {
-            spell1Id: spells.spell1Id,
-            spell2Id: spells.spell2Id,
-            winRate: spells.winRate * 100, // Convert to percentage
-            games: spells.games,
-          } : null,
-          items: items ? {
-            items: items.items,
-            winRate: items.winRate * 100, // Convert to percentage
-            games: items.games,
-          } : null,
+          runes: runes.length > 0 ? runes.map((r) => ({
+            primaryStyleId: r.primaryStyleId,
+            subStyleId: r.subStyleId,
+            perkIds: r.perkIds,
+            statShards: r.statShards,
+            winRate: r.winRate * 100, // Convert to percentage
+            games: r.games,
+          })) : [],
+          spells: spells.length > 0 ? spells.map((s) => ({
+            spell1Id: s.spell1Id,
+            spell2Id: s.spell2Id,
+            winRate: s.winRate * 100, // Convert to percentage
+            games: s.games,
+          })) : [],
+          items: items.length > 0 ? items.map((i) => ({
+            items: i.items,
+            winRate: i.winRate * 100, // Convert to percentage
+            games: i.games,
+          })) : [],
+        },
+        alternatives: {
+          runes: runes.slice(1).map(r => ({
+            primaryStyleId: r.primaryStyleId,
+            subStyleId: r.subStyleId,
+            perkIds: r.perkIds,
+            statShards: r.statShards,
+            winRate: r.winRate * 100,
+            games: r.games,
+          })),
+          spells: spells.slice(1).map(s => ({
+            spell1Id: s.spell1Id,
+            spell2Id: s.spell2Id,
+            winRate: s.winRate * 100,
+            games: s.games,
+          })),
+          items: items.slice(1).map(i => ({
+            items: i.items,
+            winRate: i.winRate * 100,
+            games: i.games,
+          })),
         },
       };
     } catch (error) {

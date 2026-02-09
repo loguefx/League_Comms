@@ -373,30 +373,31 @@ export class BuildAggregationService {
   }
 
   /**
-   * Get recommended rune page for a champion
-   * Returns the most common rune page that meets MIN_GAMES threshold
+   * Get recommended rune pages for a champion
+   * Returns the most common rune page (recommended) + top alternatives
    */
   async getRecommendedRunes(
     championId: number,
     patch: string,
     rankBracket: string,
     role: string,
-    region: string | null
-  ): Promise<{
+    region: string | null,
+    limit: number = 5
+  ): Promise<Array<{
     primaryStyleId: number;
     subStyleId: number;
     perkIds: number[];
     statShards: number[];
     winRate: number;
     games: number;
-  } | null> {
+  }>> {
     const normalizedRole = role === 'ALL' || !role ? 'ALL' : role;
     const isAllRanks = rankBracket === 'all_ranks';
     const isWorld = !region;
 
-    let runePage;
+    let runePages;
     if (isAllRanks && isWorld) {
-      runePage = await this.prisma.$queryRaw<Array<{
+      runePages = await this.prisma.$queryRaw<Array<{
         primary_style_id: number;
         sub_style_id: number;
         perk_ids: number[];
@@ -419,10 +420,10 @@ export class BuildAggregationService {
           AND games >= ${this.MIN_GAMES_THRESHOLD}
         GROUP BY primary_style_id, sub_style_id, perk_ids, stat_shards
         ORDER BY SUM(games) DESC
-        LIMIT 1
+        LIMIT ${limit}
       `;
     } else if (isAllRanks) {
-      runePage = await this.prisma.$queryRaw<Array<{
+      runePages = await this.prisma.$queryRaw<Array<{
         primary_style_id: number;
         sub_style_id: number;
         perk_ids: number[];
@@ -446,10 +447,10 @@ export class BuildAggregationService {
           AND games >= ${this.MIN_GAMES_THRESHOLD}
         GROUP BY primary_style_id, sub_style_id, perk_ids, stat_shards
         ORDER BY SUM(games) DESC
-        LIMIT 1
+        LIMIT ${limit}
       `;
     } else if (isWorld) {
-      runePage = await this.prisma.$queryRaw<Array<{
+      runePages = await this.prisma.$queryRaw<Array<{
         primary_style_id: number;
         sub_style_id: number;
         perk_ids: number[];
@@ -473,10 +474,10 @@ export class BuildAggregationService {
           AND games >= ${this.MIN_GAMES_THRESHOLD}
         GROUP BY primary_style_id, sub_style_id, perk_ids, stat_shards
         ORDER BY SUM(games) DESC
-        LIMIT 1
+        LIMIT ${limit}
       `;
     } else {
-      runePage = await this.prisma.$queryRaw<Array<{
+      runePages = await this.prisma.$queryRaw<Array<{
         primary_style_id: number;
         sub_style_id: number;
         perk_ids: number[];
@@ -500,51 +501,54 @@ export class BuildAggregationService {
           AND champion_id = ${championId}
           AND games >= ${this.MIN_GAMES_THRESHOLD}
         ORDER BY games DESC
-        LIMIT 1
+        LIMIT ${limit}
       `;
     }
 
-    if (!runePage || runePage.length === 0) {
-      return null;
+    if (!runePages || runePages.length === 0) {
+      return [];
     }
 
-    const rp = runePage[0];
-    const games = Number(rp.games);
-    const wins = Number(rp.wins);
-    const smoothedWinRate = (wins + this.SMOOTHING_K * 0.5) / (games + this.SMOOTHING_K);
+    return runePages.map((rp) => {
+      const games = Number(rp.games);
+      const wins = Number(rp.wins);
+      const smoothedWinRate = (wins + this.SMOOTHING_K * 0.5) / (games + this.SMOOTHING_K);
 
-    return {
-      primaryStyleId: rp.primary_style_id,
-      subStyleId: rp.sub_style_id,
-      perkIds: rp.perk_ids,
-      statShards: rp.stat_shards,
-      winRate: smoothedWinRate,
-      games,
-    };
+      return {
+        primaryStyleId: rp.primary_style_id,
+        subStyleId: rp.sub_style_id,
+        perkIds: rp.perk_ids,
+        statShards: rp.stat_shards,
+        winRate: smoothedWinRate,
+        games,
+      };
+    });
   }
 
   /**
-   * Get recommended spell set for a champion
+   * Get recommended spell sets for a champion
+   * Returns the most common spell set (recommended) + top alternatives
    */
   async getRecommendedSpells(
     championId: number,
     patch: string,
     rankBracket: string,
     role: string,
-    region: string | null
-  ): Promise<{
+    region: string | null,
+    limit: number = 5
+  ): Promise<Array<{
     spell1Id: number;
     spell2Id: number;
     winRate: number;
     games: number;
-  } | null> {
+  }>> {
     const normalizedRole = role === 'ALL' || !role ? 'ALL' : role;
     const isAllRanks = rankBracket === 'all_ranks';
     const isWorld = !region;
 
-    let spellSet;
+    let spellSets;
     if (isAllRanks && isWorld) {
-      spellSet = await this.prisma.$queryRaw<Array<{
+      spellSets = await this.prisma.$queryRaw<Array<{
         spell1_id: number;
         spell2_id: number;
         games: bigint;
@@ -563,10 +567,10 @@ export class BuildAggregationService {
           AND games >= ${this.MIN_GAMES_THRESHOLD}
         GROUP BY spell1_id, spell2_id
         ORDER BY SUM(games) DESC
-        LIMIT 1
+        LIMIT ${limit}
       `;
     } else if (isAllRanks) {
-      spellSet = await this.prisma.$queryRaw<Array<{
+      spellSets = await this.prisma.$queryRaw<Array<{
         spell1_id: number;
         spell2_id: number;
         games: bigint;
@@ -586,10 +590,10 @@ export class BuildAggregationService {
           AND games >= ${this.MIN_GAMES_THRESHOLD}
         GROUP BY spell1_id, spell2_id
         ORDER BY SUM(games) DESC
-        LIMIT 1
+        LIMIT ${limit}
       `;
     } else if (isWorld) {
-      spellSet = await this.prisma.$queryRaw<Array<{
+      spellSets = await this.prisma.$queryRaw<Array<{
         spell1_id: number;
         spell2_id: number;
         games: bigint;
@@ -609,10 +613,10 @@ export class BuildAggregationService {
           AND games >= ${this.MIN_GAMES_THRESHOLD}
         GROUP BY spell1_id, spell2_id
         ORDER BY SUM(games) DESC
-        LIMIT 1
+        LIMIT ${limit}
       `;
     } else {
-      spellSet = await this.prisma.$queryRaw<Array<{
+      spellSets = await this.prisma.$queryRaw<Array<{
         spell1_id: number;
         spell2_id: number;
         games: bigint;
@@ -632,48 +636,51 @@ export class BuildAggregationService {
           AND champion_id = ${championId}
           AND games >= ${this.MIN_GAMES_THRESHOLD}
         ORDER BY games DESC
-        LIMIT 1
+        LIMIT ${limit}
       `;
     }
 
-    if (!spellSet || spellSet.length === 0) {
-      return null;
+    if (!spellSets || spellSets.length === 0) {
+      return [];
     }
 
-    const ss = spellSet[0];
-    const games = Number(ss.games);
-    const wins = Number(ss.wins);
-    const smoothedWinRate = (wins + this.SMOOTHING_K * 0.5) / (games + this.SMOOTHING_K);
+    return spellSets.map((ss) => {
+      const games = Number(ss.games);
+      const wins = Number(ss.wins);
+      const smoothedWinRate = (wins + this.SMOOTHING_K * 0.5) / (games + this.SMOOTHING_K);
 
-    return {
-      spell1Id: ss.spell1_id,
-      spell2Id: ss.spell2_id,
-      winRate: smoothedWinRate,
-      games,
-    };
+      return {
+        spell1Id: ss.spell1_id,
+        spell2Id: ss.spell2_id,
+        winRate: smoothedWinRate,
+        games,
+      };
+    });
   }
 
   /**
-   * Get recommended core items for a champion
+   * Get recommended item builds for a champion
+   * Returns the most common core items (recommended) + top alternatives
    */
   async getRecommendedItems(
     championId: number,
     patch: string,
     rankBracket: string,
     role: string,
-    region: string | null
-  ): Promise<{
+    region: string | null,
+    limit: number = 5
+  ): Promise<Array<{
     items: number[];
     winRate: number;
     games: number;
-  } | null> {
+  }>> {
     const normalizedRole = role === 'ALL' || !role ? 'ALL' : role;
     const isAllRanks = rankBracket === 'all_ranks';
     const isWorld = !region;
 
-    let itemBuild;
+    let itemBuilds;
     if (isAllRanks && isWorld) {
-      itemBuild = await this.prisma.$queryRaw<Array<{
+      itemBuilds = await this.prisma.$queryRaw<Array<{
         items: number[];
         games: bigint;
         wins: bigint;
@@ -691,10 +698,10 @@ export class BuildAggregationService {
           AND games >= ${this.MIN_GAMES_THRESHOLD}
         GROUP BY items
         ORDER BY SUM(games) DESC
-        LIMIT 1
+        LIMIT ${limit}
       `;
     } else if (isAllRanks) {
-      itemBuild = await this.prisma.$queryRaw<Array<{
+      itemBuilds = await this.prisma.$queryRaw<Array<{
         items: number[];
         games: bigint;
         wins: bigint;
@@ -713,10 +720,10 @@ export class BuildAggregationService {
           AND games >= ${this.MIN_GAMES_THRESHOLD}
         GROUP BY items
         ORDER BY SUM(games) DESC
-        LIMIT 1
+        LIMIT ${limit}
       `;
     } else if (isWorld) {
-      itemBuild = await this.prisma.$queryRaw<Array<{
+      itemBuilds = await this.prisma.$queryRaw<Array<{
         items: number[];
         games: bigint;
         wins: bigint;
@@ -735,10 +742,10 @@ export class BuildAggregationService {
           AND games >= ${this.MIN_GAMES_THRESHOLD}
         GROUP BY items
         ORDER BY SUM(games) DESC
-        LIMIT 1
+        LIMIT ${limit}
       `;
     } else {
-      itemBuild = await this.prisma.$queryRaw<Array<{
+      itemBuilds = await this.prisma.$queryRaw<Array<{
         items: number[];
         games: bigint;
         wins: bigint;
@@ -757,23 +764,24 @@ export class BuildAggregationService {
           AND build_type = 'core'
           AND games >= ${this.MIN_GAMES_THRESHOLD}
         ORDER BY games DESC
-        LIMIT 1
+        LIMIT ${limit}
       `;
     }
 
-    if (!itemBuild || itemBuild.length === 0) {
-      return null;
+    if (!itemBuilds || itemBuilds.length === 0) {
+      return [];
     }
 
-    const ib = itemBuild[0];
-    const games = Number(ib.games);
-    const wins = Number(ib.wins);
-    const smoothedWinRate = (wins + this.SMOOTHING_K * 0.5) / (games + this.SMOOTHING_K);
+    return itemBuilds.map((ib) => {
+      const games = Number(ib.games);
+      const wins = Number(ib.wins);
+      const smoothedWinRate = (wins + this.SMOOTHING_K * 0.5) / (games + this.SMOOTHING_K);
 
-    return {
-      items: ib.items,
-      winRate: smoothedWinRate,
-      games,
-    };
+      return {
+        items: ib.items,
+        winRate: smoothedWinRate,
+        games,
+      };
+    });
   }
 }

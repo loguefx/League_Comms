@@ -39,7 +39,7 @@ export class AggregationService implements OnModuleInit {
    */
   async aggregateChampionStats() {
     this.logger.log('Starting champion stats aggregation');
-    
+
     try {
       await this.computeBucketTotals();
       await this.computeChampionStats();
@@ -49,8 +49,8 @@ export class AggregationService implements OnModuleInit {
       // This runs less frequently as it's more expensive
       this.logger.log('Starting build data aggregation...');
       await this.buildAggregation.aggregateBuilds();
-      
-      this.logger.log('Champion stats aggregation complete');
+
+    this.logger.log('Champion stats aggregation complete');
     } catch (error) {
       this.logger.error('Aggregation failed:', error);
       throw error;
@@ -64,7 +64,7 @@ export class AggregationService implements OnModuleInit {
   @Cron('*/2 * * * *') // Every 2 minutes using cron syntax
   async scheduledAggregation() {
     await this.aggregateChampionStats();
-  }
+    }
 
   /**
    * Step A: Compute bucket totals (denominators for pick/ban rates)

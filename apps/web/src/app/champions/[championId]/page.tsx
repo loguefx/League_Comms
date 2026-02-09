@@ -5,6 +5,18 @@ import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { getApiUrl } from '@/utils/api';
 import { getChampionNameSync, getChampionImageUrl, preloadChampionData } from '@/utils/championData';
 
+interface BuildOption {
+  primaryStyleId?: number;
+  subStyleId?: number;
+  perkIds?: number[];
+  statShards?: number[];
+  spell1Id?: number;
+  spell2Id?: number;
+  items?: number[];
+  winRate: number;
+  games: number;
+}
+
 interface ChampionBuild {
   championId: number;
   patch: string;
@@ -20,25 +32,14 @@ interface ChampionBuild {
     banRate: number;
   } | null;
   recommended: {
-    runes: {
-      primaryStyleId: number;
-      subStyleId: number;
-      perkIds: number[];
-      statShards: number[];
-      winRate: number;
-      games: number;
-    } | null;
-    spells: {
-      spell1Id: number;
-      spell2Id: number;
-      winRate: number;
-      games: number;
-    } | null;
-    items: {
-      items: number[];
-      winRate: number;
-      games: number;
-    } | null;
+    runes: BuildOption | null;
+    spells: BuildOption | null;
+    items: BuildOption | null;
+  };
+  alternatives: {
+    runes: BuildOption[];
+    spells: BuildOption[];
+    items: BuildOption[];
   };
 }
 
@@ -177,109 +178,206 @@ export default function ChampionBuildPage() {
         </div>
 
         {/* Build Sections */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Runes */}
-          {build.recommended.runes && (
-            <div className="bg-[#0D121E] border border-[#283D4D] rounded-lg p-6">
-              <h2 className="text-xl font-bold mb-4">Recommended Runes</h2>
-              <div className="mb-4">
-                <p className="text-sm text-[#B4BEC8]">
-                  {build.recommended.runes.winRate.toFixed(2)}% Win Rate • {build.recommended.runes.games.toLocaleString()} Matches
-                </p>
+        <div className="space-y-6">
+          {/* Runes Section */}
+          <div className="bg-[#0D121E] border border-[#283D4D] rounded-lg p-6">
+            <h2 className="text-2xl font-bold mb-6">Runes</h2>
+            
+            {/* Recommended Runes */}
+            {build.recommended.runes && (
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-semibold text-green-400">Recommended</h3>
+                  <p className="text-sm text-[#B4BEC8]">
+                    {build.recommended.runes.winRate.toFixed(2)}% WR • {build.recommended.runes.games.toLocaleString()} Matches
+                  </p>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-xs text-[#B4BEC8] mb-1">Primary: Style {build.recommended.runes.primaryStyleId}</p>
+                    <div className="flex gap-2">
+                      {build.recommended.runes.perkIds?.slice(0, 4).map((perkId, idx) => (
+                        <div
+                          key={idx}
+                          className="w-12 h-12 bg-[#283D4D] rounded border border-[#3A4A5C] flex items-center justify-center"
+                          title={`Perk ${perkId}`}
+                        >
+                          <span className="text-xs text-[#B4BEC8]">{perkId}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[#B4BEC8] mb-1">Secondary: Style {build.recommended.runes.subStyleId}</p>
+                    <div className="flex gap-2">
+                      {build.recommended.runes.perkIds?.slice(4, 6).map((perkId, idx) => (
+                        <div
+                          key={idx}
+                          className="w-12 h-12 bg-[#283D4D] rounded border border-[#3A4A5C] flex items-center justify-center"
+                          title={`Perk ${perkId}`}
+                        >
+                          <span className="text-xs text-[#B4BEC8]">{perkId}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[#B4BEC8] mb-1">Stat Shards</p>
+                    <div className="flex gap-2">
+                      {build.recommended.runes.statShards?.map((shardId, idx) => (
+                        <div
+                          key={idx}
+                          className="w-10 h-10 bg-[#283D4D] rounded border border-[#3A4A5C] flex items-center justify-center"
+                          title={`Shard ${shardId}`}
+                        >
+                          <span className="text-xs text-[#B4BEC8]">{shardId}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm text-[#B4BEC8] mb-2">Primary: Style {build.recommended.runes.primaryStyleId}</p>
-                  <div className="flex gap-2">
-                    {build.recommended.runes.perkIds.slice(0, 4).map((perkId, idx) => (
-                      <div
-                        key={idx}
-                        className="w-12 h-12 bg-[#283D4D] rounded border border-[#3A4A5C] flex items-center justify-center"
-                        title={`Perk ${perkId}`}
-                      >
-                        <span className="text-xs text-[#B4BEC8]">{perkId}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm text-[#B4BEC8] mb-2">Secondary: Style {build.recommended.runes.subStyleId}</p>
-                  <div className="flex gap-2">
-                    {build.recommended.runes.perkIds.slice(4, 6).map((perkId, idx) => (
-                      <div
-                        key={idx}
-                        className="w-12 h-12 bg-[#283D4D] rounded border border-[#3A4A5C] flex items-center justify-center"
-                        title={`Perk ${perkId}`}
-                      >
-                        <span className="text-xs text-[#B4BEC8]">{perkId}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm text-[#B4BEC8] mb-2">Stat Shards</p>
-                  <div className="flex gap-2">
-                    {build.recommended.runes.statShards.map((shardId, idx) => (
-                      <div
-                        key={idx}
-                        className="w-10 h-10 bg-[#283D4D] rounded border border-[#3A4A5C] flex items-center justify-center"
-                        title={`Shard ${shardId}`}
-                      >
-                        <span className="text-xs text-[#B4BEC8]">{shardId}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+            )}
 
-          {/* Summoner Spells */}
-          {build.recommended.spells && (
-            <div className="bg-[#0D121E] border border-[#283D4D] rounded-lg p-6">
-              <h2 className="text-xl font-bold mb-4">Summoner Spells</h2>
-              <div className="mb-4">
-                <p className="text-sm text-[#B4BEC8]">
-                  {build.recommended.spells.winRate.toFixed(2)}% Win Rate • {build.recommended.spells.games.toLocaleString()} Matches
-                </p>
-              </div>
-              <div className="flex gap-4">
-                <div className="w-16 h-16 bg-[#283D4D] rounded border border-[#3A4A5C] flex items-center justify-center">
-                  <span className="text-xs text-[#B4BEC8]">{build.recommended.spells.spell1Id}</span>
+            {/* Alternative Runes */}
+            {build.alternatives.runes.length > 0 && (
+              <div>
+                <h3 className="text-md font-semibold mb-3 text-[#B4BEC8]">Other Popular Rune Pages</h3>
+                <div className="space-y-4">
+                  {build.alternatives.runes.map((altRune, idx) => (
+                    <div key={idx} className="border-t border-[#283D4D] pt-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-[#B4BEC8]">Option {idx + 2}</span>
+                        <p className="text-xs text-[#B4BEC8]">
+                          {altRune.winRate.toFixed(2)}% WR • {altRune.games.toLocaleString()} Matches
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex gap-2">
+                          <span className="text-xs text-[#78828C]">P:{altRune.primaryStyleId}</span>
+                          <span className="text-xs text-[#78828C]">S:{altRune.subStyleId}</span>
+                          <span className="text-xs text-[#78828C]">Perks: {altRune.perkIds?.join(', ')}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="w-16 h-16 bg-[#283D4D] rounded border border-[#3A4A5C] flex items-center justify-center">
-                  <span className="text-xs text-[#B4BEC8]">{build.recommended.spells.spell2Id}</span>
-                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          {/* Core Items */}
-          {build.recommended.items && (
-            <div className="bg-[#0D121E] border border-[#283D4D] rounded-lg p-6 lg:col-span-2">
-              <h2 className="text-xl font-bold mb-4">Core Items</h2>
-              <div className="mb-4">
-                <p className="text-sm text-[#B4BEC8]">
-                  {build.recommended.items.winRate.toFixed(2)}% Win Rate • {build.recommended.items.games.toLocaleString()} Matches
-                </p>
-              </div>
-              <div className="flex gap-4">
-                {build.recommended.items.items.map((itemId, idx) => (
-                  <div
-                    key={idx}
-                    className="w-16 h-16 bg-[#283D4D] rounded border border-[#3A4A5C] flex items-center justify-center"
-                    title={`Item ${itemId}`}
-                  >
-                    <span className="text-xs text-[#B4BEC8]">{itemId}</span>
+          {/* Spells Section */}
+          <div className="bg-[#0D121E] border border-[#283D4D] rounded-lg p-6">
+            <h2 className="text-2xl font-bold mb-6">Summoner Spells</h2>
+            
+            {/* Recommended Spells */}
+            {build.recommended.spells && (
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-semibold text-green-400">Recommended</h3>
+                  <p className="text-sm text-[#B4BEC8]">
+                    {build.recommended.spells.winRate.toFixed(2)}% WR • {build.recommended.spells.games.toLocaleString()} Matches
+                  </p>
+                </div>
+                <div className="flex gap-4">
+                  <div className="w-16 h-16 bg-[#283D4D] rounded border border-[#3A4A5C] flex items-center justify-center">
+                    <span className="text-xs text-[#B4BEC8]">{build.recommended.spells.spell1Id}</span>
                   </div>
-                ))}
+                  <div className="w-16 h-16 bg-[#283D4D] rounded border border-[#3A4A5C] flex items-center justify-center">
+                    <span className="text-xs text-[#B4BEC8]">{build.recommended.spells.spell2Id}</span>
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+
+            {/* Alternative Spells */}
+            {build.alternatives.spells.length > 0 && (
+              <div>
+                <h3 className="text-md font-semibold mb-3 text-[#B4BEC8]">Other Popular Spell Sets</h3>
+                <div className="space-y-3">
+                  {build.alternatives.spells.map((altSpell, idx) => (
+                    <div key={idx} className="border-t border-[#283D4D] pt-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex gap-2">
+                          <div className="w-12 h-12 bg-[#283D4D] rounded border border-[#3A4A5C] flex items-center justify-center">
+                            <span className="text-xs text-[#B4BEC8]">{altSpell.spell1Id}</span>
+                          </div>
+                          <div className="w-12 h-12 bg-[#283D4D] rounded border border-[#3A4A5C] flex items-center justify-center">
+                            <span className="text-xs text-[#B4BEC8]">{altSpell.spell2Id}</span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-[#B4BEC8]">
+                          {altSpell.winRate.toFixed(2)}% WR • {altSpell.games.toLocaleString()} Matches
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Items Section */}
+          <div className="bg-[#0D121E] border border-[#283D4D] rounded-lg p-6">
+            <h2 className="text-2xl font-bold mb-6">Core Items</h2>
+            
+            {/* Recommended Items */}
+            {build.recommended.items && (
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-semibold text-green-400">Recommended</h3>
+                  <p className="text-sm text-[#B4BEC8]">
+                    {build.recommended.items.winRate.toFixed(2)}% WR • {build.recommended.items.games.toLocaleString()} Matches
+                  </p>
+                </div>
+                <div className="flex gap-4">
+                  {build.recommended.items.items.map((itemId, idx) => (
+                    <div
+                      key={idx}
+                      className="w-16 h-16 bg-[#283D4D] rounded border border-[#3A4A5C] flex items-center justify-center"
+                      title={`Item ${itemId}`}
+                    >
+                      <span className="text-xs text-[#B4BEC8]">{itemId}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Alternative Items */}
+            {build.alternatives.items.length > 0 && (
+              <div>
+                <h3 className="text-md font-semibold mb-3 text-[#B4BEC8]">Other Popular Item Builds</h3>
+                <div className="space-y-4">
+                  {build.alternatives.items.map((altItem, idx) => (
+                    <div key={idx} className="border-t border-[#283D4D] pt-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-[#B4BEC8]">Option {idx + 2}</span>
+                        <p className="text-xs text-[#B4BEC8]">
+                          {altItem.winRate.toFixed(2)}% WR • {altItem.games.toLocaleString()} Matches
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        {altItem.items?.map((itemId, itemIdx) => (
+                          <div
+                            key={itemIdx}
+                            className="w-12 h-12 bg-[#283D4D] rounded border border-[#3A4A5C] flex items-center justify-center"
+                            title={`Item ${itemId}`}
+                          >
+                            <span className="text-xs text-[#B4BEC8]">{itemId}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* No build data message */}
           {!build.recommended.runes && !build.recommended.spells && !build.recommended.items && (
-            <div className="lg:col-span-2 bg-[#0D121E] border border-[#283D4D] rounded-lg p-6 text-center">
+            <div className="bg-[#0D121E] border border-[#283D4D] rounded-lg p-6 text-center">
               <p className="text-[#B4BEC8]">
                 No build data available for this champion yet. Build data is computed from match statistics.
                 <br />
