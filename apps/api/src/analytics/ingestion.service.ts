@@ -25,12 +25,19 @@ export class IngestionService {
    * @param rankBracket - Rank bracket for this match (e.g., 'emerald_plus', 'diamond', 'master_plus')
    */
   async ingestMatch(region: string, matchId: string, rankBracket: string = 'unknown'): Promise<void> {
+    // #region agent log
+    const ingestStartTime = Date.now();
+    // #endregion
+    
     // Check if already ingested
     const existing = await this.prisma.match.findUnique({
       where: { matchId },
     });
 
     if (existing) {
+      // #region agent log
+      console.log(`[ingestMatch] Match ${matchId} already exists, skipping`);
+      // #endregion
       return; // Already ingested
     }
 
@@ -126,8 +133,24 @@ export class IngestionService {
       });
 
       this.logger.log(`Ingested match ${matchId} (${patch}, ${rankBracket}) with build data`);
+      
+      // #region agent log
+      const ingestEndTime = Date.now();
+      const ingestDuration = ingestEndTime - ingestStartTime;
+      const totalMatches = await this.prisma.match.count();
+      const totalParticipants = await this.prisma.matchParticipant.count();
+      const totalPerks = await this.prisma.participantPerk.count();
+      const totalItems = await this.prisma.participantFinalItem.count();
+      console.log(`[ingestMatch] Successfully ingested match ${matchId}: ${patch}, ${rankBracket}, took ${ingestDuration}ms`);
+      console.log(`[ingestMatch] Database totals: ${totalMatches} matches, ${totalParticipants} participants, ${totalPerks} perks, ${totalItems} items`);
+      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ingestion.service.ts:128',message:'Match ingested successfully',data:{matchId,patch,rankBracket,ingestDurationMs:ingestDuration,totalMatches,totalParticipants,totalPerks,totalItems},timestamp:Date.now(),runId:'debug1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
     } catch (error) {
       this.logger.error(`Failed to ingest match ${matchId}:`, error);
+      // #region agent log
+      console.error(`[ingestMatch] Failed to ingest match ${matchId}:`, error);
+      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ingestion.service.ts:135',message:'Match ingestion failed',data:{matchId,errorMessage:error instanceof Error ? error.message : String(error)},timestamp:Date.now(),runId:'debug1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
       throw error;
     }
   }

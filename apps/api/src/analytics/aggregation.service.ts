@@ -38,9 +38,25 @@ export class AggregationService implements OnModuleInit {
    * - Manually via POST /champions/aggregate
    */
   async aggregateChampionStats() {
+    // #region agent log
+    const startTime = Date.now();
+    const matchesCount = await this.prisma.match.count();
+    const participantsCount = await this.prisma.matchParticipant.count();
+    const perksCount = await this.prisma.participantPerk.count();
+    const itemsCount = await this.prisma.participantFinalItem.count();
+    console.log(`[aggregateChampionStats] Starting aggregation: ${matchesCount} matches, ${participantsCount} participants, ${perksCount} perks, ${itemsCount} items`);
+    fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'aggregation.service.ts:40',message:'Starting aggregation',data:{matchesCount,participantsCount,perksCount,itemsCount},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+    
     this.logger.log('═══════════════════════════════════════════════════════════');
     this.logger.log('Starting champion stats aggregation');
+    this.logger.log(`📊 Database state: ${matchesCount} matches, ${participantsCount} participants`);
     this.logger.log('═══════════════════════════════════════════════════════════');
+
+    if (matchesCount === 0) {
+      this.logger.warn('⚠️ No matches found in database - skipping aggregation');
+      return;
+    }
 
     try {
       // Step 1: Compute bucket totals (denominators for pick/ban rates)
@@ -64,8 +80,20 @@ export class AggregationService implements OnModuleInit {
       await this.buildAggregation.aggregateBuilds();
       this.logger.log('✓ Build data aggregated');
 
+      // #region agent log
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+      const finalChampionStatsCount = await this.prisma.championStat.count();
+      const finalItemBuildsCount = await this.prisma.championItemBuild.count();
+      const finalRunePagesCount = await this.prisma.championRunePage.count();
+      const finalSpellSetsCount = await this.prisma.championSpellSet.count();
+      console.log(`[aggregateChampionStats] Aggregation complete: ${finalChampionStatsCount} champion stats, ${finalItemBuildsCount} item builds, ${finalRunePagesCount} rune pages, ${finalSpellSetsCount} spell sets, took ${duration}ms`);
+      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'aggregation.service.ts:69',message:'Aggregation complete',data:{finalChampionStatsCount,finalItemBuildsCount,finalRunePagesCount,finalSpellSetsCount,durationMs:duration},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+      
       this.logger.log('═══════════════════════════════════════════════════════════');
       this.logger.log('✓ Champion stats aggregation complete');
+      this.logger.log(`📊 Results: ${finalChampionStatsCount} champion stats, ${finalItemBuildsCount} item builds, ${finalRunePagesCount} rune pages`);
       this.logger.log('═══════════════════════════════════════════════════════════');
     } catch (error) {
       this.logger.error('✗ Aggregation failed:', error);

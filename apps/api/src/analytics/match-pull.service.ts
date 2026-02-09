@@ -87,10 +87,24 @@ export class MatchPullService implements OnModuleInit {
     const playersPerRegion = 10; // Number of high-elo players per region
     const matchesPerPlayer = 20; // Number of matches per player
 
+    // #region agent log
+    const startTime = Date.now();
+    let totalMatchesIngested = 0;
+    // #endregion
+
     for (const region of this.regions) {
       try {
         this.logger.log(`Pulling matches from ${region}...`);
+        const matchesBefore = await this.prisma.match.count();
         await this.pullMatchesFromRegion(region, playersPerRegion, matchesPerPlayer);
+        const matchesAfter = await this.prisma.match.count();
+        const newMatches = matchesAfter - matchesBefore;
+        totalMatchesIngested += newMatches;
+        
+        // #region agent log
+        console.log(`[pullMatchesFromAllRegions] Region ${region}: ${newMatches} new matches ingested`);
+        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'match-pull.service.ts:93',message:'Region match pull complete',data:{region,newMatches,matchesBefore,matchesAfter},timestamp:Date.now(),runId:'debug1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         
         // Small delay between regions to respect rate limits
         await this.rateLimiter.waitForBatch();
@@ -104,16 +118,54 @@ export class MatchPullService implements OnModuleInit {
       }
     }
 
+    // #region agent log
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+    const totalMatchesInDb = await this.prisma.match.count();
+    console.log(`[pullMatchesFromAllRegions] Complete: ${totalMatchesIngested} new matches ingested, ${totalMatchesInDb} total matches in DB, took ${duration}ms`);
+    fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'match-pull.service.ts:114',message:'Match pull complete summary',data:{totalMatchesIngested,totalMatchesInDb,durationMs:duration},timestamp:Date.now(),runId:'debug1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+
     // Run aggregation after pulling matches
     // This ensures champion stats and build data are updated immediately after new matches are ingested
     this.logger.log('═══════════════════════════════════════════════════════════');
     this.logger.log('🔄 Match pull complete - Triggering automatic aggregation...');
+    this.logger.log(`📊 Total matches in database: ${totalMatchesInDb}`);
+    this.logger.log(`📥 New matches ingested this run: ${totalMatchesIngested}`);
     this.logger.log('═══════════════════════════════════════════════════════════');
+    
+    if (totalMatchesInDb === 0) {
+      this.logger.warn('⚠️ No matches found in database - aggregation will have no data to process');
+      this.logger.warn('⚠️ Check if match pulling is working correctly and Riot API key is configured');
+      return; // Skip aggregation if no matches exist
+    }
+    
     try {
+      // #region agent log
+      const aggStartTime = Date.now();
+      console.log('[pullMatchesFromAllRegions] Starting aggregation...');
+      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'match-pull.service.ts:130',message:'Starting aggregation after match pull',data:{totalMatchesInDb},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+      
       await this.aggregationService.aggregateChampionStats();
+      
+      // #region agent log
+      const aggEndTime = Date.now();
+      const aggDuration = aggEndTime - aggStartTime;
+      const championStatsCount = await this.prisma.championStat.count();
+      const itemBuildsCount = await this.prisma.championItemBuild.count();
+      const runePagesCount = await this.prisma.championRunePage.count();
+      console.log(`[pullMatchesFromAllRegions] Aggregation complete: ${championStatsCount} champion stats, ${itemBuildsCount} item builds, ${runePagesCount} rune pages, took ${aggDuration}ms`);
+      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'match-pull.service.ts:138',message:'Aggregation complete after match pull',data:{championStatsCount,itemBuildsCount,runePagesCount,aggDurationMs:aggDuration},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+      
       this.logger.log('✅ Automatic aggregation completed successfully after match pull');
     } catch (error) {
       this.logger.error('❌ Aggregation after match pull failed:', error);
+      // #region agent log
+      console.error('[pullMatchesFromAllRegions] Aggregation error:', error);
+      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'match-pull.service.ts:145',message:'Aggregation error after match pull',data:{errorMessage:error instanceof Error ? error.message : String(error)},timestamp:Date.now(),runId:'debug1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       // Don't throw - allow match pulling to complete even if aggregation fails
       // Aggregation will retry on next scheduled run (every 2 minutes)
     }
@@ -128,16 +180,30 @@ export class MatchPullService implements OnModuleInit {
     matchesPerPlayer: number
   ): Promise<void> {
     try {
+      // #region agent log
+      console.log(`[pullMatchesFromRegion] Starting match pull for region ${region}`);
+      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'match-pull.service.ts:183',message:'Starting region match pull',data:{region,playersPerRegion,matchesPerPlayer},timestamp:Date.now(),runId:'debug1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+      
       // Get challenger league entries
       const challengerLeague = await this.summonerClient.getChallengerLeague(region, 'RANKED_SOLO_5x5');
       const players = challengerLeague.entries.slice(0, playersPerRegion);
 
       if (players.length === 0) {
         this.logger.warn(`No challenger players found in ${region}`);
+        // #region agent log
+        console.warn(`[pullMatchesFromRegion] No challenger players found in ${region}`);
+        fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'match-pull.service.ts:192',message:'No challenger players found',data:{region},timestamp:Date.now(),runId:'debug1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         return;
       }
 
       this.logger.log(`Found ${players.length} challenger players in ${region}`);
+      
+      // #region agent log
+      console.log(`[pullMatchesFromRegion] Found ${players.length} challenger players in ${region}`);
+      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'match-pull.service.ts:198',message:'Challenger players found',data:{region,playersCount:players.length},timestamp:Date.now(),runId:'debug1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
 
       let totalMatchesIngested = 0;
       const processedMatchIds = new Set<string>();
@@ -189,6 +255,11 @@ export class MatchPullService implements OnModuleInit {
       }
 
       this.logger.log(`Ingested ${totalMatchesIngested} new matches from ${region}`);
+      
+      // #region agent log
+      console.log(`[pullMatchesFromRegion] Region ${region}: ${totalMatchesIngested} matches ingested`);
+      fetch('http://127.0.0.1:7243/ingest/ee390027-2927-4f9d-bda4-5a730ac487fe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'match-pull.service.ts:185',message:'Region match ingestion complete',data:{region,totalMatchesIngested},timestamp:Date.now(),runId:'debug1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
     } catch (error: any) {
       // Handle various error cases gracefully
       // 404: No challenger league in some regions (this is OK)
